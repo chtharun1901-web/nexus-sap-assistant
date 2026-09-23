@@ -1446,6 +1446,60 @@ export default function Workspace({
         setSearchTopic(topicTitle);
         setAiText(reconstructed);
         setAiStreaming(false);
+
+        // Auto-derive classification for persistent HUD display on load / refresh
+        const lowerTopic = (topicTitle + " " + reconstructed.substring(0, 400)).toLowerCase();
+        if (lowerTopic.includes("gts") || lowerTopic.includes("spl") || lowerTopic.includes("sanctioned") || lowerTopic.includes("embargo")) {
+          setActiveClassification({
+            primaryModule: "SAP Global Trade Services (GTS)",
+            code: "GTS",
+            badge: "GTS",
+            confidence: "98%",
+            subArea: "Sanctioned Party List (SPL) & Compliance",
+            crossModuleFlow: "SD ↔ GTS ↔ FI",
+            signatureTcodes: ["/SAPSLL/SPL_CHG1", "/SAPSLL/BL_DOCS", "/SAPSLL/LEGCUS"]
+          });
+        } else if (lowerTopic.includes("retail") || lowerTopic.includes("article") || lowerTopic.includes("assortment") || lowerTopic.includes("allocation")) {
+          setActiveClassification({
+            primaryModule: "SAP IS-Retail",
+            code: "IS-RETAIL",
+            badge: "IS-Retail",
+            confidence: "98%",
+            subArea: "Article Master & Store Replenishment",
+            crossModuleFlow: "Retail ↔ MM ↔ SD ↔ POS",
+            signatureTcodes: ["MM41", "WB01", "WSL10", "WA01", "WRP1"]
+          });
+        } else if (lowerTopic.includes("pricing") || lowerTopic.includes("sales") || lowerTopic.includes("order") || lowerTopic.includes("o2c") || lowerTopic.includes("sd")) {
+          setActiveClassification({
+            primaryModule: "SAP Sales and Distribution (SD)",
+            code: "SD",
+            badge: "SD",
+            confidence: "97%",
+            subArea: "Order-to-Cash & Pricing Determination",
+            crossModuleFlow: "SD ↔ MM ↔ EWM ↔ FI",
+            signatureTcodes: ["VA01", "VL01N", "VF01", "V/08", "OVL2"]
+          });
+        } else if (lowerTopic.includes("ewm") || lowerTopic.includes("warehouse") || lowerTopic.includes("pmr") || lowerTopic.includes("storage")) {
+          setActiveClassification({
+            primaryModule: "SAP Extended Warehouse Management (EWM)",
+            code: "EWM",
+            badge: "EWM",
+            confidence: "97%",
+            subArea: "Warehouse Staging & Inventory Execution",
+            crossModuleFlow: "PP ↔ EWM ↔ MM",
+            signatureTcodes: ["/SCWM/MON", "/SCWM/PRDO", "/SCWM/STAGE"]
+          });
+        } else if (lowerTopic.includes("smq") || lowerTopic.includes("bgrfc") || lowerTopic.includes("queue") || lowerTopic.includes("basis")) {
+          setActiveClassification({
+            primaryModule: "SAP Basis & RFC Queues",
+            code: "BASIS",
+            badge: "Basis",
+            confidence: "96%",
+            subArea: "Asynchronous Queue Monitoring & Integration",
+            crossModuleFlow: "ERP ↔ qRFC ↔ EWM / GTS",
+            signatureTcodes: ["SMQ1", "SMQ2", "SBGRFCMON", "SM59", "SLG1"]
+          });
+        }
         return true;
       } else {
         // Blank session with no messages yet
@@ -2052,8 +2106,8 @@ export default function Workspace({
                 <ClassificationHUD classification={activeClassification} />
               )}
 
-              {/* Dynamic Drilling Reasoning Progress HUD when Generating / Streaming */}
-              {aiStreaming && (
+              {/* Dynamic Drilling Reasoning Progress HUD (Live Animated Mode & Persistent Verified Audit Mode) */}
+              {(aiStreaming || aiText) && (
                 <DrillingReasoningHUD
                   activeModule={activeClassification?.primaryModule || selectedModule}
                   hasAttachment={!!topDoc || !!followUpDoc}
