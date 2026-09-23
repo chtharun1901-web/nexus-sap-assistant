@@ -84,7 +84,7 @@ export const api = {
   deleteConversation:  (id) => req('DELETE', '/api/conversations/' + id),
 
   // Chat (Grounded Streaming & Normal)
-  streamChat: async (payload, onChunk, onSources, onClassification) => {
+  streamChat: async (payload, onChunk, onSources, onClassification, signal) => {
     const token = getAuthToken();
     const res = await fetch(BASE + '/api/chat', {
       method: 'POST',
@@ -93,7 +93,8 @@ export const api = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal
     });
 
     if (!res.ok) {

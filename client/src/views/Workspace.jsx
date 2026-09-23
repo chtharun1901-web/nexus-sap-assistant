@@ -1261,6 +1261,18 @@ export default function Workspace({
   // Auto-expanding textarea refs
   const topTextareaRef = useRef(null);
   const followUpTextareaRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  const handleStopStreaming = (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch (err) {}
+      abortControllerRef.current = null;
+    }
+    setAiStreaming(false);
+  };
 
   // Auto-resize helper function
   const autoResizeTextarea = (el, minH = 42, maxH = 180) => {
@@ -1571,6 +1583,12 @@ export default function Workspace({
         });
       }
 
+      if (abortControllerRef.current) {
+        try { abortControllerRef.current.abort(); } catch(e) {}
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       await api.streamChat(
         {
           conversationId: currentConvId,
@@ -1587,12 +1605,17 @@ export default function Workspace({
         },
         (classification) => {
           setActiveClassification(classification);
-        }
+        },
+        controller.signal
       );
     } catch (err) {
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return;
+      }
       setAiText("⚠ AI Reasoning Note: " + (err.message || "Failed to stream live reasoning. Showing verified standard runbook below."));
     } finally {
       setAiStreaming(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -1711,6 +1734,12 @@ export default function Workspace({
       }
     }, 40);
 
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch(e) {}
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       let accumulated = "";
       const userParts = [{ text: q || (activeDoc ? "Please inspect and analyze this attached spreadsheet data." : "Please inspect this attached SAP screenshot and provide diagnostics.") }];
@@ -1748,12 +1777,17 @@ export default function Workspace({
         },
         (classification) => {
           setActiveClassification(classification);
-        }
+        },
+        controller.signal
       );
     } catch (err) {
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        return;
+      }
       setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + "\n\n⚠ Error: " + err.message);
     } finally {
       setAiStreaming(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -2469,14 +2503,52 @@ export default function Workspace({
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
                 </button>
               </div>
-              <button
-                type="submit"
-                disabled={aiStreaming || (!followUpInput.trim() && !followUpImage && !followUpDoc)}
-                className="btn-primary"
-                style={{ padding: "10px 24px", fontSize: 13.5, whiteSpace: "nowrap", height: 42, alignSelf: "flex-end" }}
-              >
-                {aiStreaming ? "Reasoning..." : "Send"}
-              </button>
+              {aiStreaming ? (
+                <button
+                  type="button"
+                  onClick={handleStopStreaming}
+                  className="btn-stop"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "10px 20px",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    height: 42,
+                    alignSelf: "flex-end",
+                    background: "#FEE2E2",
+                    border: "1.5px solid #EF4444",
+                    color: "#DC2626",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    boxShadow: "0 1px 3px rgba(239, 68, 68, 0.15)"
+                  }}
+                  title="Stop Generating (Cancel)"
+                >
+                  <span style={{ width: 10, height: 10, background: "#DC2626", borderRadius: 2, display: "inline-block" }} />
+                  <span>Stop</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!followUpInput.trim() && !followUpImage && !followUpDoc}
+                  className="btn-primary"
+                  style={{
+                    padding: "10px 24px",
+                    fontSize: 13.5,
+                    whiteSpace: "nowrap",
+                    height: 42,
+                    alignSelf: "flex-end",
+                    cursor: (!followUpInput.trim() && !followUpImage && !followUpDoc) ? "not-allowed" : "pointer"
+                  }}
+                >
+                  Send
+                </button>
+              )}
             </div>
           </form>
         </div>
