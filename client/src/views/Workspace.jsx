@@ -539,32 +539,32 @@ function renderMarkdownBlock(content, blockKey) {
     const line = rawLines[i];
     const trimmed = line.trim();
 
-    // Table parsing
-    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+    // Table parsing (handles streaming table rows cleanly)
+    if (trimmed.startsWith("|")) {
       const tableLines = [];
-      while (i < rawLines.length && rawLines[i].trim().startsWith("|") && rawLines[i].trim().endsWith("|")) {
+      while (i < rawLines.length && rawLines[i].trim().startsWith("|")) {
         tableLines.push(rawLines[i].trim());
         i++;
       }
       if (tableLines.length >= 2) {
-        const headerCols = tableLines[0].slice(1, -1).split("|").map(c => c.trim());
+        const headerCols = tableLines[0].replace(/^\||\|$/g, '').split("|").map(c => c.trim());
         const rowStartIndex = tableLines[1].includes("---") ? 2 : 1;
-        const rows = tableLines.slice(rowStartIndex).map(r => r.slice(1, -1).split("|").map(c => c.trim()));
+        const rows = tableLines.slice(rowStartIndex).map(r => r.replace(/^\||\|$/g, '').split("|").map(c => c.trim()));
         elements.push(
           <div key={`${blockKey}-tbl-${i}`} style={{ overflowX: "auto", margin: "14px 0" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, border: "1px solid var(--border-subtle)", borderRadius: 6 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, border: "1px solid var(--border-subtle, #E5E5DF)", borderRadius: 6 }}>
               <thead>
-                <tr style={{ background: "var(--bg-surface)", borderBottom: "2px solid var(--border-subtle)" }}>
+                <tr style={{ background: "var(--bg-surface, #FAFAF7)", borderBottom: "2px solid var(--border-subtle, #E5E5DF)" }}>
                   {headerCols.map((col, cIdx) => (
-                    <th key={cIdx} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "var(--text-primary)", borderRight: "1px solid var(--border-subtle)" }}>{renderInline(col)}</th>
+                    <th key={cIdx} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "var(--text-primary, #1F1F1E)", borderRight: "1px solid var(--border-subtle, #E5E5DF)" }}>{renderInline(col)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, rIdx) => (
-                  <tr key={rIdx} style={{ borderBottom: "1px solid var(--border-subtle)", background: rIdx % 2 === 0 ? "transparent" : "var(--bg-surface)" }}>
+                  <tr key={rIdx} style={{ borderBottom: "1px solid var(--border-subtle, #E5E5DF)", background: rIdx % 2 === 0 ? "transparent" : "var(--bg-surface, #FAFAF7)" }}>
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} style={{ padding: "8px 12px", borderRight: "1px solid var(--border-subtle)", color: "var(--text-body)" }}>{renderInline(cell)}</td>
+                      <td key={cIdx} style={{ padding: "8px 12px", borderRight: "1px solid var(--border-subtle, #E5E5DF)", color: "var(--text-body, #333330)" }}>{renderInline(cell)}</td>
                     ))}
                   </tr>
                 ))}

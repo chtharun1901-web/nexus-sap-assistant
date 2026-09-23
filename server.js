@@ -1398,11 +1398,14 @@ Candidate Target Profile:
 
           if (!res.headersSent) {
             res.writeHead(200, {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
+              'Content-Type': 'text/event-stream; charset=utf-8',
+              'Cache-Control': 'no-cache, no-transform',
+              'Connection': 'keep-alive',
+              'X-Accel-Buffering': 'no',
               'Access-Control-Allow-Origin': '*',
               'X-Nexus-Request-ID': reqId
             });
+            if (res.flushHeaders) res.flushHeaders();
           }
 
           // Emit classification event for UI Specialization HUD

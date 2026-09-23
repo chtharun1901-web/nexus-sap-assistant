@@ -114,61 +114,61 @@ export const api = {
     let classification = null;
     let buffer = '';
 
+    let currentEventType = 'message';
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       
-      // Standard SSE blocks are delimited by double newlines (\n\n or \r\n\r\n)
-      const blocks = buffer.split(/\r?\n\r?\n/);
-      buffer = blocks.pop() || ''; // retain incomplete trailing block
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || ''; // retain incomplete trailing line
 
-      for (const block of blocks) {
-        if (!block.trim()) continue;
-        const lines = block.split(/\r?\n/);
-        let eventType = 'message';
-        const dataLines = [];
-
-        for (const rawLine of lines) {
-          const line = rawLine.trim();
-          if (line.startsWith('event:')) {
-            eventType = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            dataLines.push(line.slice(5).trim());
-          }
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) {
+          currentEventType = 'message';
+          continue;
         }
 
-        if (dataLines.length === 0) continue;
-        const dataStr = dataLines.join('\n');
+        if (line.startsWith('event:')) {
+          currentEventType = line.slice(6).trim();
+          continue;
+        }
 
-        try {
-          if (eventType === 'nexus-classification') {
-            const classData = JSON.parse(dataStr);
-            classification = classData.classification || null;
-            if (onClassification) onClassification(classification);
-          } else if (eventType === 'nexus-sources') {
-            const srcData = JSON.parse(dataStr);
-            citations = srcData.sources || [];
-            if (onSources) onSources(citations);
-          } else if (eventType === 'nexus-complete') {
-            const completeData = JSON.parse(dataStr);
-            if (completeData.text) {
-              fullText = completeData.text;
-              if (onChunk) onChunk('', fullText);
+        if (line.startsWith('data:')) {
+          const dataPayload = line.slice(5).trim();
+          if (!dataPayload) continue;
+
+          try {
+            if (currentEventType === 'nexus-classification') {
+              const classData = JSON.parse(dataPayload);
+              classification = classData.classification || null;
+              if (onClassification) onClassification(classification);
+            } else if (currentEventType === 'nexus-sources') {
+              const srcData = JSON.parse(dataPayload);
+              citations = srcData.sources || [];
+              if (onSources) onSources(citations);
+            } else if (currentEventType === 'nexus-complete') {
+              const completeData = JSON.parse(dataPayload);
+              if (completeData.text) {
+                fullText = completeData.text;
+                if (onChunk) onChunk('', fullText);
+              }
+            } else if (currentEventType === 'nexus-conversation') {
+              // Handled or ignored
+            } else {
+              const dataJson = JSON.parse(dataPayload);
+              const chunk = dataJson.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (chunk) {
+                fullText += chunk;
+                if (onChunk) onChunk(chunk, fullText);
+              }
             }
-          } else if (eventType === 'nexus-conversation') {
-            // Handled or ignored
-          } else {
-            // Default SSE message chunk from Gemini proxy
-            const dataJson = JSON.parse(dataStr);
-            const chunk = dataJson.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (chunk) {
-              fullText += chunk;
-              if (onChunk) onChunk(chunk, fullText);
-            }
+          } catch (e) {
+            // Ignore JSON parse errors for heartbeats/pings
           }
-        } catch (e) {
-          // Ignore JSON parse errors for heartbeats/pings
+          currentEventType = 'message';
         }
       }
     }
