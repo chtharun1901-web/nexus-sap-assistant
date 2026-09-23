@@ -272,6 +272,7 @@ addColumnIfMissing('users', 'onboarding_completed', 'INTEGER DEFAULT 0');
 addColumnIfMissing('users', 'primary_goals_json', 'TEXT');
 addColumnIfMissing('users', 'sap_areas_json', 'TEXT');
 addColumnIfMissing('users', 'favorite_context_id', 'TEXT');
+addColumnIfMissing('conversations', 'uploaded_docs_json', 'TEXT');
 
 addColumnIfMissing('sap_contexts', 'ewm_pp_version', 'TEXT');
 addColumnIfMissing('sap_contexts', 'release_level', 'TEXT');
@@ -597,6 +598,26 @@ function deleteConversation(userId, conversationId) {
   const stmt = db.prepare('DELETE FROM conversations WHERE id = ? AND owner_user_id = ?');
   const result = stmt.run(conversationId, userId);
   return result.changes > 0;
+}
+
+function saveConversationDocs(userId, conversationId, docs) {
+  if (!conversationId || !docs) return;
+  const docsJson = JSON.stringify(docs);
+  db.prepare(`
+    UPDATE conversations SET uploaded_docs_json = ?, updated_at = ?
+    WHERE id = ? AND owner_user_id = ?
+  `).run(docsJson, new Date().toISOString(), conversationId, userId);
+}
+
+function getConversationDocs(userId, conversationId) {
+  if (!conversationId) return [];
+  const row = db.prepare('SELECT uploaded_docs_json FROM conversations WHERE id = ? AND owner_user_id = ?').get(conversationId, userId);
+  if (!row || !row.uploaded_docs_json) return [];
+  try {
+    return JSON.parse(row.uploaded_docs_json);
+  } catch (e) {
+    return [];
+  }
 }
 
 function appendMessage(userId, conversationId, { role, content, metadata, requestId, model }) {
@@ -2090,6 +2111,8 @@ module.exports = {
   listUserConversations,
   updateConversation,
   deleteConversation,
+  saveConversationDocs,
+  getConversationDocs,
   appendMessage,
   // Documents
   insertUserDocument,

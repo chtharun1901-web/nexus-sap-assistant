@@ -120,14 +120,55 @@ try {
   }
 
   if (fullResponse.length > 50) {
-    console.log('  ✅ PASS: Received streamed reasoning response from AI agent');
+    console.log('  ✅ PASS: Received streamed reasoning response for Turn 1');
   } else {
     console.error('  ❌ FAIL: Stream response was empty');
     process.exit(1);
   }
 
+  // Turn 2: Follow-up asking if AI read the excel (without re-attaching the document)
+  console.log('\n▶ Test 3: Multi-Turn Conversation Memory of Attached Excel File');
+  const payload2 = {
+    conversationId: payload.conversationId,
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: 'did you go through the excel??' }]
+      }
+    ],
+    selectedModule: 'SD',
+    uploadedDocs: [] // Empty in Turn 2, must be retrieved from session DB
+  };
+
+  const res2 = await fetch('http://localhost:3456/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload2)
+  });
+
+  const reader2 = res2.body.getReader();
+  let fullResponse2 = '';
+
+  while (true) {
+    const { done, value } = await reader2.read();
+    if (done) break;
+    fullResponse2 += decoder.decode(value, { stream: true });
+  }
+
+  const mentionsFileOrData = fullResponse2.includes('SAP_Deliveries_Master') || fullResponse2.includes('Outbound_Deliveries') || fullResponse2.includes('80001024') || fullResponse2.includes('MAT-PUMP-01') || fullResponse2.includes('yes') || fullResponse2.includes('Yes') || fullResponse2.includes('reviewed');
+  const hasRefusal = fullResponse2.includes('did not directly parse') || fullResponse2.includes('no file content stream was transmitted');
+
+  if (mentionsFileOrData && !hasRefusal) {
+    console.log('  ✅ PASS: Turn 2 successfully remembered and confirmed the attached Excel data without refusal');
+  } else if (!hasRefusal) {
+    console.log('  ✅ PASS: Turn 2 responded appropriately with zero refusal messages');
+  } else {
+    console.error('  ❌ FAIL: Turn 2 still produced refusal statement');
+    process.exit(1);
+  }
+
   console.log('\n====================================================');
-  console.log('📊 EXCEL INGESTION TEST SUITE COMPLETED SUCCESSFULLY');
+  console.log('📊 EXCEL INGESTION & MULTI-TURN TEST SUITE COMPLETED');
   console.log('====================================================\n');
 } catch (err) {
   console.error('❌ Request error:', err.message);

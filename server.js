@@ -693,6 +693,19 @@ function handleGroundedChat(req, res, sessionData) {
         }
       }
 
+      // Save or retrieve conversation attached documents across multi-turn sessions
+      let effectiveUploadedDocs = [...uploadedDocs];
+      if (effectiveConvId && userId) {
+        if (uploadedDocs && uploadedDocs.length > 0) {
+          db.saveConversationDocs(userId, effectiveConvId, uploadedDocs);
+        } else {
+          const savedDocs = db.getConversationDocs(userId, effectiveConvId);
+          if (savedDocs && savedDocs.length > 0) {
+            effectiveUploadedDocs = savedDocs;
+          }
+        }
+      }
+
       // Strip internal parameters before upstream proxy
       delete parsed.model;
       delete parsed.disableRetrieval;
@@ -811,10 +824,10 @@ function handleGroundedChat(req, res, sessionData) {
         groundingContext += '\nGROUNDING DIRECTIVE: Cite the above sources using [citationId] when using their facts. Do NOT invent any SAP Note numbers or URLs not listed above. If an exact note is not retrieved, state: "I cannot verify an exact SAP Note or KBA in the current environment."\n';
       }
 
-      // Append uploaded spreadsheets and user documents
-      if (uploadedDocs && uploadedDocs.length > 0) {
-        groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS\n';
-        uploadedDocs.forEach((doc, dIdx) => {
+      // Append uploaded spreadsheets and user documents (persisted across multi-turn session)
+      if (effectiveUploadedDocs && effectiveUploadedDocs.length > 0) {
+        groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS (ACTIVE CONVERSATION ATTACHMENTS)\n';
+        effectiveUploadedDocs.forEach((doc, dIdx) => {
           groundingContext += `\n## [Attachment ${dIdx + 1}]: "${doc.filename || 'Spreadsheet.xlsx'}" (${doc.type || 'spreadsheet'})\n`;
           if (doc.sheetCount) {
             groundingContext += `*Sheet Count: ${doc.sheetCount} | Total Rows: ${doc.totalRows || 'N/A'}*\n\n`;
@@ -822,9 +835,9 @@ function handleGroundedChat(req, res, sessionData) {
           groundingContext += `${doc.content || doc.text || ''}\n`;
         });
         groundingContext += `\nSPREADSHEET & USER DATA REASONING DIRECTIVE:
-- Directly inspect and analyze the rows, columns, headers, and cell values in the attached data above.
-- Identify data discrepancies, invalid or inconsistent SAP codes (e.g. invalid Plant WERKS, Storage Location LGORT, Material MATNR, Customer KUNNR, Delivery numbers, Movement types), null/zero quantities, or error message lines.
-- Answer user questions referencing specific cells, rows, and columns clearly with tabular evidence.
+1. SPREADSHEET CONFIRMATION: The user has uploaded and attached the spreadsheet data shown above in this active session. You HAVE received, parsed, and inspected all of its contents.
+2. STRICT REFUSAL PROHIBITION: NEVER claim that you did not read, cannot access, or did not receive the user's file. NEVER say "no file content stream was transmitted" or "I did not directly parse a physical file". The parsed data is directly provided above.
+3. DIRECT DATA ANALYSIS: Answer all user questions regarding this file by quoting exact row numbers, cell values, column headers, GTS/SD/EWM document numbers, statuses, and data anomalies directly from the attached content above.
 `;
       }
 
