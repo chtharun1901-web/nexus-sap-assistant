@@ -8,6 +8,7 @@ import MermaidDiagram, { ClaudeThinkingFlower } from "../components/MermaidDiagr
 import { DEFAULT_SAP_PP_ORG_STRUCTURE } from "../components/diagram/diagramData.js";
 import SpecializationSelector from "../components/SpecializationSelector.jsx";
 import ClassificationHUD from "../components/ClassificationHUD.jsx";
+import DrillingReasoningHUD from "../components/DrillingReasoningHUD.jsx";
 
 const PRESET_TOPICS = {
   smq1: {
@@ -2049,6 +2050,15 @@ export default function Workspace({
               {/* Specialization Classification HUD */}
               {activeClassification && (
                 <ClassificationHUD classification={activeClassification} />
+              )}
+
+              {/* Dynamic Drilling Reasoning Progress HUD when Generating / Streaming */}
+              {aiStreaming && (
+                <DrillingReasoningHUD
+                  activeModule={activeClassification?.primaryModule || selectedModule}
+                  hasAttachment={!!topDoc || !!followUpDoc}
+                  isStreaming={aiStreaming}
+                />
               )}
 
               {/* Formatted Output directly mapped by conversation turn segments */}

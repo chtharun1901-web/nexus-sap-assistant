@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { api } from "../api.js";
 import { FormattedText } from "../views/Workspace.jsx";
+import DrillingReasoningHUD from "./DrillingReasoningHUD.jsx";
 
 export default function ChatPanel({ convId, history, onHistory, currentTopic, onGenerateTopic }) {
   const [input, setInput] = useState("");
@@ -259,7 +260,9 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
                   {m.content ? (
                     <FormattedText text={m.content} />
                   ) : (
-                    loading && i === history.length - 1 ? "Reasoning with grounded SAP knowledge..." : ""
+                    loading && i === history.length - 1 ? (
+                      <DrillingReasoningHUD isStreaming={loading} />
+                    ) : ""
                   )}
                 </div>
                 {m.citations && m.citations.length > 0 && (
