@@ -1824,7 +1824,7 @@ export default function Workspace({
         boxSizing: "border-box"
       }}
     >
-      {/* ── CENTER MAIN INVESTIGATION SESSION BOX (Red Framed Box immediately below Top Bar) ── */}
+      {/* ── CENTER MAIN INVESTIGATION SESSION BOX (Claude Clean Card Layout) ── */}
       <div
         style={{
           flex: 1,
@@ -1833,13 +1833,9 @@ export default function Workspace({
           overflow: "hidden",
           borderRadius: 12,
           background: "#FFFFFF",
-          border: aiStreaming ? "2.5px solid #EF4444" : "2px solid #EF4444",
-          boxShadow: aiStreaming
-            ? "0 0 16px rgba(239, 68, 68, 0.3), inset 0 0 10px rgba(239, 68, 68, 0.08)"
-            : "0 2px 10px rgba(0, 0, 0, 0.04), 0 0 4px rgba(239, 68, 68, 0.15)",
-          animation: aiStreaming ? "teamsBorderPulse 2s infinite ease-in-out" : "none",
-          position: "relative",
-          transition: "border 0.2s ease, box-shadow 0.2s ease"
+          border: "1px solid #E5E5DF",
+          boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
+          position: "relative"
         }}
       >
 
@@ -2129,6 +2125,7 @@ export default function Workspace({
                   activeModule={activeClassification?.primaryModule || selectedModule}
                   hasAttachment={!!topDoc}
                   isStreaming={aiStreaming && conversationTurns.length <= 1}
+                  queryTitle={searchTopic || doc?.title || "Initial Inquiry"}
                 />
               )}
 
@@ -2176,43 +2173,40 @@ export default function Workspace({
                         position: "relative"
                       }}
                     >
-                      {/* Follow-up Query Header Card for Turn > 0 */}
+                      {/* Follow-up User Message (Claude Right-Aligned Pill Bubble) */}
                       {isFollowUpTurn && (
-                        <div
-                          style={{
-                            background: "linear-gradient(135deg, rgba(110,26,45,0.06) 0%, rgba(255,255,255,0.95) 100%)",
-                            border: "1.5px solid rgba(110,26,45,0.25)",
-                            borderRadius: 10,
-                            padding: "14px 18px",
-                            marginBottom: 16,
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 13 }}>💬</span>
-                              <span style={{ fontSize: 11, fontWeight: 800, color: "#6E1A2D", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                FOLLOW-UP TURN {tIdx}
-                              </span>
-                            </div>
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 18, marginTop: 8 }}>
+                          <div
+                            style={{
+                              background: "#ECEBE4",
+                              borderRadius: "18px 18px 4px 18px",
+                              padding: "10px 18px",
+                              maxWidth: "76%",
+                              fontSize: 14.5,
+                              color: "#1F1F1E",
+                              lineHeight: 1.5,
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+                            }}
+                          >
                             {attachmentBadge && (
-                              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--orange)", background: "rgba(255,85,0,0.08)", padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(255,85,0,0.2)" }}>
-                                {attachmentBadge}
-                              </span>
+                              <div style={{ fontSize: 11.5, fontFamily: "var(--font-mono)", color: "#73736C", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                                <span>📎</span> {attachmentBadge}
+                              </div>
                             )}
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                            {queryTitle || `Query ${tIdx}`}
+                            <div style={{ fontWeight: 450, whiteSpace: "pre-wrap" }}>
+                              {queryTitle || `Query ${tIdx}`}
+                            </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Live In-Turn Drilling Reasoning HUD for Active Streaming Follow-up Turn */}
-                      {isStreamingThisTurn && isFollowUpTurn && (
+                      {/* Claude Thinking / Reasoning Indicator for Follow-up Turn */}
+                      {isFollowUpTurn && (
                         <DrillingReasoningHUD
                           activeModule={activeClassification?.primaryModule || selectedModule}
                           hasAttachment={!!followUpDoc || turn.content.includes("Spreadsheet")}
-                          isStreaming={true}
+                          isStreaming={isStreamingThisTurn}
+                          queryTitle={queryTitle}
                         />
                       )}
 
