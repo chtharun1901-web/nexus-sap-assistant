@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Local DB & secrets
+.apikey
+*.db
+*.db-shm
+*.db-wal
+retrieval_audit.jsonl
+.env
+.env.local
+
+*.xlsx
+dist/
+client/dist/
+
+# OS
+.DS_Store
+Thumbs.db
