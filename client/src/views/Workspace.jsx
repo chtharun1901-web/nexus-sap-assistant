@@ -1694,9 +1694,22 @@ export default function Workspace({
     setAiStreaming(true);
 
     const prevText = aiText;
+    const queryHeaderTitle = q || (activeDoc ? "Analyze attached spreadsheet" : (activeImg ? "Analyze screenshot" : "Follow-up Query"));
     const imgLabel = activeImg ? `\n\n*(Attached Screenshot: ${activeImg.name})*` : "";
     const docLabel = activeDoc ? `\n\n*(Attached Spreadsheet: ${activeDoc.filename} — ${activeDoc.sheetCount} sheets, ${activeDoc.totalRows} rows)*` : "";
-    setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || (activeDoc ? "Analyze attached spreadsheet" : "Analyze screenshot")) + imgLabel + docLabel + "\n\n*Reasoning...*");
+    
+    // Set initial follow-up placeholder
+    setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + imgLabel + docLabel + "\n\n*Reasoning...*");
+
+    // Smoothly scroll down immediately to reveal active follow-up turn
+    setTimeout(() => {
+      if (mainScrollRef.current) {
+        mainScrollRef.current.scrollTo({
+          top: mainScrollRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    }, 40);
 
     try {
       let accumulated = "";
@@ -1722,7 +1735,11 @@ export default function Workspace({
         },
         (chunk, fullText) => {
           accumulated = fullText;
-          setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || (activeDoc ? "Spreadsheet Analysis" : "Screenshot Analysis")) + imgLabel + docLabel + "\n\n" + fullText);
+          setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + imgLabel + docLabel + "\n\n" + fullText);
+          // Keep scrolling gently to show arriving chunks
+          if (mainScrollRef.current) {
+            mainScrollRef.current.scrollTop = mainScrollRef.current.scrollHeight;
+          }
         },
         (sources) => {
           if (sources?.length) {
@@ -1734,7 +1751,7 @@ export default function Workspace({
         }
       );
     } catch (err) {
-      setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + q + "\n\n⚠ Error: " + err.message);
+      setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + "\n\n⚠ Error: " + err.message);
     } finally {
       setAiStreaming(false);
     }
@@ -2106,32 +2123,140 @@ export default function Workspace({
                 <ClassificationHUD classification={activeClassification} />
               )}
 
-              {/* Dynamic Drilling Reasoning Progress HUD (Live Animated Mode & Persistent Verified Audit Mode) */}
+              {/* Top Dynamic Drilling Reasoning Progress HUD for Initial Topic */}
               {(aiStreaming || aiText) && (
                 <DrillingReasoningHUD
                   activeModule={activeClassification?.primaryModule || selectedModule}
-                  hasAttachment={!!topDoc || !!followUpDoc}
-                  isStreaming={aiStreaming}
+                  hasAttachment={!!topDoc}
+                  isStreaming={aiStreaming && conversationTurns.length <= 1}
                 />
               )}
 
+              <style>{`
+                @keyframes nexusCursorPulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.15; }
+                }
+              `}</style>
+
               {/* Formatted Output directly mapped by conversation turn segments */}
               {conversationTurns.length > 0 ? (
-                conversationTurns.map((turn, tIdx) => (
-                  <div
-                    key={turn.id}
-                    id={turn.id}
-                    style={{
-                      scrollMarginTop: "40px",
-                      marginBottom: tIdx === conversationTurns.length - 1 ? 0 : 36,
-                      position: "relative"
-                    }}
-                  >
-                    <FormattedText text={turn.content} />
-                  </div>
-                ))
+                conversationTurns.map((turn, tIdx) => {
+                  const isFollowUpTurn = tIdx > 0;
+                  const isStreamingThisTurn = aiStreaming && tIdx === conversationTurns.length - 1;
+
+                  let queryTitle = "";
+                  let attachmentBadge = "";
+                  let turnBody = turn.content;
+
+                  if (isFollowUpTurn) {
+                    const qMatch = turn.content.match(/^### Follow-up Query:\s*([^\n]+)/);
+                    if (qMatch) {
+                      queryTitle = qMatch[1].replace(/\*\([^\)]+\)\*/g, '').trim();
+                    }
+                    const attachMatch = turn.content.match(/\*\((Attached [^\)]+)\)\*/);
+                    if (attachMatch) {
+                      attachmentBadge = attachMatch[1];
+                    }
+                    turnBody = turn.content
+                      .replace(/^### Follow-up Query:[^\n]*\n*/, '')
+                      .replace(/\*\(Attached [^\)]+\)\*\n*/g, '')
+                      .trim();
+                  }
+
+                  const cleanedBody = turnBody.replace(/\*Reasoning\.\.\.\*/g, '').trim();
+
+                  return (
+                    <div
+                      key={turn.id}
+                      id={turn.id}
+                      style={{
+                        scrollMarginTop: "40px",
+                        marginBottom: tIdx === conversationTurns.length - 1 ? 0 : 36,
+                        position: "relative"
+                      }}
+                    >
+                      {/* Follow-up Query Header Card for Turn > 0 */}
+                      {isFollowUpTurn && (
+                        <div
+                          style={{
+                            background: "linear-gradient(135deg, rgba(110,26,45,0.06) 0%, rgba(255,255,255,0.95) 100%)",
+                            border: "1.5px solid rgba(110,26,45,0.25)",
+                            borderRadius: 10,
+                            padding: "14px 18px",
+                            marginBottom: 16,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 13 }}>💬</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: "#6E1A2D", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                FOLLOW-UP TURN {tIdx}
+                              </span>
+                            </div>
+                            {attachmentBadge && (
+                              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--orange)", background: "rgba(255,85,0,0.08)", padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(255,85,0,0.2)" }}>
+                                {attachmentBadge}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.4 }}>
+                            {queryTitle || `Query ${tIdx}`}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Live In-Turn Drilling Reasoning HUD for Active Streaming Follow-up Turn */}
+                      {isStreamingThisTurn && isFollowUpTurn && (
+                        <DrillingReasoningHUD
+                          activeModule={activeClassification?.primaryModule || selectedModule}
+                          hasAttachment={!!followUpDoc || turn.content.includes("Spreadsheet")}
+                          isStreaming={true}
+                        />
+                      )}
+
+                      {/* Turn Response Content */}
+                      {cleanedBody ? (
+                        <div style={{ position: "relative" }}>
+                          <FormattedText text={cleanedBody} />
+                          {isStreamingThisTurn && (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                width: 8,
+                                height: 16,
+                                background: "var(--orange, #FF5500)",
+                                marginLeft: 4,
+                                verticalAlign: "middle",
+                                animation: "nexusCursorPulse 0.8s infinite ease-in-out"
+                              }}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        !isStreamingThisTurn && <FormattedText text={turn.content} />
+                      )}
+                    </div>
+                  );
+                })
               ) : (
-                <FormattedText text={aiText} />
+                <div style={{ position: "relative" }}>
+                  <FormattedText text={aiText.replace(/\*Reasoning\.\.\.\*/g, '').trim()} />
+                  {aiStreaming && (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 8,
+                        height: 16,
+                        background: "var(--orange, #FF5500)",
+                        marginLeft: 4,
+                        verticalAlign: "middle",
+                        animation: "nexusCursorPulse 0.8s infinite ease-in-out"
+                      }}
+                    />
+                  )}
+                </div>
               )}
             </div>
           )}

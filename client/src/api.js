@@ -118,49 +118,57 @@ export const api = {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep partial line
+      
+      // Standard SSE blocks are delimited by double newlines (\n\n or \r\n\r\n)
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() || ''; // retain incomplete trailing block
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('event: nexus-classification')) {
-          const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
-          if (nextLine.startsWith('data: ')) {
-            try {
-              const classData = JSON.parse(nextLine.slice(6));
-              classification = classData.classification || null;
-              if (onClassification) onClassification(classification);
-            } catch(e) {}
+      for (const block of blocks) {
+        if (!block.trim()) continue;
+        const lines = block.split(/\r?\n/);
+        let eventType = 'message';
+        const dataLines = [];
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (line.startsWith('event:')) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trim());
           }
-        } else if (line.startsWith('event: nexus-complete')) {
-          const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
-          if (nextLine.startsWith('data: ')) {
-            try {
-              const completeData = JSON.parse(nextLine.slice(6));
-              if (completeData.text) {
-                fullText = completeData.text;
-                if (onChunk) onChunk('', fullText);
-              }
-            } catch(e) {}
-          }
-        } else if (line.startsWith('event: nexus-sources')) {
-          const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
-          if (nextLine.startsWith('data: ')) {
-            try {
-              const srcData = JSON.parse(nextLine.slice(6));
-              citations = srcData.sources || [];
-              if (onSources) onSources(citations);
-            } catch(e) {}
-          }
-        } else if (line.startsWith('data: ') && !lines[i - 1]?.startsWith('event:')) {
-          try {
-            const dataJson = JSON.parse(line.slice(6));
+        }
+
+        if (dataLines.length === 0) continue;
+        const dataStr = dataLines.join('\n');
+
+        try {
+          if (eventType === 'nexus-classification') {
+            const classData = JSON.parse(dataStr);
+            classification = classData.classification || null;
+            if (onClassification) onClassification(classification);
+          } else if (eventType === 'nexus-sources') {
+            const srcData = JSON.parse(dataStr);
+            citations = srcData.sources || [];
+            if (onSources) onSources(citations);
+          } else if (eventType === 'nexus-complete') {
+            const completeData = JSON.parse(dataStr);
+            if (completeData.text) {
+              fullText = completeData.text;
+              if (onChunk) onChunk('', fullText);
+            }
+          } else if (eventType === 'nexus-conversation') {
+            // Handled or ignored
+          } else {
+            // Default SSE message chunk from Gemini proxy
+            const dataJson = JSON.parse(dataStr);
             const chunk = dataJson.candidates?.[0]?.content?.parts?.[0]?.text;
             if (chunk) {
               fullText += chunk;
               if (onChunk) onChunk(chunk, fullText);
             }
-          } catch(e) {}
+          }
+        } catch (e) {
+          // Ignore JSON parse errors for heartbeats/pings
         }
       }
     }
