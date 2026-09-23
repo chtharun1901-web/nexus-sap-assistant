@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { api } from "../api.js";
 import { FormattedText } from "../views/Workspace.jsx";
 
@@ -92,8 +93,80 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
   };
 
   const handleFile = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // Excel & CSV parsing using SheetJS
+    if (['xlsx', 'xls', 'csv'].includes(ext)) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+        let totalRows = 0;
+        const sheetsData = [];
+
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          if (jsonRows && jsonRows.length > 0) {
+            const headers = jsonRows[0] || [];
+            const rows = jsonRows.slice(1);
+            totalRows += rows.length;
+
+            let md = `### Sheet: "${sheetName}" (${rows.length} rows, ${headers.length} columns)\n\n`;
+            if (headers.length > 0) {
+              md += `| ${headers.map(h => String(h ?? '').replace(/\|/g, '\\|')).join(' | ')} |\n`;
+              md += `| ${headers.map(() => '---').join(' | ')} |\n`;
+              const sampleRows = rows.slice(0, 100);
+              sampleRows.forEach(row => {
+                md += `| ${headers.map((_, idx) => String(row[idx] ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |\n`;
+              });
+              if (rows.length > 100) {
+                md += `\n*(Displaying first 100 of ${rows.length} rows)*\n`;
+              }
+            }
+            sheetsData.push(md);
+          }
+        });
+
+        const combinedContent = sheetsData.join('\n\n---\n\n');
+        setDocs(prev => [
+          ...prev,
+          {
+            filename: file.name,
+            type: 'excel',
+            sheetCount: workbook.SheetNames.length,
+            totalRows,
+            content: combinedContent
+          }
+        ]);
+      } catch (err) {
+        alert('Failed to parse Excel spreadsheet: ' + err.message);
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // Text / Markdown / JSON parsing
+    if (['txt', 'md', 'json', 'log'].includes(ext)) {
+      try {
+        const text = await file.text();
+        setDocs(prev => [
+          ...prev,
+          {
+            filename: file.name,
+            type: 'text',
+            content: text
+          }
+        ]);
+      } catch (err) {
+        alert('Failed to read text file: ' + err.message);
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // Binary document upload fallback
     const fd = new FormData();
     fd.append("document", file);
     try {
@@ -102,6 +175,7 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
     } catch (err) {
       alert("Upload failed: " + err.message);
     }
+    e.target.value = '';
   };
 
   return (
@@ -259,16 +333,23 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
         {docs.length > 0 && (
           <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
             {docs.map((d, i) => (
-              <span key={i} style={{ fontSize: 10, fontFamily: "var(--font-mono)", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(110,231,183,0.3)", color: "var(--green-text)", padding: "2px 8px", borderRadius: 9999 }}>
-                📄 {d.filename}
+              <span key={i} style={{ fontSize: 11, fontFamily: "var(--font-mono)", background: d.type === 'excel' ? "rgba(16,185,129,0.15)" : "rgba(59,130,246,0.15)", border: `1px solid ${d.type === 'excel' ? 'rgba(110,231,183,0.4)' : 'rgba(147,197,253,0.4)'}`, color: d.type === 'excel' ? "#34D399" : "#93C5FD", padding: "3px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                {d.type === 'excel' ? '📊' : '📄'} {d.filename} {d.sheetCount ? `(${d.sheetCount} sheet${d.sheetCount > 1 ? 's' : ''}, ${d.totalRows} rows)` : ''}
+                <button
+                  onClick={() => setDocs(prev => prev.filter((_, idx) => idx !== i))}
+                  style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 12, padding: 0, marginLeft: 2, opacity: 0.7 }}
+                  title="Remove document"
+                >
+                  ✕
+                </button>
               </span>
             ))}
           </div>
         )}
         <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-          <label style={{ cursor: "pointer", color: "#71717A", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, height: 38, width: 34, boxSizing: "border-box" }} title="Upload document">
+          <label style={{ cursor: "pointer", color: "#71717A", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, height: 38, width: 34, boxSizing: "border-box" }} title="Upload Excel spreadsheet (.xlsx, .xls, .csv) or document">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-            <input type="file" style={{ display: "none" }} accept=".pdf,.txt,.md,.docx" onChange={handleFile} />
+            <input type="file" style={{ display: "none" }} accept=".xlsx,.xls,.csv,.pdf,.txt,.md,.json,.docx" onChange={handleFile} />
           </label>
           <textarea
             ref={chatInputRef}

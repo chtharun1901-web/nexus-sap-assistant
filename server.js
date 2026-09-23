@@ -660,6 +660,7 @@ function handleGroundedChat(req, res, sessionData) {
       const interviewCategory = parsed.category || 'SAP General';
       const interviewProfile = parsed.profile || {};
       const selectedModule = parsed.selectedModule || parsed.module || nexusCtx.selectedModule || 'AUTO';
+      const uploadedDocs = parsed.uploadedDocs || [];
       const userId = sessionData?.user?.id || null;
       const workspaceId = sessionData?.user?.workspaceId || 'ws-enterprise-default';
 
@@ -808,6 +809,23 @@ function handleGroundedChat(req, res, sessionData) {
         });
         groundingContext += conflictWarning;
         groundingContext += '\nGROUNDING DIRECTIVE: Cite the above sources using [citationId] when using their facts. Do NOT invent any SAP Note numbers or URLs not listed above. If an exact note is not retrieved, state: "I cannot verify an exact SAP Note or KBA in the current environment."\n';
+      }
+
+      // Append uploaded spreadsheets and user documents
+      if (uploadedDocs && uploadedDocs.length > 0) {
+        groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS\n';
+        uploadedDocs.forEach((doc, dIdx) => {
+          groundingContext += `\n## [Attachment ${dIdx + 1}]: "${doc.filename || 'Spreadsheet.xlsx'}" (${doc.type || 'spreadsheet'})\n`;
+          if (doc.sheetCount) {
+            groundingContext += `*Sheet Count: ${doc.sheetCount} | Total Rows: ${doc.totalRows || 'N/A'}*\n\n`;
+          }
+          groundingContext += `${doc.content || doc.text || ''}\n`;
+        });
+        groundingContext += `\nSPREADSHEET & USER DATA REASONING DIRECTIVE:
+- Directly inspect and analyze the rows, columns, headers, and cell values in the attached data above.
+- Identify data discrepancies, invalid or inconsistent SAP codes (e.g. invalid Plant WERKS, Storage Location LGORT, Material MATNR, Customer KUNNR, Delivery numbers, Movement types), null/zero quantities, or error message lines.
+- Answer user questions referencing specific cells, rows, and columns clearly with tabular evidence.
+`;
       }
 
       groundingContext += `

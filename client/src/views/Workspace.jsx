@@ -1269,11 +1269,13 @@ export default function Workspace({
     el.style.height = `${newH}px`;
   };
 
-  // Screenshot / Image Attach & Paste state
+  // Screenshot / Image Attach & Paste state + Excel / Document state
   const topFileRef = useRef(null);
   const followUpFileRef = useRef(null);
   const [topImage, setTopImage] = useState(null);
   const [followUpImage, setFollowUpImage] = useState(null);
+  const [topDoc, setTopDoc] = useState(null);
+  const [followUpDoc, setFollowUpDoc] = useState(null);
 
   const handlePasteImage = (e, setImage) => {
     const items = e.clipboardData?.items;
@@ -1301,9 +1303,79 @@ export default function Workspace({
     }
   };
 
-  const handleFileInput = (e, setImage) => {
+  const handleFileInput = async (e, setImage, setDocState) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // Excel & CSV parsing using SheetJS
+    if (['xlsx', 'xls', 'csv'].includes(ext)) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+        let totalRows = 0;
+        const sheetsData = [];
+
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          if (jsonRows && jsonRows.length > 0) {
+            const headers = jsonRows[0] || [];
+            const rows = jsonRows.slice(1);
+            totalRows += rows.length;
+
+            let md = `### Sheet: "${sheetName}" (${rows.length} rows, ${headers.length} columns)\n\n`;
+            if (headers.length > 0) {
+              md += `| ${headers.map(h => String(h ?? '').replace(/\|/g, '\\|')).join(' | ')} |\n`;
+              md += `| ${headers.map(() => '---').join(' | ')} |\n`;
+              const sampleRows = rows.slice(0, 100);
+              sampleRows.forEach(row => {
+                md += `| ${headers.map((_, idx) => String(row[idx] ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ')} |\n`;
+              });
+              if (rows.length > 100) {
+                md += `\n*(Displaying first 100 of ${rows.length} rows)*\n`;
+              }
+            }
+            sheetsData.push(md);
+          }
+        });
+
+        const combinedContent = sheetsData.join('\n\n---\n\n');
+        if (setDocState) {
+          setDocState({
+            filename: file.name,
+            type: 'excel',
+            sheetCount: workbook.SheetNames.length,
+            totalRows,
+            content: combinedContent
+          });
+        }
+      } catch (err) {
+        alert('Failed to parse Excel spreadsheet: ' + err.message);
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // Text / Markdown parsing
+    if (['txt', 'md', 'json', 'log'].includes(ext)) {
+      try {
+        const text = await file.text();
+        if (setDocState) {
+          setDocState({
+            filename: file.name,
+            type: 'text',
+            content: text
+          });
+        }
+      } catch (err) {
+        alert('Failed to read text file: ' + err.message);
+      }
+      e.target.value = '';
+      return;
+    }
+
+    // Standard Image screenshot
     const reader = new FileReader();
     reader.onload = (evt) => {
       const dataUrl = evt.target.result;
@@ -1394,10 +1466,11 @@ export default function Workspace({
     return false;
   };
 
-  const handleGenerateInvestigation = async (topicTerm, passedImg = null) => {
+  const handleGenerateInvestigation = async (topicTerm, passedImg = null, passedDoc = null) => {
     const term = (topicTerm || searchTopic || "").trim();
     const activeImg = passedImg || topImage;
-    if (!term && !activeImg) return;
+    const activeDoc = passedDoc || topDoc;
+    if (!term && !activeImg && !activeDoc) return;
 
     const matchedDoc = getMatchedDoc(term);
     setDoc(matchedDoc);
@@ -1406,6 +1479,7 @@ export default function Workspace({
     setAiStreaming(true);
     setAiCitations([]);
     setTopImage(null);
+    setTopDoc(null);
 
     // 1. Maintain / Create conversation in backend
     let currentConvId = convId;
@@ -1430,7 +1504,7 @@ export default function Workspace({
       const isDeliveryPrompt = /delivery[-\s]based/i.test(term);
       const prompt = isDeliveryPrompt
         ? "Explain delivery-based production integration in SAP PP/EWM and distinguish it from PMR-based Advanced Production Integration. Do not assume release, architecture, communication technology, or staging method."
-        : (term.trim().length > 15 || term.includes(" ") ? term.trim() : "Investigate topic: " + (term.trim() || "Analyze attached SAP screenshot"));
+        : (term.trim().length > 15 || term.includes(" ") ? term.trim() : "Investigate topic: " + (term.trim() || (activeDoc ? "Analyze attached spreadsheet" : "Analyze attached SAP screenshot")));
       
       const userParts = [{ text: prompt }];
       if (activeImg?.base64Data) {
@@ -1448,7 +1522,7 @@ export default function Workspace({
           contents: [{ role: "user", parts: userParts }],
           selectedModule,
           mentorMode: false,
-          uploadedDocs: []
+          uploadedDocs: activeDoc ? [activeDoc] : []
         },
         (chunk, fullText) => {
           setAiText(fullText);
@@ -1532,16 +1606,18 @@ export default function Workspace({
     if (e?.preventDefault) e.preventDefault();
     const q = followUpInput.trim();
     const activeImg = followUpImage;
-    if ((!q && !activeImg) || aiStreaming) return;
+    const activeDoc = followUpDoc;
+    if ((!q && !activeImg && !activeDoc) || aiStreaming) return;
 
     // If fresh session with no prior aiText, treat as primary new inquiry!
     if (!aiText || aiText.trim() === "") {
       setFollowUpInput("");
       setFollowUpImage(null);
+      setFollowUpDoc(null);
       if (followUpTextareaRef.current) {
         followUpTextareaRef.current.style.height = "42px";
       }
-      handleGenerateInvestigation(q, activeImg);
+      handleGenerateInvestigation(q, activeImg, activeDoc);
     } else {
       handleFollowUp(e);
     }
@@ -1551,10 +1627,12 @@ export default function Workspace({
     if (e?.preventDefault) e.preventDefault();
     const q = followUpInput.trim();
     const activeImg = followUpImage;
-    if ((!q && !activeImg) || aiStreaming) return;
+    const activeDoc = followUpDoc;
+    if ((!q && !activeImg && !activeDoc) || aiStreaming) return;
 
     setFollowUpInput("");
     setFollowUpImage(null);
+    setFollowUpDoc(null);
     if (followUpTextareaRef.current) {
       followUpTextareaRef.current.style.height = "42px";
     }
@@ -1562,11 +1640,12 @@ export default function Workspace({
 
     const prevText = aiText;
     const imgLabel = activeImg ? `\n\n*(Attached Screenshot: ${activeImg.name})*` : "";
-    setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || "Analyze screenshot") + imgLabel + "\n\n*Reasoning...*");
+    const docLabel = activeDoc ? `\n\n*(Attached Spreadsheet: ${activeDoc.filename} — ${activeDoc.sheetCount} sheets, ${activeDoc.totalRows} rows)*` : "";
+    setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || (activeDoc ? "Analyze attached spreadsheet" : "Analyze screenshot")) + imgLabel + docLabel + "\n\n*Reasoning...*");
 
     try {
       let accumulated = "";
-      const userParts = [{ text: q || "Please inspect this attached SAP screenshot and provide diagnostics." }];
+      const userParts = [{ text: q || (activeDoc ? "Please inspect and analyze this attached spreadsheet data." : "Please inspect this attached SAP screenshot and provide diagnostics.") }];
       if (activeImg?.base64Data) {
         userParts.push({
           inlineData: {
@@ -1584,11 +1663,11 @@ export default function Workspace({
           ],
           selectedModule,
           mentorMode: false,
-          uploadedDocs: []
+          uploadedDocs: activeDoc ? [activeDoc] : []
         },
         (chunk, fullText) => {
           accumulated = fullText;
-          setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || "Screenshot Analysis") + imgLabel + "\n\n" + fullText);
+          setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + (q || (activeDoc ? "Spreadsheet Analysis" : "Screenshot Analysis")) + imgLabel + docLabel + "\n\n" + fullText);
         },
         (sources) => {
           if (sources?.length) {
@@ -2121,6 +2200,22 @@ export default function Workspace({
                 </button>
               </div>
             )}
+            {followUpDoc && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: followUpDoc.type === 'excel' ? "rgba(16,185,129,0.15)" : "rgba(59,130,246,0.15)", border: `1px solid ${followUpDoc.type === 'excel' ? 'rgba(110,231,183,0.4)' : 'rgba(147,197,253,0.4)'}`, borderRadius: 6, padding: "4px 10px", width: "fit-content" }}>
+                <span style={{ fontSize: 13 }}>{followUpDoc.type === 'excel' ? '📊' : '📄'}</span>
+                <span style={{ fontSize: 11.5, fontFamily: "var(--font-mono)", color: followUpDoc.type === 'excel' ? "#34D399" : "#93C5FD", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {followUpDoc.filename} {followUpDoc.sheetCount ? `(${followUpDoc.sheetCount} sheets, ${followUpDoc.totalRows} rows)` : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFollowUpDoc(null)}
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0 2px", fontSize: 13, fontWeight: "bold" }}
+                  title="Remove attached spreadsheet"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
               <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "flex-end" }}>
                 <textarea
@@ -2143,7 +2238,7 @@ export default function Workspace({
                       if (followUpTextareaRef.current) autoResizeTextarea(followUpTextareaRef.current, 42, 180);
                     }, 0);
                   }}
-                  placeholder={!aiText ? "Enter SAP topic, transaction (e.g. COGI, SMQ2), or paste error screenshot (Enter to send)..." : "Ask a follow-up question, analyze symptoms, or paste an SAP screenshot (Enter to send)..."}
+                  placeholder={!aiText ? "Enter SAP topic, paste error screenshot, or attach Excel spreadsheet (Enter to send)..." : "Ask a follow-up, analyze spreadsheet data, or paste an SAP screenshot (Enter to send)..."}
                   disabled={aiStreaming}
                   style={{
                     width: "100%",
@@ -2166,14 +2261,14 @@ export default function Workspace({
                 <input
                   type="file"
                   ref={followUpFileRef}
-                  onChange={(e) => handleFileInput(e, setFollowUpImage)}
-                  accept="image/*"
+                  onChange={(e) => handleFileInput(e, setFollowUpImage, setFollowUpDoc)}
+                  accept="image/*,.xlsx,.xls,.csv,.pdf,.txt,.md,.json"
                   style={{ display: "none" }}
                 />
                 <button
                   type="button"
                   onClick={() => followUpFileRef.current?.click()}
-                  title="Attach or Paste Screenshot / Error Image (Ctrl+V)"
+                  title="Attach Excel (.xlsx, .csv), Document, or Screenshot (Ctrl+V)"
                   disabled={aiStreaming}
                   style={{
                     position: "absolute",
@@ -2181,7 +2276,7 @@ export default function Workspace({
                     bottom: 9,
                     background: "none",
                     border: "none",
-                    color: followUpImage ? "var(--orange)" : "var(--text-muted)",
+                    color: (followUpImage || followUpDoc) ? "var(--orange)" : "var(--text-muted)",
                     cursor: "pointer",
                     padding: 4,
                     display: "flex",
@@ -2193,7 +2288,7 @@ export default function Workspace({
               </div>
               <button
                 type="submit"
-                disabled={aiStreaming || (!followUpInput.trim() && !followUpImage)}
+                disabled={aiStreaming || (!followUpInput.trim() && !followUpImage && !followUpDoc)}
                 className="btn-primary"
                 style={{ padding: "10px 24px", fontSize: 13.5, whiteSpace: "nowrap", height: 42, alignSelf: "flex-end" }}
               >
