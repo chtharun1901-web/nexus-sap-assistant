@@ -14,6 +14,7 @@ RUN npm --prefix client run build
 
 # Copy backend files
 COPY server.js db.js ./
+COPY services/ ./services/
 COPY public/ ./public/
 
 EXPOSE 3456
