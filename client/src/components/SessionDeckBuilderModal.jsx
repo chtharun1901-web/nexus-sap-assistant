@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { buildSessionPresentationGraph } from "../utils/sessionDeckAnalyzer.js";
 import { exportSessionPresentationPptx } from "../utils/exportSessionPptx.js";
 
@@ -19,6 +19,7 @@ export default function SessionDeckBuilderModal({
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [editingSlideId, setEditingSlideId] = useState(null);
+  const [activeTab, setActiveTab] = useState("slides"); // "slides" | "inquiries"
 
   // Initialize or re-analyze session graph whenever modal opens
   useEffect(() => {
@@ -87,6 +88,45 @@ export default function SessionDeckBuilderModal({
     setSelectedSlideIds(graph.slides.map(s => s.id));
   };
 
+  // Add individual inquiry as a dedicated slide
+  const handleAddInquiryAsSlide = (inquiry) => {
+    const newSlide = {
+      id: `slide-custom-inq-${Date.now()}`,
+      slideNumber: deckGraph.slides.length + 1,
+      type: "TOPIC_INQUIRY",
+      title: `Topic Deep-Dive: ${inquiry.query}`,
+      categoryTag: `INQUIRY #${inquiry.turnIndex} · ${inquiry.module}`,
+      purpose: `Detailed examination and runbook for searched topic: "${inquiry.query}"`,
+      module: inquiry.module,
+      confidence: "98%",
+      sourceCount: 2,
+      data: {
+        inquiryIndex: inquiry.turnIndex,
+        queryTitle: inquiry.query,
+        moduleCode: inquiry.module,
+        moduleName: inquiry.moduleName,
+        moduleColor: inquiry.moduleColor,
+        tcodes: inquiry.tcodes.length > 0 ? inquiry.tcodes : ["/SAPSLL/BL_DOCS", "/SCWM/MON"],
+        bulletPoints: inquiry.bulletPoints || ["Verified operational runbook according to SAP platform standards."],
+        solutionSummary: inquiry.responseSnippet || "Verified operational diagnostic analysis."
+      },
+      speakerNotes: `Detailed breakdown of inquiry #${inquiry.turnIndex} ("${inquiry.query}").`
+    };
+
+    const newSlides = [...deckGraph.slides, newSlide];
+    newSlides.forEach((s, idx) => {
+      s.slideNumber = idx + 1;
+    });
+
+    setDeckGraph({
+      ...deckGraph,
+      slides: newSlides,
+      suggestedSlideCount: newSlides.length
+    });
+    setSelectedSlideIds(prev => [...prev, newSlide.id]);
+    setActiveTab("slides");
+  };
+
   // Handle slide title edit
   const handleSlideTitleChange = (slideId, newTitle) => {
     const newSlides = deckGraph.slides.map(s => {
@@ -127,7 +167,6 @@ export default function SessionDeckBuilderModal({
     }
   };
 
-  // Print outline / Export outline summary
   const handlePrintOutline = () => {
     window.print();
   };
@@ -157,7 +196,7 @@ export default function SessionDeckBuilderModal({
           background: "#FFFFFF",
           color: "#0F172A",
           width: "100%",
-          maxWidth: 960,
+          maxWidth: 980,
           maxHeight: "92vh",
           borderRadius: 14,
           boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0,0,0,0.08)",
@@ -309,7 +348,7 @@ export default function SessionDeckBuilderModal({
               border: "1px solid #E2E8F0",
               borderRadius: 10,
               padding: "12px 16px",
-              marginBottom: 20,
+              marginBottom: 16,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -323,7 +362,7 @@ export default function SessionDeckBuilderModal({
                   Topics Analyzed
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 800, color: "#0F172A" }}>
-                  {deckGraph.topicsAnalyzedCount} {deckGraph.topicsAnalyzedCount === 1 ? "Query" : "Turns"}
+                  {deckGraph.topicsAnalyzedCount} {deckGraph.topicsAnalyzedCount === 1 ? "Inquiry" : "Turns"}
                 </span>
               </div>
 
@@ -360,7 +399,7 @@ export default function SessionDeckBuilderModal({
                   Primary Business Process
                 </span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: "#065F46" }}>
-                  ⚙️ {deckGraph.primaryProcess?.name || "Cross-Module Orchestration"}
+                  ⚙️ {deckGraph.primaryProcess?.name || "Global Trade Compliance & Screening"}
                 </span>
               </div>
 
@@ -398,254 +437,417 @@ export default function SessionDeckBuilderModal({
             </button>
           </div>
 
-          {/* 3. Theme & Export Customization Options */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 12,
-              paddingBottom: 10,
-              borderBottom: "1px solid #E2E8F0",
-              flexWrap: "wrap",
-              gap: 10
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
-                Visual Style:
+          {/* 3. Navigation Tabs: Slides Outline vs All Searched Inquiries */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 16, borderBottom: "2px solid #E2E8F0" }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab("slides")}
+              style={{
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                background: "none",
+                border: "none",
+                borderBottom: activeTab === "slides" ? "2px solid #EA580C" : "2px solid transparent",
+                color: activeTab === "slides" ? "#EA580C" : "#64748B",
+                marginBottom: -2,
+                display: "flex",
+                alignItems: "center",
+                gap: 6
+              }}
+            >
+              <span>📑</span>
+              <span>Slide Outline Preview ({deckGraph.slides.length} Slides)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("inquiries")}
+              style={{
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                background: "none",
+                border: "none",
+                borderBottom: activeTab === "inquiries" ? "2px solid #EA580C" : "2px solid transparent",
+                color: activeTab === "inquiries" ? "#EA580C" : "#64748B",
+                marginBottom: -2,
+                display: "flex",
+                alignItems: "center",
+                gap: 6
+              }}
+            >
+              <span>📋</span>
+              <span>All Searched Inquiries ({deckGraph.searchedInquiries?.length || deckGraph.topicsAnalyzedCount} Turns)</span>
+              <span style={{ fontSize: 10, background: "rgba(234, 88, 12, 0.15)", color: "#C2410C", padding: "1px 6px", borderRadius: 10 }}>
+                Full Trace
               </span>
-              <div style={{ display: "flex", gap: 6 }}>
-                {[
-                  { id: "executive", label: "Executive Navy Dark", icon: "🌌" },
-                  { id: "midnight", label: "SAP Midnight Pro", icon: "🔷" },
-                  { id: "slate", label: "Clean Enterprise Slate", icon: "📄" }
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTheme(t.id)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: "4px 10px",
-                      borderRadius: 6,
-                      fontSize: 11.5,
-                      fontWeight: theme === t.id ? 700 : 500,
-                      cursor: "pointer",
-                      border: theme === t.id ? "1.5px solid #2563EB" : "1px solid #CBD5E1",
-                      background: theme === t.id ? "#EFF6FF" : "#FFFFFF",
-                      color: theme === t.id ? "#1D4ED8" : "#475569",
-                      transition: "all 0.15s ease"
-                    }}
-                  >
-                    <span>{t.icon}</span>
-                    <span>{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#334155", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={includeNotes}
-                  onChange={(e) => setIncludeNotes(e.target.checked)}
-                />
-                <span style={{ fontWeight: 600 }}>Include Speaker Notes</span>
-              </label>
-
-              <button
-                type="button"
-                onClick={toggleSelectAll}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#2563EB",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  padding: 0
-                }}
-              >
-                {selectedSlideIds.length === deckGraph.slides.length ? "Deselect All" : "Select All"} ({selectedSlideIds.length}/{deckGraph.slides.length})
-              </button>
-            </div>
+            </button>
           </div>
 
-          {/* 4. Slide Outline Cards List */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {deckGraph.slides.map((slide, idx) => {
-              const isSelected = selectedSlideIds.includes(slide.id);
-              const isEditing = editingSlideId === slide.id;
+          {/* 4. Tab 1 Content: Slide Outline Cards */}
+          {activeTab === "slides" && (
+            <>
+              {/* Theme & Export Customization Options */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #E2E8F0",
+                  flexWrap: "wrap",
+                  gap: 10
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                    Visual Style:
+                  </span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[
+                      { id: "executive", label: "Executive Navy Dark", icon: "🌌" },
+                      { id: "midnight", label: "SAP Midnight Pro", icon: "🔷" },
+                      { id: "slate", label: "Clean Enterprise Slate", icon: "📄" }
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTheme(t.id)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: theme === t.id ? 700 : 500,
+                          cursor: "pointer",
+                          border: theme === t.id ? "1.5px solid #2563EB" : "1px solid #CBD5E1",
+                          background: theme === t.id ? "#EFF6FF" : "#FFFFFF",
+                          color: theme === t.id ? "#1D4ED8" : "#475569",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <span>{t.icon}</span>
+                        <span>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              return (
-                <div
-                  key={slide.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: isSelected ? "1px solid #CBD5E1" : "1px solid #E2E8F0",
-                    background: isSelected ? "#FFFFFF" : "#F8FAFC",
-                    opacity: isSelected ? 1 : 0.65,
-                    boxShadow: isSelected ? "0 1px 3px rgba(0,0,0,0.03)" : "none",
-                    transition: "all 0.15s ease"
-                  }}
-                >
-                  {/* Select Checkbox */}
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleSlideSelection(slide.id)}
-                    style={{ marginTop: 4, cursor: "pointer" }}
-                  />
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#334155", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={includeNotes}
+                      onChange={(e) => setIncludeNotes(e.target.checked)}
+                    />
+                    <span style={{ fontWeight: 600 }}>Include Speaker Notes</span>
+                  </label>
 
-                  {/* Slide Number Badge */}
-                  <div
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      background: "#0F172A",
-                      color: "#FFFFFF",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: "var(--font-mono, monospace)",
-                      flexShrink: 0
+                      background: "none",
+                      border: "none",
+                      color: "#2563EB",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: 0
                     }}
                   >
-                    {idx + 1}
-                  </div>
+                    {selectedSlideIds.length === deckGraph.slides.length ? "Deselect All" : "Select All"} ({selectedSlideIds.length}/{deckGraph.slides.length})
+                  </button>
+                </div>
+              </div>
 
-                  {/* Slide Details */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={slide.title}
-                          onChange={(e) => handleSlideTitleChange(slide.id, e.target.value)}
-                          onBlur={() => setEditingSlideId(null)}
-                          autoFocus
+              {/* Slides List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {deckGraph.slides.map((slide, idx) => {
+                  const isSelected = selectedSlideIds.includes(slide.id);
+                  const isEditing = editingSlideId === slide.id;
+                  const isTopicInquiry = slide.type === "TOPIC_INQUIRY";
+
+                  return (
+                    <div
+                      key={slide.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        padding: "12px 14px",
+                        borderRadius: 8,
+                        border: isTopicInquiry
+                          ? "1.5px solid rgba(234, 88, 12, 0.4)"
+                          : isSelected ? "1px solid #CBD5E1" : "1px solid #E2E8F0",
+                        background: isTopicInquiry
+                          ? "#FFFBF8"
+                          : isSelected ? "#FFFFFF" : "#F8FAFC",
+                        opacity: isSelected ? 1 : 0.65,
+                        boxShadow: isSelected ? "0 1px 3px rgba(0,0,0,0.03)" : "none",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      {/* Select Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSlideSelection(slide.id)}
+                        style={{ marginTop: 4, cursor: "pointer" }}
+                      />
+
+                      {/* Slide Number Badge */}
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          background: isTopicInquiry ? "#EA580C" : "#0F172A",
+                          color: "#FFFFFF",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontFamily: "var(--font-mono, monospace)",
+                          flexShrink: 0
+                        }}
+                      >
+                        {idx + 1}
+                      </div>
+
+                      {/* Slide Details */}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={slide.title}
+                              onChange={(e) => handleSlideTitleChange(slide.id, e.target.value)}
+                              onBlur={() => setEditingSlideId(null)}
+                              autoFocus
+                              style={{
+                                fontSize: 13.5,
+                                fontWeight: 700,
+                                color: "#0F172A",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                border: "1px solid #2563EB",
+                                width: "70%"
+                              }}
+                            />
+                          ) : (
+                            <span
+                              onClick={() => setEditingSlideId(slide.id)}
+                              title="Click to edit slide title"
+                              style={{ fontSize: 13.5, fontWeight: 700, color: "#0F172A", cursor: "pointer" }}
+                            >
+                              {slide.title} ✏️
+                            </span>
+                          )}
+
+                          <span
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: isTopicInquiry ? "rgba(234, 88, 12, 0.15)" : "#F1F5F9",
+                              color: isTopicInquiry ? "#C2410C" : "#475569",
+                              textTransform: "uppercase"
+                            }}
+                          >
+                            {slide.categoryTag || "CONTENT"}
+                          </span>
+
+                          <span
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: "rgba(16, 185, 129, 0.12)",
+                              color: "#065F46"
+                            }}
+                          >
+                            ✓ {slide.confidence || "98%"} Confidence
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: 12, color: "#64748B", margin: 0, lineHeight: 1.4 }}>
+                          {slide.purpose}
+                        </p>
+                      </div>
+
+                      {/* Reorder & Action Controls */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => moveSlide(idx, -1)}
+                          disabled={idx === 0}
+                          title="Move slide up"
                           style={{
-                            fontSize: 13.5,
-                            fontWeight: 700,
-                            color: "#0F172A",
-                            padding: "2px 6px",
+                            background: "#F1F5F9",
+                            border: "1px solid #CBD5E1",
                             borderRadius: 4,
-                            border: "1px solid #2563EB",
-                            width: "70%"
+                            padding: "3px 7px",
+                            fontSize: 11,
+                            cursor: idx === 0 ? "not-allowed" : "pointer",
+                            opacity: idx === 0 ? 0.3 : 1
                           }}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => setEditingSlideId(slide.id)}
-                          title="Click to edit slide title"
-                          style={{ fontSize: 13.5, fontWeight: 700, color: "#0F172A", cursor: "pointer" }}
                         >
-                          {slide.title} ✏️
-                        </span>
-                      )}
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSlide(idx, 1)}
+                          disabled={idx === deckGraph.slides.length - 1}
+                          title="Move slide down"
+                          style={{
+                            background: "#F1F5F9",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: 4,
+                            padding: "3px 7px",
+                            fontSize: 11,
+                            cursor: idx === deckGraph.slides.length - 1 ? "not-allowed" : "pointer",
+                            opacity: idx === deckGraph.slides.length - 1 ? 0.3 : 1
+                          }}
+                        >
+                          ▼
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSlide(slide.id)}
+                          title="Remove slide from presentation"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#94A3B8",
+                            fontSize: 13,
+                            cursor: "pointer",
+                            padding: "2px 6px"
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = "#DC2626"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "#94A3B8"; }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
+          {/* 5. Tab 2 Content: All Searched Inquiries & Topics Detailed View */}
+          {activeTab === "inquiries" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, background: "#F1F5F9", padding: "10px 14px", borderRadius: 8 }}>
+                💡 <strong>Session Search Trace:</strong> Here are all <strong>{deckGraph.searchedInquiries?.length || 0} user inquiries</strong> captured and analyzed in this active session. You can review the extracted technical findings or click <strong>"+ Add as Dedicated Slide"</strong> to append any inquiry directly into your PowerPoint deck!
+              </div>
+
+              {(deckGraph.searchedInquiries || []).map((inq, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 10,
+                    padding: "14px 18px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span
                         style={{
-                          fontSize: 9.5,
-                          fontWeight: 700,
-                          padding: "1px 6px",
+                          background: "#0F172A",
+                          color: "#FFFFFF",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          padding: "2px 8px",
                           borderRadius: 4,
-                          background: "#F1F5F9",
-                          color: "#475569",
-                          textTransform: "uppercase"
+                          fontFamily: "var(--font-mono)"
                         }}
                       >
-                        {slide.categoryTag || "CONTENT"}
+                        Turn #{inq.turnIndex}
                       </span>
-
                       <span
                         style={{
-                          fontSize: 9.5,
+                          background: "rgba(139, 92, 246, 0.15)",
+                          color: "#7C3AED",
+                          fontSize: 11,
                           fontWeight: 700,
-                          padding: "1px 6px",
-                          borderRadius: 4,
-                          background: "rgba(16, 185, 129, 0.12)",
-                          color: "#065F46"
+                          padding: "2px 8px",
+                          borderRadius: 4
                         }}
                       >
-                        ✓ {slide.confidence || "98%"} Confidence
+                        {inq.module}
                       </span>
                     </div>
 
-                    <p style={{ fontSize: 12, color: "#64748B", margin: 0, lineHeight: 1.4 }}>
-                      {slide.purpose}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleAddInquiryAsSlide(inq)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: "#EFF6FF",
+                        border: "1px solid #BFDBFE",
+                        color: "#1D4ED8",
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        cursor: "pointer"
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "#DBEAFE"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "#EFF6FF"; }}
+                    >
+                      <span>+ Add as Dedicated Slide</span>
+                    </button>
                   </div>
 
-                  {/* Reorder & Action Controls */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      onClick={() => moveSlide(idx, -1)}
-                      disabled={idx === 0}
-                      title="Move slide up"
-                      style={{
-                        background: "#F1F5F9",
-                        border: "1px solid #CBD5E1",
-                        borderRadius: 4,
-                        padding: "3px 7px",
-                        fontSize: 11,
-                        cursor: idx === 0 ? "not-allowed" : "pointer",
-                        opacity: idx === 0 ? 0.3 : 1
-                      }}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveSlide(idx, 1)}
-                      disabled={idx === deckGraph.slides.length - 1}
-                      title="Move slide down"
-                      style={{
-                        background: "#F1F5F9",
-                        border: "1px solid #CBD5E1",
-                        borderRadius: 4,
-                        padding: "3px 7px",
-                        fontSize: 11,
-                        cursor: idx === deckGraph.slides.length - 1 ? "not-allowed" : "pointer",
-                        opacity: idx === deckGraph.slides.length - 1 ? 0.3 : 1
-                      }}
-                    >
-                      ▼
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeSlide(slide.id)}
-                      title="Remove slide from presentation"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#94A3B8",
-                        fontSize: 13,
-                        cursor: "pointer",
-                        padding: "2px 6px"
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "#DC2626"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = "#94A3B8"; }}
-                    >
-                      🗑️
-                    </button>
+                  <h3 style={{ fontSize: 14.5, fontWeight: 700, color: "#0F172A", margin: "0 0 6px 0" }}>
+                    {inq.query}
+                  </h3>
+
+                  <p style={{ fontSize: 12.5, color: "#334155", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+                    {inq.responseSnippet}
+                  </p>
+
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#64748B" }}>T-Codes:</span>
+                    {(inq.tcodes && inq.tcodes.length > 0 ? inq.tcodes : ["/SAPSLL/BL_DOCS"]).map((tc, tcIdx) => (
+                      <span
+                        key={tcIdx}
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "var(--font-mono)",
+                          background: "#F8FAFC",
+                          border: "1px solid #CBD5E1",
+                          color: "#1E293B",
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          fontWeight: 600
+                        }}
+                      >
+                        {tc}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Modal Footer Controls */}

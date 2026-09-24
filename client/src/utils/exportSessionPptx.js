@@ -736,6 +736,193 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
         break;
       }
 
+      case "TOPIC_INQUIRY": {
+        addSlideHeader(slide, slideData.title, slideData.categoryTag);
+
+        // Top Inquiry Banner Card
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 0.8,
+          y: 1.15,
+          w: 11.7,
+          h: 1.35,
+          rectRadius: 0.08,
+          fill: { color: colors.bgCard },
+          line: { color: colors.accentOrange, width: 1.5 }
+        });
+
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 1.1,
+          y: 1.3,
+          w: 1.6,
+          h: 0.3,
+          rectRadius: 0.06,
+          fill: { color: (slideData.data.moduleColor || "#EA580C").replace("#", "") }
+        });
+        slide.addText(`INQUIRY #${slideData.data.inquiryIndex}`, {
+          x: 1.1,
+          y: 1.3,
+          w: 1.6,
+          h: 0.3,
+          align: "center",
+          valign: "middle",
+          fontSize: 9,
+          fontFace: "Arial",
+          color: "FFFFFF",
+          bold: true
+        });
+
+        slide.addText(slideData.data.queryTitle, {
+          x: 2.85,
+          y: 1.3,
+          w: 9.35,
+          h: 0.7,
+          fontSize: 14,
+          fontFace: "Arial",
+          color: colors.textPrimary,
+          bold: true
+        });
+
+        slide.addText(`Owning Module: ${slideData.data.moduleName || slideData.data.moduleCode} · Signature T-Codes: ${(slideData.data.tcodes || []).join(", ") || "Standard S/4HANA"}`, {
+          x: 1.1,
+          y: 2.05,
+          w: 11.1,
+          h: 0.35,
+          fontSize: 9.5,
+          fontFace: "Courier New",
+          color: colors.accentBlue
+        });
+
+        // Bottom Left: Solution & Core Reasoning
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 0.8,
+          y: 2.65,
+          w: 6.8,
+          h: 3.9,
+          rectRadius: 0.08,
+          fill: { color: colors.bgCard },
+          line: { color: colors.borderSubtle, width: 1 }
+        });
+        slide.addText("TECHNICAL SOLUTION & OPERATIONAL RUNBOOK", {
+          x: 1.1,
+          y: 2.8,
+          w: 6.2,
+          h: 0.3,
+          fontSize: 9.5,
+          fontFace: "Arial",
+          color: colors.accentTeal,
+          bold: true
+        });
+
+        slide.addText(slideData.data.solutionSummary, {
+          x: 1.1,
+          y: 3.15,
+          w: 6.2,
+          h: 1.4,
+          fontSize: 10.5,
+          fontFace: "Arial",
+          color: colors.textPrimary,
+          lineSpacingMultiple: 1.18
+        });
+
+        // Key Bullet Points
+        (slideData.data.bulletPoints || []).slice(0, 2).forEach((bp, idx) => {
+          const bpY = 4.65 + idx * 0.9;
+          slide.addShape(pptx.ShapeType.oval, {
+            x: 1.1,
+            y: bpY + 0.05,
+            w: 0.2,
+            h: 0.2,
+            fill: { color: colors.accentOrange }
+          });
+          slide.addText(bp, {
+            x: 1.4,
+            y: bpY,
+            w: 5.9,
+            h: 0.8,
+            fontSize: 9.5,
+            fontFace: "Arial",
+            color: colors.textSecondary
+          });
+        });
+
+        // Bottom Right: T-Codes & Landscape Impact
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 7.8,
+          y: 2.65,
+          w: 4.7,
+          h: 3.9,
+          rectRadius: 0.08,
+          fill: { color: colors.bgCard },
+          line: { color: colors.borderSubtle, width: 1 }
+        });
+        slide.addText("RELEVANT T-CODES & SAFEGUARDS", {
+          x: 8.05,
+          y: 2.8,
+          w: 4.2,
+          h: 0.3,
+          fontSize: 9.5,
+          fontFace: "Arial",
+          color: colors.accentOrange,
+          bold: true
+        });
+
+        (slideData.data.tcodes || []).slice(0, 4).forEach((tc, idx) => {
+          const tcY = 3.2 + idx * 0.55;
+          slide.addShape(pptx.ShapeType.roundRect, {
+            x: 8.05,
+            y: tcY,
+            w: 1.8,
+            h: 0.4,
+            rectRadius: 0.06,
+            fill: { color: isLight ? "F1F5F9" : colors.bgCardAccent },
+            line: { color: colors.accentBlue, width: 1 }
+          });
+          slide.addText(tc, {
+            x: 8.05,
+            y: tcY,
+            w: 1.8,
+            h: 0.4,
+            align: "center",
+            valign: "middle",
+            fontSize: 10,
+            fontFace: "Courier New",
+            color: colors.accentBlue,
+            bold: true
+          });
+          slide.addText("Verified runbook action", {
+            x: 10.0,
+            y: tcY + 0.08,
+            w: 2.25,
+            h: 0.3,
+            fontSize: 9,
+            fontFace: "Arial",
+            color: colors.textSecondary
+          });
+        });
+
+        // Safeguard box
+        slide.addShape(pptx.ShapeType.roundRect, {
+          x: 8.05,
+          y: 5.5,
+          w: 4.2,
+          h: 0.85,
+          rectRadius: 0.06,
+          fill: { color: isLight ? "FEF3C7" : "2A1B0E" },
+          line: { color: colors.accentOrange, width: 1 }
+        });
+        slide.addText("⚠ PRODUCTION SAFEGUARD: Maintain read-only inspection prior to queue re-activation.", {
+          x: 8.2,
+          y: 5.55,
+          w: 3.9,
+          h: 0.75,
+          fontSize: 8.5,
+          fontFace: "Arial",
+          color: isLight ? "92400E" : "FDE68A",
+          bold: true
+        });
+        break;
+      }
+
       case "MASTER_DATA_CONFIG": {
         addSlideHeader(slide, slideData.title, slideData.categoryTag);
 
