@@ -1223,6 +1223,8 @@ export default function Workspace({
   const [activeClassification, setActiveClassification] = useState(null);
   const [followUpInput, setFollowUpInput] = useState("");
   const mainScrollRef = useRef(null);
+  const userScrolledUpRef = useRef(false);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
   const [hoveredTurn, setHoveredTurn] = useState(null);
 
@@ -1560,6 +1562,8 @@ export default function Workspace({
     setAiCitations([]);
     setTopImage(null);
     setTopDoc(null);
+    userScrolledUpRef.current = false;
+    setIsScrolledUp(false);
 
     // 1. Maintain / Create conversation in backend
     let currentConvId = convId;
@@ -1667,12 +1671,37 @@ export default function Workspace({
     return turns;
   }, [aiText, doc, searchTopic]);
 
-  // Scroll listener to update active turn dot
+  // Smooth Auto-Follow generation down without restricting manual scroll
+  useEffect(() => {
+    if (!aiStreaming) return;
+    if (userScrolledUpRef.current) return; // User manually scrolled up; allow them to freely browse
+
+    const container = mainScrollRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth"
+    });
+  }, [aiText, aiStreaming]);
+
+  // Scroll listener to update active turn dot & detect manual user scrolling
   useEffect(() => {
     const container = mainScrollRef.current;
     if (!container) return;
 
     const handleScroll = () => {
+      // 1. Detect if user scrolled away from the active generating bottom
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom > 100) {
+        userScrolledUpRef.current = true;
+        setIsScrolledUp(true);
+      } else {
+        userScrolledUpRef.current = false;
+        setIsScrolledUp(false);
+      }
+
+      // 2. Update active turn navigation rail indicator
       const turnEls = container.querySelectorAll('[id^="turn-seg-"]');
       if (!turnEls.length) return;
 
@@ -1728,6 +1757,8 @@ export default function Workspace({
       followUpTextareaRef.current.style.height = "42px";
     }
     setAiStreaming(true);
+    userScrolledUpRef.current = false;
+    setIsScrolledUp(false);
 
     const prevText = aiText;
     const queryHeaderTitle = q || (activeDoc ? "Analyze attached spreadsheet" : (activeImg ? "Analyze screenshot" : "Follow-up Query"));
@@ -1778,10 +1809,6 @@ export default function Workspace({
         (chunk, fullText) => {
           accumulated = fullText;
           setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + imgLabel + docLabel + "\n\n" + fullText);
-          // Keep scrolling gently to show arriving chunks
-          if (mainScrollRef.current) {
-            mainScrollRef.current.scrollTop = mainScrollRef.current.scrollHeight;
-          }
         },
         (sources) => {
           if (sources?.length) {
@@ -2499,6 +2526,46 @@ export default function Workspace({
           )}
           </div>
         </div>
+
+        {/* Floating Jump to Latest Button if User Scrolled Up while generating */}
+        {isScrolledUp && (
+          <button
+            type="button"
+            onClick={() => {
+              userScrolledUpRef.current = false;
+              setIsScrolledUp(false);
+              if (mainScrollRef.current) {
+                mainScrollRef.current.scrollTo({
+                  top: mainScrollRef.current.scrollHeight,
+                  behavior: "smooth"
+                });
+              }
+            }}
+            style={{
+              position: "absolute",
+              bottom: 95,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "var(--burgundy-rich, #6E1A2D)",
+              color: "#FFFFFF",
+              padding: "7px 16px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 700,
+              border: "1px solid rgba(255,255,255,0.25)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.22)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              zIndex: 99,
+              animation: "dropdownFadeSlide 0.2s ease"
+            }}
+          >
+            <span style={{ fontSize: 13, animation: "nexusCursorPulse 1s infinite" }}>↓</span>
+            <span>{aiStreaming ? "Generating below · Jump to live stream" : "Jump to latest"}</span>
+          </button>
+        )}
 
         {/* In-Canvas Bottom Follow-up Bar (Full Width in Middle) */}
         <div style={{ padding: "10px 24px", background: "#FAF8F5", borderTop: "1px solid var(--border-subtle)", flexShrink: 0 }}>
