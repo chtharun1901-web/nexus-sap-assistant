@@ -1,5 +1,6 @@
 import ValueStreamMapModal from "../components/ValueStreamMapModal.jsx";
 import { exportValueStreamMapExcel } from "../utils/valueStreamMapping.js";
+import { exportSapPresentationPptx } from "../utils/exportPptx.js";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { api } from "../api.js";
@@ -999,6 +1000,16 @@ function handleExportExcel(doc, aiText, aiCitations) {
   // Write true .xlsx binary workbook — opens natively in Excel with zero warnings and full text coverage!
   XLSX.writeFile(wb, `${caseId.replace(/[^a-zA-Z0-9_-]/g, "_")}_Diagnostic_Report.xlsx`);
 }
+
+async function handleExportPptx(doc, aiText, aiCitations) {
+  try {
+    await exportSapPresentationPptx(doc, aiText, aiCitations);
+  } catch (err) {
+    console.error("PPTX export failed:", err);
+    alert("Failed to export PowerPoint presentation: " + (err.message || err));
+  }
+}
+
 
 
 // Modern Claude Artifact File Card matching Image 2
@@ -2030,6 +2041,33 @@ export default function Workspace({
 
                   <button
                     type="button"
+                    onClick={() => handleExportPptx(doc, aiText, aiCitations)}
+                    title="Export Styled Executive Presentation to PowerPoint (.pptx)"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      background: "#FFFFFF",
+                      border: "1px solid #CBD5E1",
+                      color: "#C2410C",
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "var(--font-mono, monospace)",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                      transition: "all 0.15s ease"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "#F8FAFC"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#FFFFFF"; }}
+                  >
+                    <span style={{ fontSize: 13 }}>📽️</span>
+                    <span>Export PPTX</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setVsmModalOpen(true)}
                     title="Open Value Stream Mapping & Architecture Studio"
                     style={{
@@ -2122,6 +2160,26 @@ export default function Workspace({
                         }}
                       >
                         📊 Excel
+                      </button>
+                      <button
+                        onClick={() => handleExportPptx(doc, aiText, aiCitations)}
+                        title="Export Styled Executive Presentation to PowerPoint (.pptx)"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          background: "var(--bg-surface)",
+                          border: "1px solid rgba(234,88,12,0.4)",
+                          color: "#EA580C",
+                          padding: "3px 8px",
+                          borderRadius: 5,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 600
+                        }}
+                      >
+                        📽️ PPTX
                       </button>
                       <button
                         onClick={() => setVsmModalOpen(true)}
