@@ -739,74 +739,89 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
       case "TOPIC_INQUIRY": {
         addSlideHeader(slide, slideData.title, slideData.categoryTag);
 
-        // Top Inquiry Banner Card
+        // Top Inquiry Banner Card (Popped-Out Executive Header)
         slide.addShape(pptx.ShapeType.roundRect, {
           x: 0.8,
           y: 1.15,
           w: 11.7,
-          h: 1.35,
+          h: 1.25,
           rectRadius: 0.08,
           fill: { color: colors.bgCard },
           line: { color: colors.accentOrange, width: 1.5 }
         });
 
+        // Module Badge
         slide.addShape(pptx.ShapeType.roundRect, {
           x: 1.1,
           y: 1.3,
-          w: 1.6,
-          h: 0.3,
+          w: 1.8,
+          h: 0.32,
           rectRadius: 0.06,
-          fill: { color: (slideData.data.moduleColor || "#EA580C").replace("#", "") }
+          fill: { color: (slideData.data.moduleColor || "#8B5CF6").replace("#", "") }
         });
         slide.addText(`INQUIRY #${slideData.data.inquiryIndex}`, {
           x: 1.1,
           y: 1.3,
-          w: 1.6,
-          h: 0.3,
+          w: 1.8,
+          h: 0.32,
           align: "center",
           valign: "middle",
-          fontSize: 9,
+          fontSize: 9.5,
           fontFace: "Arial",
           color: "FFFFFF",
           bold: true
         });
 
+        // Professionalized Title
         slide.addText(slideData.data.queryTitle, {
-          x: 2.85,
-          y: 1.3,
-          w: 9.35,
-          h: 0.7,
-          fontSize: 14,
+          x: 3.05,
+          y: 1.25,
+          w: 9.15,
+          h: 0.65,
+          fontSize: 13.5,
           fontFace: "Arial",
-          color: colors.textPrimary,
+          color: "FFFFFF",
           bold: true
         });
 
-        slide.addText(`Owning Module: ${slideData.data.moduleName || slideData.data.moduleCode} · Signature T-Codes: ${(slideData.data.tcodes || []).join(", ") || "Standard S/4HANA"}`, {
+        // User Query Context Reference
+        slide.addText(`Searched Query Reference: "${slideData.data.rawUserQuery || slideData.data.queryTitle}" · Owning Module: ${slideData.data.moduleName || slideData.data.moduleCode}`, {
           x: 1.1,
-          y: 2.05,
+          y: 1.95,
           w: 11.1,
-          h: 0.35,
-          fontSize: 9.5,
+          h: 0.32,
+          fontSize: 9,
           fontFace: "Courier New",
           color: colors.accentBlue
         });
 
-        // Bottom Left: Solution & Core Reasoning
+        // ──────────────────────────────────────────────────────────────────
+        // LEFT 60%: Solution & Procedural Runbook Card
+        // ──────────────────────────────────────────────────────────────────
         slide.addShape(pptx.ShapeType.roundRect, {
           x: 0.8,
-          y: 2.65,
-          w: 6.8,
-          h: 3.9,
+          y: 2.55,
+          w: 6.9,
+          h: 4.15,
           rectRadius: 0.08,
           fill: { color: colors.bgCard },
           line: { color: colors.borderSubtle, width: 1 }
         });
-        slide.addText("TECHNICAL SOLUTION & OPERATIONAL RUNBOOK", {
+
+        // Accent bar on left edge
+        slide.addShape(pptx.ShapeType.rect, {
+          x: 0.8,
+          y: 2.55,
+          w: 0.12,
+          h: 4.15,
+          fill: { color: colors.accentOrange }
+        });
+
+        slide.addText("1. EXECUTIVE SOLUTION & PROCEDURAL RUNBOOK", {
           x: 1.1,
-          y: 2.8,
-          w: 6.2,
-          h: 0.3,
+          y: 2.7,
+          w: 6.3,
+          h: 0.28,
           fontSize: 9.5,
           fontFace: "Arial",
           color: colors.accentTeal,
@@ -815,109 +830,129 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
 
         slide.addText(slideData.data.solutionSummary, {
           x: 1.1,
-          y: 3.15,
-          w: 6.2,
-          h: 1.4,
-          fontSize: 10.5,
+          y: 3.05,
+          w: 6.3,
+          h: 1.45,
+          fontSize: 10,
           fontFace: "Arial",
           color: colors.textPrimary,
           lineSpacingMultiple: 1.18
         });
 
-        // Key Bullet Points
+        // Detailed bullet points with colored indicator pills
         (slideData.data.bulletPoints || []).slice(0, 2).forEach((bp, idx) => {
-          const bpY = 4.65 + idx * 0.9;
+          const bpY = 4.65 + idx * 0.95;
           slide.addShape(pptx.ShapeType.ellipse, {
             x: 1.1,
             y: bpY + 0.05,
-            w: 0.2,
-            h: 0.2,
+            w: 0.22,
+            h: 0.22,
             fill: { color: colors.accentOrange }
           });
           slide.addText(bp, {
-            x: 1.4,
+            x: 1.45,
             y: bpY,
-            w: 5.9,
-            h: 0.8,
+            w: 5.95,
+            h: 0.85,
             fontSize: 9.5,
             fontFace: "Arial",
-            color: colors.textSecondary
+            color: colors.textSecondary,
+            lineSpacingMultiple: 1.12
           });
         });
 
-        // Bottom Right: T-Codes & Landscape Impact
+        // ──────────────────────────────────────────────────────────────────
+        // RIGHT 40%: Analyzed Data Tables & Production Safeguards
+        // ──────────────────────────────────────────────────────────────────
+        const tcodesList = slideData.data.tcodes && slideData.data.tcodes.length > 0
+          ? slideData.data.tcodes
+          : ["/SAPSLL/BL_DOCS", "SMQ1"];
+
+        const tableRows = slideData.data.tableRows && slideData.data.tableRows.length > 0
+          ? slideData.data.tableRows
+          : tcodesList.slice(0, 3).map(tc => ({ tcode: tc, role: "Operational inspection & triage" }));
+
+        // Right Top Card: Native PowerPoint T-Codes Runbook Table
         slide.addShape(pptx.ShapeType.roundRect, {
-          x: 7.8,
-          y: 2.65,
-          w: 4.7,
-          h: 3.9,
+          x: 7.9,
+          y: 2.55,
+          w: 4.6,
+          h: 2.35,
           rectRadius: 0.08,
           fill: { color: colors.bgCard },
           line: { color: colors.borderSubtle, width: 1 }
         });
-        slide.addText("RELEVANT T-CODES & SAFEGUARDS", {
-          x: 8.05,
-          y: 2.8,
+
+        slide.addText("2. RELEVANT SAP TRANSACTIONS (T-CODES)", {
+          x: 8.1,
+          y: 2.7,
           w: 4.2,
-          h: 0.3,
-          fontSize: 9.5,
+          h: 0.25,
+          fontSize: 9,
           fontFace: "Arial",
           color: colors.accentOrange,
           bold: true
         });
 
-        (slideData.data.tcodes || []).slice(0, 4).forEach((tc, idx) => {
-          const tcY = 3.2 + idx * 0.55;
-          slide.addShape(pptx.ShapeType.roundRect, {
-            x: 8.05,
-            y: tcY,
-            w: 1.8,
-            h: 0.4,
-            rectRadius: 0.06,
-            fill: { color: isLight ? "F1F5F9" : colors.bgCardAccent },
-            line: { color: colors.accentBlue, width: 1 }
-          });
-          slide.addText(tc, {
-            x: 8.05,
-            y: tcY,
-            w: 1.8,
-            h: 0.4,
-            align: "center",
-            valign: "middle",
-            fontSize: 10,
-            fontFace: "Courier New",
-            color: colors.accentBlue,
-            bold: true
-          });
-          slide.addText("Verified runbook action", {
-            x: 10.0,
-            y: tcY + 0.08,
-            w: 2.25,
-            h: 0.3,
-            fontSize: 9,
-            fontFace: "Arial",
-            color: colors.textSecondary
-          });
+        const tcodeTableData = [
+          [
+            { text: "T-CODE", options: { bold: true, color: "FFFFFF", fill: "1E3A8A", fontSize: 9 } },
+            { text: "OPERATIONAL ROLE", options: { bold: true, color: "FFFFFF", fill: "1E3A8A", fontSize: 9 } }
+          ],
+          ...tableRows.slice(0, 3).map((r, idx) => [
+            { text: r.tcode, options: { fontSize: 9, bold: true, color: colors.accentBlue, fontFace: "Courier New", fill: idx % 2 === 0 ? colors.bgCard : colors.bgCardAccent } },
+            { text: r.role, options: { fontSize: 8.5, color: colors.textPrimary, fill: idx % 2 === 0 ? colors.bgCard : colors.bgCardAccent } }
+          ])
+        ];
+
+        slide.addTable(tcodeTableData, {
+          x: 8.1,
+          y: 3.0,
+          w: 4.2,
+          colW: [1.6, 2.6],
+          border: { type: "solid", pt: 1, color: colors.borderSubtle }
         });
 
-        // Safeguard box
+        // Right Bottom Card: Architectural Gateway & Safeguards
         slide.addShape(pptx.ShapeType.roundRect, {
-          x: 8.05,
-          y: 5.5,
-          w: 4.2,
-          h: 0.85,
-          rectRadius: 0.06,
-          fill: { color: isLight ? "FEF3C7" : "2A1B0E" },
-          line: { color: colors.accentOrange, width: 1 }
+          x: 7.9,
+          y: 5.05,
+          w: 4.6,
+          h: 1.65,
+          rectRadius: 0.08,
+          fill: { color: isLight ? "FEF3C7" : "1E1B4B" },
+          line: { color: colors.accentPurple, width: 1.2 }
         });
-        slide.addText("⚠ PRODUCTION SAFEGUARD: Maintain read-only inspection prior to queue re-activation.", {
-          x: 8.2,
-          y: 5.55,
-          w: 3.9,
+
+        slide.addText("3. SYSTEM HANDOFF & PRODUCTION SAFEGUARD", {
+          x: 8.1,
+          y: 5.18,
+          w: 4.2,
+          h: 0.22,
+          fontSize: 8.5,
+          fontFace: "Arial",
+          color: colors.accentPurple,
+          bold: true
+        });
+
+        slide.addText(`Gateway Flow: S/4HANA Feeder ↔ ${slideData.data.moduleCode} Engine ↔ EWM Execution`, {
+          x: 8.1,
+          y: 5.42,
+          w: 4.2,
+          h: 0.38,
+          fontSize: 9,
+          fontFace: "Courier New",
+          color: colors.textPrimary
+        });
+
+        slide.addText("⚠ PRODUCTION SAFEGUARD: All queue activations or SPL releases must be audited in sandbox prior to production execution.", {
+          x: 8.1,
+          y: 5.82,
+          w: 4.2,
           h: 0.75,
           fontSize: 8.5,
           fontFace: "Arial",
-          color: isLight ? "92400E" : "FDE68A",
+          color: isLight ? "92400E" : "FCD34D",
           bold: true
         });
         break;
