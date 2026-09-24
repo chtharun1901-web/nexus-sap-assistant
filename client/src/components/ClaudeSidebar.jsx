@@ -222,7 +222,7 @@ export default function ClaudeSidebar({
                 else if (onNavigate) onNavigate("workspace", null);
               }}
               style={{
-                background: "#FFFFFF",
+                background: "var(--bg-card, #FFFFFF)",
                 border: "1px solid var(--border-strong, rgba(0,0,0,0.16))",
                 color: "var(--text-primary, #1C1917)",
                 fontSize: 11.5,
@@ -336,7 +336,7 @@ export default function ClaudeSidebar({
               justifyContent: "space-between",
               padding: "4px 8px",
               borderRadius: 6,
-              background: "#FFFFFF",
+              background: "var(--bg-card, #FFFFFF)",
               border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))"
             }}
           >

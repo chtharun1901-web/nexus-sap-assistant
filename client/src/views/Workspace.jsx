@@ -1040,7 +1040,7 @@ export function ClaudeArtifactCard({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: "#FFFFFF",
+        background: "var(--bg-card, #FFFFFF)",
         border: "1px solid var(--border-strong, rgba(0, 0, 0, 0.14))",
         borderRadius: 12,
         padding: "10px 16px",
@@ -1104,8 +1104,8 @@ export function ClaudeArtifactCard({
             display: "flex",
             alignItems: "center",
             gap: 8,
-            background: "#FFFFFF",
-            border: "1px solid #D1D5DB",
+            background: "var(--bg-card, #FFFFFF)",
+            border: "1px solid var(--border-strong, #D1D5DB)",
             borderRadius: 8,
             padding: "6px 14px",
             fontSize: 13,
@@ -1120,8 +1120,8 @@ export function ClaudeArtifactCard({
             e.currentTarget.style.background = "#F9FAFB";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "#D1D5DB";
-            e.currentTarget.style.background = "#FFFFFF";
+            e.currentTarget.style.borderColor = "var(--border-strong, #D1D5DB)";
+            e.currentTarget.style.background = "var(--bg-card, #FFFFFF)";
           }}
         >
           <span>Download</span>
@@ -1134,8 +1134,8 @@ export function ClaudeArtifactCard({
               position: "absolute",
               right: 0,
               top: "calc(100% + 6px)",
-              background: "#FFFFFF",
-              border: "1px solid #E5E7EB",
+              background: "var(--bg-card, #FFFFFF)",
+              border: "1px solid var(--border-subtle, #E5E7EB)",
               borderRadius: 8,
               boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
               padding: "4px",
@@ -1943,8 +1943,8 @@ export default function Workspace({
           flexDirection: "column",
           overflow: "hidden",
           borderRadius: 12,
-          background: "#FFFFFF",
-          border: "1px solid #E5E5DF",
+          background: "var(--bg-card, #FFFFFF)",
+          border: "1px solid var(--border-subtle, #E5E5DF)",
           boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
           position: "relative"
         }}
@@ -1959,7 +1959,7 @@ export default function Workspace({
             flex: 1,
             overflowY: "auto",
             width: "100%",
-            background: "#FFFFFF",
+            background: "var(--bg-card, #FFFFFF)",
             position: "relative",
             transform: "translateZ(0)",
             willChange: "scroll-position",
@@ -2072,8 +2072,8 @@ export default function Workspace({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
-                      background: "#FFFFFF",
-                      border: "1px solid #CBD5E1",
+                      background: "var(--bg-card, #FFFFFF)",
+                      border: "1px solid var(--border-subtle, #CBD5E1)",
                       color: "#1E3A8A",
                       padding: "4px 10px",
                       borderRadius: 6,
@@ -2084,8 +2084,8 @@ export default function Workspace({
                       boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                       transition: "all 0.15s ease"
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "#F8FAFC"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#FFFFFF"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "var(--bg-surface, #F8FAFC)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle, #CBD5E1)"; e.currentTarget.style.background = "var(--bg-card, #FFFFFF)"; }}
                   >
                     <span style={{ fontSize: 13 }}>📄</span>
                     <span>Export Word</span>
@@ -2099,8 +2099,8 @@ export default function Workspace({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
-                      background: "#FFFFFF",
-                      border: "1px solid #CBD5E1",
+                      background: "var(--bg-card, #FFFFFF)",
+                      border: "1px solid var(--border-subtle, #CBD5E1)",
                       color: "#065F46",
                       padding: "4px 10px",
                       borderRadius: 6,
@@ -2111,8 +2111,8 @@ export default function Workspace({
                       boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                       transition: "all 0.15s ease"
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "#F8FAFC"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#FFFFFF"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "var(--bg-surface, #F8FAFC)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle, #CBD5E1)"; e.currentTarget.style.background = "var(--bg-card, #FFFFFF)"; }}
                   >
                     <span style={{ fontSize: 13 }}>📊</span>
                     <span>Export Excel</span>
@@ -2126,8 +2126,8 @@ export default function Workspace({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
-                      background: "#FFFFFF",
-                      border: "1px solid #CBD5E1",
+                      background: "var(--bg-card, #FFFFFF)",
+                      border: "1px solid var(--border-subtle, #CBD5E1)",
                       color: "#C2410C",
                       padding: "4px 10px",
                       borderRadius: 6,
@@ -2138,8 +2138,8 @@ export default function Workspace({
                       boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                       transition: "all 0.15s ease"
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "#F8FAFC"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#FFFFFF"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "var(--bg-surface, #F8FAFC)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle, #CBD5E1)"; e.currentTarget.style.background = "var(--bg-card, #FFFFFF)"; }}
                   >
                     <span style={{ fontSize: 13 }}>📽️</span>
                     <span>Export PPTX</span>
@@ -2180,8 +2180,8 @@ export default function Workspace({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
-                      background: "#FFFFFF",
-                      border: "1px solid #CBD5E1",
+                      background: "var(--bg-card, #FFFFFF)",
+                      border: "1px solid var(--border-subtle, #CBD5E1)",
                       color: "#6B21A8",
                       padding: "4px 10px",
                       borderRadius: 6,
@@ -2192,8 +2192,8 @@ export default function Workspace({
                       boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                       transition: "all 0.15s ease"
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "#F8FAFC"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#FFFFFF"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#6E1A2D"; e.currentTarget.style.background = "var(--bg-surface, #F8FAFC)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle, #CBD5E1)"; e.currentTarget.style.background = "var(--bg-card, #FFFFFF)"; }}
                   >
                     <span style={{ fontSize: 13 }}>🗺️</span>
                     <span>Stream Mapping</span>
@@ -2620,7 +2620,7 @@ export default function Workspace({
         )}
 
         {/* In-Canvas Bottom Follow-up Bar (Full Width in Middle) */}
-        <div style={{ padding: "10px 24px", background: "#FAF8F5", borderTop: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+        <div style={{ padding: "10px 24px", background: "var(--bg-card, #FAF8F5)", borderTop: "1px solid var(--border-subtle)", flexShrink: 0 }}>
           <form onSubmit={handleBottomSubmit} style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 1040, margin: "0 auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <SpecializationSelector selectedModule={selectedModule} onSelectModule={setSelectedModule} />
