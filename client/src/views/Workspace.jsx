@@ -1,4 +1,5 @@
 import ValueStreamMapModal from "../components/ValueStreamMapModal.jsx";
+import SessionDeckBuilderModal from "../components/SessionDeckBuilderModal.jsx";
 import { exportValueStreamMapExcel } from "../utils/valueStreamMapping.js";
 import { exportSapPresentationPptx } from "../utils/exportPptx.js";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -1204,6 +1205,7 @@ export default function Workspace({
   const [activeSection, setActiveSection] = useState(propActiveSection || "all");
   const [copiedSession, setCopiedSession] = useState(false);
   const [vsmModalOpen, setVsmModalOpen] = useState(false);
+  const [sessionDeckModalOpen, setSessionDeckModalOpen] = useState(false);
 
   const copySessionId = (idToCopy) => {
     const sid = idToCopy || convId;
@@ -2068,6 +2070,33 @@ export default function Workspace({
 
                   <button
                     type="button"
+                    onClick={() => setSessionDeckModalOpen(true)}
+                    title="Open Session Deck Builder to analyze and export complete multi-turn session to PowerPoint"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      background: "linear-gradient(135deg, #EA580C 0%, #C2410C 100%)",
+                      border: "1px solid #EA580C",
+                      color: "#FFFFFF",
+                      padding: "4px 11px",
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "var(--font-mono, monospace)",
+                      boxShadow: "0 1px 3px rgba(234, 88, 12, 0.35)",
+                      transition: "all 0.15s ease"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  >
+                    <span style={{ fontSize: 13 }}>📽️</span>
+                    <span>Export Session to PPT</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setVsmModalOpen(true)}
                     title="Open Value Stream Mapping & Architecture Studio"
                     style={{
@@ -2180,6 +2209,27 @@ export default function Workspace({
                         }}
                       >
                         📽️ PPTX
+                      </button>
+                      <button
+                        onClick={() => setSessionDeckModalOpen(true)}
+                        title="Open Session Deck Builder for full session PowerPoint export"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          background: "linear-gradient(135deg, #EA580C 0%, #C2410C 100%)",
+                          border: "none",
+                          color: "#FFFFFF",
+                          padding: "3px 9px",
+                          borderRadius: 5,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 700,
+                          boxShadow: "0 1px 3px rgba(234, 88, 12, 0.3)"
+                        }}
+                      >
+                        📽️ Export Session to PPT
                       </button>
                       <button
                         onClick={() => setVsmModalOpen(true)}
@@ -2764,6 +2814,15 @@ export default function Workspace({
         aiText={aiText}
         aiCitations={aiCitations}
         sessionId={convId}
+        conversationTurns={conversationTurns}
+      />
+
+      <SessionDeckBuilderModal
+        isOpen={sessionDeckModalOpen}
+        onClose={() => setSessionDeckModalOpen(false)}
+        rawSession={{ id: convId, title: doc?.title || searchTopic, citations: aiCitations }}
+        aiText={aiText}
+        doc={doc}
         conversationTurns={conversationTurns}
       />
       </div>
