@@ -10,6 +10,8 @@ export default function FioriSidebar({
       title: "Compliance Management",
       icon: "🛡️",
       items: [
+        { id: "source_registry", label: "Screening Source Registry", tcode: "INDIA/UN/OFAC", badge: "5 Feeds", badgeColor: "var(--blue, #2563EB)" },
+        { id: "screening_sandbox", label: "Interactive SPL Match Simulator", tcode: "/SAPSLL/SPL_SIM", badge: "Live Test", badgeColor: "var(--orange, #6E1A2D)" },
         { id: "blocked_partners", label: "Manage Blocked Partners", tcode: "/SAPSLL/SPL_CHCK", badge: badgeCounts.blockedPartners },
         { id: "blocked_docs", label: "Manage Blocked Documents", tcode: "/SAPSLL/BL_DOCS", badge: badgeCounts.blockedDocs },
         { id: "custom_docs", label: "Display Custom Documents", tcode: "/SAPSLL/CUHD_DISP" },

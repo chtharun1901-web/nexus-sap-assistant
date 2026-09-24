@@ -1,0 +1,97 @@
+{
+  "sources": [
+    {
+      "Source ID": "IN-01",
+      "Jurisdiction / Authority": "India / FIU-India (Department of Revenue, Ministry of Finance)",
+      "List / Feed": "UNSC sanctions implementation notices under Section 51A of UAPA, 1967",
+      "Use in GTS module": "Indian legal implementation / sanctions screening source register; reconcile against current UNSC XML",
+      "Official URL": "https://fiuindia.gov.in/files/misc/UNsanctionList.html",
+      "Latest page notice observed": "12 March 2025 (12 entries amended)",
+      "Machine-readable download": "Not provided on the FIU page; use current UNSC XML below for the live consolidated dataset",
+      "Retrieved UTC": "2026-09-23 12:39:05 UTC",
+      "Status / caveat": "Official Indian implementation page; page notice cadence is not the same as live UN feed."
+    },
+    {
+      "Source ID": "IN-02",
+      "Jurisdiction / Authority": "India / DGFT, Ministry of Commerce and Industry",
+      "List / Feed": "SCOMET List 2025 (Appendix 3, Schedule 2, ITC (HS))",
+      "Use in GTS module": "Product / technology export-control screening; not a denied-party list",
+      "Official URL": "https://content.dgft.gov.in/Website/dgftprod/82cccea3-646e-435c-876f-88476c4ed5ca/Updated%20SCOMET%20List%202025%20%28as%20on%2023.09.2025%29.docx.pdf",
+      "Latest page notice observed": "23 September 2025",
+      "Machine-readable download": "PDF",
+      "Retrieved UTC": "2026-09-23 12:39:05 UTC",
+      "SHA-256": "6e43cbfd99440f0b29e67eecef014c7fb2a0deb297c1997106bebd83fb199b43",
+      "Status / caveat": "Include as a separate product-control module; do not combine with party sanctions screening."
+    },
+    {
+      "Source ID": "UN-01",
+      "Jurisdiction / Authority": "United Nations Security Council",
+      "List / Feed": "UNSC Consolidated List",
+      "Use in GTS module": "Global party sanctions screening; relevant to Indian Section 51A implementation",
+      "Official URL": "https://main.un.org/securitycouncil/en/content/un-sc-consolidated-list",
+      "Latest page notice observed": "4 September 2026; XML dateGenerated 22 September 2026 23:00:06 UTC",
+      "Machine-readable download": "XML",
+      "Retrieved UTC": "2026-09-23 12:39:05 UTC",
+      "SHA-256": "d6aef9745330c4cf4537b723cc512d258b422bc2be3dc359b5576817a74234c1",
+      "Status / caveat": "Current XML downloaded from official UN endpoint."
+    },
+    {
+      "Source ID": "US-01",
+      "Jurisdiction / Authority": "United States / OFAC, U.S. Treasury",
+      "List / Feed": "Specially Designated Nationals (SDN) List",
+      "Use in GTS module": "Global counterparty / trade screening where U.S. nexus or policy requires",
+      "Official URL": "https://sanctionslist.ofac.treas.gov/Home/SdnList",
+      "Latest page notice observed": "18 September 2026",
+      "Machine-readable download": "CSV",
+      "Retrieved UTC": "2026-09-23 12:39:05 UTC",
+      "SHA-256": "2739bd07a7401aa19930b959e3665772b900924fd54a0d63fd41d20d459f9dce",
+      "Status / caveat": "OFAC rules and U.S. nexus analysis are required; a potential match is not automatically a confirmed match."
+    },
+    {
+      "Source ID": "US-02",
+      "Jurisdiction / Authority": "United States / OFAC, U.S. Treasury",
+      "List / Feed": "Consolidated Non-SDN Sanctions List",
+      "Use in GTS module": "Global party / program screening for OFAC non-SDN lists",
+      "Official URL": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList",
+      "Latest page notice observed": "14 September 2026",
+      "Machine-readable download": "CSV primary names; aliases and addresses downloaded separately",
+      "Retrieved UTC": "2026-09-23 12:39:05 UTC",
+      "SHA-256": "0a3b74f6eb28450a9993b42a234c1801471d4dcb41220f6a7b8e466575bc3889",
+      "Status / caveat": "Use program and list-type fields to interpret restrictions; do not treat all entries as asset-blocking SDNs."
+    }
+  ],
+  "fiuUpdates": [
+    {
+      "Notice Date": "2025-03-12",
+      "Action": "Amended 12 entries",
+      "Sanctions Committee": "ISIL (Da’esh) and Al-Qaida",
+      "Official notice PDF": "https://fiuindia.gov.in/pdfs/downloads/Update12032025.pdf"
+    },
+    {
+      "Notice Date": "2025-02-21",
+      "Action": "Removed 1 entry",
+      "Sanctions Committee": "ISIL (Da’esh) and Al-Qaida",
+      "Official notice PDF": "https://fiuindia.gov.in/pdfs/downloads/Update21022025.pdf"
+    },
+    {
+      "Notice Date": "2024-12-02",
+      "Action": "Amended 3 entries",
+      "Sanctions Committee": "ISIL (Da’esh) and Al-Qaida",
+      "Official notice PDF": "https://fiuindia.gov.in/pdfs/downloads/Update02122024.pdf"
+    },
+    {
+      "Notice Date": "2024-08-23",
+      "Action": "Removed 1 entry",
+      "Sanctions Committee": "ISIL (Da’esh) and Al-Qaida",
+      "Official notice PDF": "https://fiuindia.gov.in/pdfs/downloads/Update23082024.pdf"
+    },
+    {
+      "Notice Date": "2024-04-25",
+      "Action": "Amended 1 entry",
+      "Sanctions Committee": "ISIL (Da’esh) and Al-Qaida",
+      "Official notice PDF": "https://fiuindia.gov.in/pdfs/downloads/Update25042024.pdf"
+    }
+  ],
+  "snapshotDate": "2026-09-23",
+  "snapshotTimestamp": "2026-09-23 12:39:05 UTC"
+}

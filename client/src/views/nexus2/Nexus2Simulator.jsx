@@ -6,6 +6,8 @@ import WorkItemDetail from "./components/WorkItemDetail.jsx";
 import OfficerActionDialog from "./components/OfficerActionDialog.jsx";
 import LearningSidePanel from "./components/LearningSidePanel.jsx";
 import LandscapeModal from "./components/LandscapeModal.jsx";
+import ScreeningSourceRegistry from "./components/ScreeningSourceRegistry.jsx";
+import InteractiveScreeningSandbox from "./components/InteractiveScreeningSandbox.jsx";
 
 import {
   INITIAL_PARTNERS,
@@ -157,6 +159,10 @@ export default function Nexus2Simulator({ onNavigate }) {
               onBack={() => setSelectedRecord(null)}
               onOpenActionDialog={handleOpenActionDialog}
             />
+          ) : activeMenu === "source_registry" ? (
+            <ScreeningSourceRegistry />
+          ) : activeMenu === "screening_sandbox" ? (
+            <InteractiveScreeningSandbox onOpenActionDialog={handleOpenActionDialog} />
           ) : (
             <WorklistView
               activeMenu={activeMenu}
