@@ -338,7 +338,7 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
             line: { color: colors.borderSubtle, width: 1 }
           });
 
-          slide.addShape(pptx.ShapeType.oval, {
+          slide.addShape(pptx.ShapeType.ellipse, {
             x: cardX + 0.2,
             y: cardY + 0.2,
             w: 0.35,
@@ -637,7 +637,7 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
           });
 
           // Step Circle
-          slide.addShape(pptx.ShapeType.oval, {
+          slide.addShape(pptx.ShapeType.ellipse, {
             x: cardX + 0.2,
             y: cardY + 0.2,
             w: 0.4,
@@ -827,7 +827,7 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
         // Key Bullet Points
         (slideData.data.bulletPoints || []).slice(0, 2).forEach((bp, idx) => {
           const bpY = 4.65 + idx * 0.9;
-          slide.addShape(pptx.ShapeType.oval, {
+          slide.addShape(pptx.ShapeType.ellipse, {
             x: 1.1,
             y: bpY + 0.05,
             w: 0.2,
@@ -1349,7 +1349,7 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
 
         (slideData.data.goldenRules || []).forEach((rule, idx) => {
           const itemY = 1.9 + idx * 1.1;
-          slide.addShape(pptx.ShapeType.oval, {
+          slide.addShape(pptx.ShapeType.ellipse, {
             x: 1.1,
             y: itemY + 0.05,
             w: 0.25,
@@ -1391,7 +1391,7 @@ export async function exportSessionPresentationPptx(deckGraph, options = {}) {
 
         (slideData.data.commonMistakes || []).forEach((mst, idx) => {
           const itemY = 1.9 + idx * 1.4;
-          slide.addShape(pptx.ShapeType.oval, {
+          slide.addShape(pptx.ShapeType.ellipse, {
             x: 7.05,
             y: itemY + 0.05,
             w: 0.25,
