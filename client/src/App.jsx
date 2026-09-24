@@ -22,7 +22,15 @@ export function useAuth() { return useContext(AuthCtx); }
 export default function App() {
   const [user, setUser] = useState(undefined);
   const [authModal, setAuthModal] = useState(null);
-  const [activeView, setActiveView] = useState("workspace");
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") === "simulator" || window.location.hash === "#simulator") {
+        return "simulator";
+      }
+    } catch (_) {}
+    return "workspace";
+  });
   const [activeTopic, setActiveTopic] = useState(null);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSection, setActiveSection] = useState("all");
@@ -152,6 +160,25 @@ export default function App() {
   );
 
   const currentBg = appWallpaper !== "none" ? (wallpaperMap[appWallpaper] || "var(--bg-main, #F5F1EB)") : "var(--bg-main, #F5F1EB)";
+
+  if (activeView === "simulator") {
+    return (
+      <AuthCtx.Provider value={{ user, login, logout, setAuthModal }}>
+        <KeyboardShortcuts
+          onFocusSearch={() => {}}
+          onNewSession={handleNewChat}
+          onStopStreaming={() => window.dispatchEvent(new CustomEvent('nexus-stop-streaming'))}
+          onToggleDarkMode={() => setDarkMode(d => !d)}
+          onExport={() => window.dispatchEvent(new CustomEvent('nexus-export'))}
+        />
+        <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "var(--bg-main)" }}>
+          <ErrorBoundary>
+            <Nexus2Simulator onNavigate={navigateTo} />
+          </ErrorBoundary>
+        </div>
+      </AuthCtx.Provider>
+    );
+  }
 
   return (
     <AuthCtx.Provider value={{ user, login, logout, setAuthModal }}>

@@ -132,19 +132,21 @@ export default function ClaudeSidebar({
         </div>
 
         {/* Nexus 2.0 Simulator Launcher */}
-        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))", background: activeView === "simulator" ? "rgba(110,26,45,0.08)" : "transparent" }}>
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))" }}>
           <button
             type="button"
-            onClick={() => onNavigate && onNavigate("simulator")}
+            onClick={() => {
+              window.open("/?view=simulator", "_blank");
+            }}
             style={{
               width: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               padding: "7px 10px",
-              background: activeView === "simulator" ? "var(--orange, #6E1A2D)" : "var(--bg-card, #FAF8F5)",
-              color: activeView === "simulator" ? "#FFFFFF" : "var(--text-primary)",
-              border: "1px solid " + (activeView === "simulator" ? "var(--orange)" : "var(--border-subtle)"),
+              background: "var(--bg-card, #FAF8F5)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-subtle)",
               borderRadius: 6,
               fontSize: 12,
               fontWeight: 700,
@@ -152,14 +154,26 @@ export default function ClaudeSidebar({
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               transition: "all 0.15s ease"
             }}
+            title="Open Nexus 2.0 GTS Execution Simulator in a new tab"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--orange, #6E1A2D)";
+              e.currentTarget.style.background = "rgba(110,26,45,0.04)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border-subtle)";
+              e.currentTarget.style.background = "var(--bg-card, #FAF8F5)";
+            }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span>⚡</span>
               <span>Nexus 2.0 (GTS Simulator)</span>
             </div>
-            <span style={{ fontSize: 9.5, padding: "1px 5px", borderRadius: 3, background: activeView === "simulator" ? "rgba(255,255,255,0.2)" : "rgba(110,26,45,0.12)", color: activeView === "simulator" ? "#FFFFFF" : "var(--orange, #6E1A2D)", fontFamily: "var(--font-mono)" }}>
-              FIORI
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 9.5, padding: "1px 5px", borderRadius: 3, background: "rgba(110,26,45,0.12)", color: "var(--orange, #6E1A2D)", fontFamily: "var(--font-mono)" }}>
+                FIORI
+              </span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>↗</span>
+            </div>
           </button>
         </div>
 
