@@ -12,6 +12,7 @@ import Cases from "./views/Cases.jsx";
 import Knowledge from "./views/Knowledge.jsx";
 import KnowledgeBase from "./views/KnowledgeBase.jsx";
 import InterviewPrep from "./views/InterviewPrep.jsx";
+import KeyboardShortcuts from "./components/KeyboardShortcuts.jsx";
 import "./styles/theme.css";
 
 export const AuthCtx = createContext(null);
@@ -28,6 +29,12 @@ export default function App() {
   const [appWallpaper, setAppWallpaper] = useState(() => localStorage.getItem("sanjaya_app_wallpaper") || "none");
   const [showTour, setShowTour] = useState(false);
   const [showArtifactsModal, setShowArtifactsModal] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('nexus_dark_mode') === 'true');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem('nexus_dark_mode', darkMode);
+  }, [darkMode]);
 
   const handleWallpaperChange = (wId) => {
     setAppWallpaper(wId);
@@ -146,6 +153,16 @@ export default function App() {
 
   return (
     <AuthCtx.Provider value={{ user, login, logout, setAuthModal }}>
+      <KeyboardShortcuts
+        onFocusSearch={() => {
+          const textarea = document.querySelector('textarea');
+          if (textarea) textarea.focus();
+        }}
+        onNewSession={handleNewChat}
+        onStopStreaming={() => window.dispatchEvent(new CustomEvent('nexus-stop-streaming'))}
+        onToggleDarkMode={() => setDarkMode(d => !d)}
+        onExport={() => window.dispatchEvent(new CustomEvent('nexus-export'))}
+      />
       <div style={{ display: "flex", width: "100vw", height: "100vh", overflow: "hidden", background: currentBg, transition: "background 0.3s ease" }}>
         {/* Full Claude Sidebar Grounded in Image 2 */}
         <ClaudeSidebar
@@ -165,6 +182,8 @@ export default function App() {
           currentWallpaper={appWallpaper}
           onWallpaperChange={handleWallpaperChange}
           onStartTour={() => setShowTour(true)}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
         />
 
         {/* Main Content View with minimal Claude Top Bar */}
@@ -192,6 +211,9 @@ export default function App() {
 
             {/* Top Right Actions: Share Button */}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 12, fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                <span>Ctrl</span><span>+</span><span>K</span>
+              </div>
               <button
                 type="button"
                 onClick={handleShareSession}
@@ -200,7 +222,7 @@ export default function App() {
                   alignItems: "center",
                   gap: 6,
                   padding: "5px 12px",
-                  background: "#FFFFFF",
+                  background: "var(--bg-card, #FFFFFF)",
                   border: "1px solid var(--border-subtle, rgba(0,0,0,0.14))",
                   borderRadius: 6,
                   fontSize: 12.5,

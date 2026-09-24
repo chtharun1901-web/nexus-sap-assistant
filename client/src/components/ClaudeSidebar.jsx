@@ -26,7 +26,9 @@ export default function ClaudeSidebar({
   onLogout,
   currentWallpaper,
   onWallpaperChange,
-  onStartTour
+  onStartTour,
+  darkMode,
+  onToggleDarkMode
 }) {
   const [conversations, setConversations] = useState([]);
   const [copiedSession, setCopiedSession] = useState(false);
@@ -103,7 +105,7 @@ export default function ClaudeSidebar({
                 fontFamily: "Georgia, serif",
                 fontSize: 22,
                 fontWeight: 700,
-                color: "#1C1917",
+                color: "var(--text-primary, #1C1917)",
                 letterSpacing: "-0.02em",
                 cursor: "pointer"
               }}
@@ -381,6 +383,24 @@ export default function ClaudeSidebar({
                 title="Guided Tour"
               >
                 🧭
+              </button>
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                style={{
+                  background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                  border: 'none',
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: '3px 8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {darkMode ? "☀️" : "🌙"}
               </button>
               <button
                 type="button"
