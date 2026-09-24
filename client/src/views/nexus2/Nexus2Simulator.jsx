@@ -8,6 +8,7 @@ import LearningSidePanel from "./components/LearningSidePanel.jsx";
 import LandscapeModal from "./components/LandscapeModal.jsx";
 import ScreeningSourceRegistry from "./components/ScreeningSourceRegistry.jsx";
 import InteractiveScreeningSandbox from "./components/InteractiveScreeningSandbox.jsx";
+import TrainingScenarioCockpit from "./components/TrainingScenarioCockpit.jsx";
 
 import {
   INITIAL_PARTNERS,
@@ -161,6 +162,8 @@ export default function Nexus2Simulator({ onNavigate }) {
             />
           ) : activeMenu === "source_registry" ? (
             <ScreeningSourceRegistry />
+          ) : activeMenu === "training_scenarios" ? (
+            <TrainingScenarioCockpit onOpenActionDialog={handleOpenActionDialog} />
           ) : activeMenu === "screening_sandbox" ? (
             <InteractiveScreeningSandbox onOpenActionDialog={handleOpenActionDialog} />
           ) : (

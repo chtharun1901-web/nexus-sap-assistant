@@ -262,4 +262,42 @@ export class GtsStateMachine {
     this.notify();
     return true;
   }
+
+  // 6. Escalate Document for 4-Eyes Review
+  escalateDocument(docId, { reasonCode = "RC04", comment, user = "OFFICER_CURRENT" }) {
+    const idx = this.documents.findIndex(d => d.id === docId);
+    if (idx === -1) return false;
+
+    const doc = { ...this.documents[idx] };
+    const oldStatus = doc.status;
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+    doc.status = "UNDER_REVIEW";
+    doc.owner = user;
+    doc.lastChanged = "Just now";
+
+    doc.downstreamImpact = {
+      s4Status: "COMPLIANCE REVIEW IN PROGRESS: Feeder system delivery block remains active pending four-eyes approval.",
+      ewmStatus: "ON HOLD: Warehouse execution suspended pending compliance review completion.",
+      actionToUnblock: "Awaiting senior trade compliance officer or director authorization."
+    };
+
+    doc.auditTrail = [
+      {
+        timestamp: nowStr,
+        user,
+        action: "DOC_ESCALATED",
+        oldStatus,
+        newStatus: "UNDER_REVIEW",
+        reasonCode,
+        comment: `${reasonCode}: ${comment}`,
+        sourceSystem: "SAP GTS /SAPSLL/BL_DOCS"
+      },
+      ...doc.auditTrail
+    ];
+
+    this.documents[idx] = doc;
+    this.notify();
+    return true;
+  }
 }

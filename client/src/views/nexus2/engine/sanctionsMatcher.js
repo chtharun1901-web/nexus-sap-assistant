@@ -78,7 +78,7 @@ export function screenParty(input = {}) {
   const queryCity = normalizeText(input.city || "");
   const threshold = input.threshold !== undefined ? Number(input.threshold) : 70;
 
-  if (!queryName) return { matches: [], totalEvaluated: 0 };
+  if (!queryName) return { matches: [], totalMatches: 0, totalEvaluated: 0, status: "Insufficient data — request information" };
 
   const queryTokens = queryName.split(" ").filter(t => t.length > 1);
 

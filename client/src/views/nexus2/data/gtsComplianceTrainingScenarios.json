@@ -1,0 +1,1220 @@
+[
+  {
+    "scenarioId": "SPL-001",
+    "scenarioName": "Exact Sanctioned-Party Name Match (UN Consolidated)",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Beginner",
+    "gtsProcessArea": "SPL Screening / Legal Control",
+    "sourceList": "UN_Consolidated",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10001",
+      "partnerType": "Customer (Sold-To / Ship-To)",
+      "name": "GEDO HAMDAN AHMED",
+      "street": "Industrial Port Area, Wharf 4",
+      "city": "Port Sudan",
+      "country": "SD",
+      "countryName": "Sudan",
+      "taxId": "SD-TR-904128"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800001",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "24 EA",
+      "netValue": 142500,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "GEDO HAMDAN AHMED",
+      "country": "SD",
+      "city": "Port Sudan"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "UN Consolidated Sanctions List",
+      "entityId": "SDi.007",
+      "dataId": "6909526",
+      "primaryName": "GEDO HAMDAN AHMED",
+      "unListType": "Sudan",
+      "listedDate": "2026-02-24",
+      "designation": "Individual",
+      "comments": "Gender: Male.",
+      "aliases": "QUALITY=Good; ALIAS_NAME=ABU NASHUK",
+      "officialUrl": "https://scsanctions.un.org/resources/xml/en/name/consolidated.xml"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 100,
+      "matchBasis": "Exact 100% full-name identity against UN Consolidated Sanctions List",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Confirmed exact identity match against UN Security Council Consolidated List (SDi.007 Sudan Sanctions). Permanent legal block enforced.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK/VBAP.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Understand how SAP GTS flags exact full-name identities from the UN Security Council Consolidated List, blocks downstream sales documents via CIF RFC, and requires mandatory officer confirmation before setting permanent hard rejection codes in S/4HANA.",
+    "commonMistake": "Assuming an exact name match means the software should automatically cancel the order without human review. Trade law requires human legal review and logged rationale before permanent commercial disruption.",
+    "interviewExplanation": "In SAP GTS, an exact match triggers a document hold with status 'Blocked by SPL'. Feeder system sales orders receive delivery block '01' in VBAK-LIFSK. A compliance officer opens /SAPSLL/BL_DOCS, inspects source list evidence (SDi.007), and confirms the block with reason code RC02, which pushes rejection code 98 back to S/4HANA via qRFC.",
+    "consultantNote": "An exact name match is not automatically a confirmed identity. The compliance officer must compare additional identifiers, review source evidence, and record a reasoned decision.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Sales Order NX-SO-800001 is placed on compliance hold because customer 'GEDO HAMDAN AHMED' has an exact match with UN list entry SDi.007.",
+      "whyGtsPerformsCheck": "Under UN Security Council resolutions (incorporated into national trade laws such as India UAPA Section 51A), supplying goods to designated persons carries strict liability.",
+      "dataEvaluated": "Business partner full name, country code (SD), and address tokens are compared against the UN Consolidated XML database.",
+      "officerReviewNeeds": "The officer must verify if the customer is indeed the sanctioned individual or a homonym with distinct identity documents.",
+      "decisionOptions": "1. Confirmed Match — Block (Permanent rejection), 2. False Positive — Release (Clear hold), 3. Escalate (Send for Director 4-eyes review).",
+      "afterRelease": "If released, GTS transmits a qRFC message to S/4HANA clearing VBAK-LIFSK and signals EWM to proceed with warehouse picking.",
+      "afterBlock": "If confirmed blocked, GTS instructs S/4HANA to set Rejection Reason '98' and cancels the corresponding outbound delivery request in EWM.",
+      "s4Reaction": "S/4HANA sets delivery block 01 on the sales order header, preventing outbound delivery creation (VL01N).",
+      "ewmReaction": "EWM blocks warehouse wave picking and prevents task generation until legal clearance is received.",
+      "interviewExplanation": "Explain how synchronous SPL screening during sales order creation (/SAPSLL/SPL_CHCK) communicates via RFC destination to update VBAK-LIFSK in real-time."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-002",
+    "scenarioName": "Exact OFAC SDN Match (Corporate Entity)",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Beginner",
+    "gtsProcessArea": "Vendor Screening / Procurement Legal Control",
+    "sourceList": "OFAC_SDN",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-VEND-20001",
+      "partnerType": "Vendor (Inbound Supplier)",
+      "name": "AEROCARIBBEAN AIRLINES",
+      "street": "Terminal A, Jose Marti International",
+      "city": "Havana",
+      "country": "CU",
+      "countryName": "Cuba",
+      "taxId": "CU-CORP-0036"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-PO-450001",
+      "docType": "Standard Purchase Order (NB)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100002",
+      "materialDesc": "Turbine Blade Castings & Maintenance Spares",
+      "quantity": "12 SET",
+      "netValue": 88000,
+      "currency": "EUR",
+      "purchasingOrg": "1000",
+      "purchasingGroup": "001"
+    },
+    "screeningInput": {
+      "name": "AEROCARIBBEAN AIRLINES",
+      "country": "CU",
+      "city": "Havana"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Specially Designated Nationals (SDN) List",
+      "entityId": "SDN-36",
+      "dataId": "36",
+      "primaryName": "AEROCARIBBEAN AIRLINES",
+      "program": "CUBA",
+      "officialUrl": "https://sanctionslist.ofac.treas.gov/Home/SdnList"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 100,
+      "matchBasis": "Exact 100% full-name identity against OFAC SDN List (Program: CUBA)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Confirmed direct entity match with OFAC SDN list (Ent Num 36, Program CUBA). Inbound procurement purchase order blocked under primary sanctions compliance.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Learn how SAP GTS screens vendor master data and purchase orders (ME21N/ME22N) against OFAC SDN entities, preventing illicit inbound procurement and payment releases.",
+    "commonMistake": "Failing to realize that procurement transactions (Purchase Orders) are subject to SPL screening just as rigorously as export sales orders.",
+    "interviewExplanation": "Vendor screening in GTS occurs during BP creation and Purchase Order replication. If the supplier matches an OFAC SDN entry, GTS applies an inbound legal block, preventing goods receipt (MIGO) and logistics invoice verification (MIRO).",
+    "consultantNote": "Corporate sanctions screening must verify corporate registration and primary operating jurisdiction against OFAC program parameters.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Purchase Order NX-PO-450001 is locked because vendor 'AEROCARIBBEAN AIRLINES' matches an active entity on the OFAC SDN List.",
+      "whyGtsPerformsCheck": "OFAC regulations prohibit entities subject to US jurisdiction from engaging in commercial contracts or financial transfers with designated Cuban entities.",
+      "dataEvaluated": "Vendor name, country of incorporation (CU), and address details.",
+      "officerReviewNeeds": "Verify if the procurement is permitted under any general license or if immediate hard block must be ratified.",
+      "decisionOptions": "1. Confirmed Match — Block, 2. Escalate for Legal Counsel Review, 3. False Positive — Release (rare for exact corporate matches).",
+      "afterRelease": "Allows S/4HANA to post goods receipt in MIGO.",
+      "afterBlock": "Locks PO line items with deletion/compliance hold flag.",
+      "s4Reaction": "Sets procurement block in EKKO header, disabling goods receipt and automated payment runs (F110).",
+      "ewmReaction": "Blocks creation of Inbound Delivery Notification (IDN) and Inbound Delivery (ID) in EWM.",
+      "interviewExplanation": "Highlight that GTS covers both Inbound (Procurement/Vendor) and Outbound (Sales/Customer) supply chains."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-003",
+    "scenarioName": "Alias Match with Primary Entity Resolution",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Intermediate",
+    "gtsProcessArea": "Alias Screening / Entity Resolution",
+    "sourceList": "OFAC_NonSDN_Aliases",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10002",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "ABU TAIR, Mohammed Mahmud",
+      "street": "Beit Hanina Commercial Center",
+      "city": "Jerusalem",
+      "country": "IL",
+      "countryName": "Israel / Palestinian Territories",
+      "taxId": "IL-VAT-964012"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800002",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "6 EA",
+      "netValue": 46200,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "ABU TAIR, Mohammed Mahmud",
+      "country": "IL",
+      "city": "Jerusalem"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Non-SDN List",
+      "entityId": "NSDN-9640",
+      "dataId": "9640",
+      "primaryName": "ABU TEIR, Mohammed",
+      "matchedAlias": "ABU TAIR, Mohammed Mahmud",
+      "aliasType": "aka",
+      "program": "NS-PLC",
+      "remarks": "DOB 1951; POB Umm Tuba.",
+      "officialUrl": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 98,
+      "matchBasis": "Exact match against official alias: \"ABU TAIR, Mohammed Mahmud\" (resolves to primary entity: ABU TEIR, Mohammed)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Confirmed alias match against official OFAC Non-SDN record (Ent Num 9640, primary entity ABU TEIR, Mohammed). Primary program NS-PLC enforced.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Master the multi-table relational resolution in SAP GTS where screening against alternate names (/SAPSLL/TSPLAL) automatically links back to the master entity (/SAPSLL/TSPL) and displays linked address records.",
+    "commonMistake": "Viewing the matched alias in isolation without navigating to the primary entity record to inspect the comprehensive sanctions program and DOB remarks.",
+    "interviewExplanation": "In SAP GTS, the SPL index contains search trees for both primary names and aliases. When an alias matches, the cockpit retrieves the parent /SAPSLL/TSPL header via relational key, allowing the officer to see the legal entity, program restrictions, and linked addresses.",
+    "consultantNote": "An alias match requires reviewing the primary record's official scope before taking final action.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Customer entered as 'ABU TAIR, Mohammed Mahmud' matches an official AKA alias linked to primary entity 'ABU TEIR, Mohammed' (Ent Num 9640).",
+      "whyGtsPerformsCheck": "Sanctioned individuals frequently operate under alternative transliterations or pseudonyms to bypass automated filters.",
+      "dataEvaluated": "Alias text string against OFAC Non-SDN Aliases table, linked to Primary Entity table via Ent Num 9640.",
+      "officerReviewNeeds": "Verify primary entity restrictions, DOB (1951), and POB (Umm Tuba) against customer master data.",
+      "decisionOptions": "1. Confirmed Block, 2. Escalate for enhanced due diligence, 3. False Positive (if customer DOB/national ID differs).",
+      "afterRelease": "Permits document execution if identity is conclusively disproved.",
+      "afterBlock": "Enforces legal hold and logs alias-to-primary mapping in audit trail.",
+      "s4Reaction": "Applies delivery block 01 on sales order NX-SO-800002.",
+      "ewmReaction": "Prevents warehouse wave assignment in EWM.",
+      "interviewExplanation": "Emphasize that GTS maintains separate database tables for Primary Names (/SAPSLL/TSPL) and Aliases (/SAPSLL/TSPLAL)."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-004",
+    "scenarioName": "Alias with Spelling & Transliteration Variation",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Intermediate",
+    "gtsProcessArea": "Fuzzy Screening / Transliteration Handling",
+    "sourceList": "OFAC_NonSDN_Aliases",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10003",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "Mohammad Mahmoud Abou Tayr",
+      "street": "East Jerusalem Business District",
+      "city": "Jerusalem",
+      "country": "IL",
+      "countryName": "Israel / Palestinian Territories",
+      "taxId": "IL-VAT-964013"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800003",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "4 EA",
+      "netValue": 30800,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "Mohammad Mahmoud Abou Tayr",
+      "country": "IL",
+      "city": "Jerusalem"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Non-SDN List",
+      "entityId": "NSDN-9640",
+      "dataId": "9640",
+      "primaryName": "ABU TEIR, Mohammed",
+      "matchedAlias": "ABOU TAYR, Mohammad Mahmoud",
+      "aliasType": "aka",
+      "program": "NS-PLC",
+      "remarks": "DOB 1951; POB Umm Tuba.",
+      "officialUrl": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 92,
+      "matchBasis": "High-confidence fuzzy alias match against official alias: \"ABOU TAYR, Mohammad Mahmoud\" (Alt Num: 9153)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "ESCALATE",
+    "expectedReasonCode": "RC04",
+    "expectedComment": "Fuzzy transliteration variation matches official alias Alt Num 9153. Escalated to Senior Compliance Director for secondary document verification.",
+    "expectedGtsStatus": "UNDER_REVIEW",
+    "expectedS4Status": "COMPLIANCE REVIEW IN PROGRESS: Feeder system delivery block remains active pending four-eyes approval.",
+    "expectedEwmStatus": "ON HOLD: Warehouse execution suspended pending compliance review completion.",
+    "learningObjective": "Distinguish between exact matches, alias matches, and fuzzy transliteration similarities. Learn why four-eyes escalation is best practice for high-similarity fuzzy hits.",
+    "commonMistake": "Discarding a potential hit simply because punctuation (commas) or name token order (Given Name vs Surname) differs from the master record.",
+    "interviewExplanation": "In SAP GTS SPRO configuration, fuzzy comparison parameters (Comparison Index, search trees, and transliteration tables) allow phonetic and token-permutation matching. A 92% match should trigger status 'Under Review' rather than immediate dismissal.",
+    "consultantNote": "Transliteration differences in Arabic, Cyrillic, or Asian names are common in international trade. Officers must not dismiss matches based solely on punctuation or word order.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Customer name 'Mohammad Mahmoud Abou Tayr' has inverted word order and no comma compared to 'ABOU TAYR, Mohammad Mahmoud'. GTS matcher identifies 92% similarity.",
+      "whyGtsPerformsCheck": "Names originating from non-Latin alphabets often have multiple valid English transliterations.",
+      "dataEvaluated": "Token overlap, Levenshtein distance, and phonetic search index.",
+      "officerReviewNeeds": "Determine whether the phonetic variation represents the same person.",
+      "decisionOptions": "1. Escalate for 4-eyes review (Recommended), 2. Confirm Block, 3. Release if identity documents prove otherwise.",
+      "afterRelease": "Clears delivery block if senior officer approves.",
+      "afterBlock": "Permanently halts order processing.",
+      "s4Reaction": "Maintains delivery block 01 in S/4HANA.",
+      "ewmReaction": "Warehouse order remains in status 'Waiting for Legal Clearance'.",
+      "interviewExplanation": "Explain how GTS SPRO defines 'Search Procedure for SPL Screening' with configurable fuzzy thresholds."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "UNDER_REVIEW",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-005",
+    "scenarioName": "Address Supporting Evidence Resolution",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Address Screening & Multi-Signal Adjudication",
+    "sourceList": "OFAC_NonSDN_Addresses",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10004",
+      "partnerType": "Customer (Ship-To Party)",
+      "name": "Jamileh Abdullah Al-Shanti",
+      "street": "Main Street, Jabalia District",
+      "city": "Gaza",
+      "country": "PS",
+      "countryName": "Palestinian Territories",
+      "taxId": "PS-TAX-964101"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800004",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "8 EA",
+      "netValue": 56400,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "Jamileh Abdullah Al-Shanti",
+      "country": "PS",
+      "city": "Gaza",
+      "street": "Jabalia District"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Non-SDN List",
+      "entityId": "NSDN-9641",
+      "dataId": "9641",
+      "primaryName": "AL-SHANTI, Jamileh Abdullah",
+      "program": "NS-PLC",
+      "remarks": "DOB 1955; POB Jabalia Camp.",
+      "matchedAddressNum": "12128",
+      "addressDetails": "Gaza, Palestinian",
+      "officialUrl": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 96,
+      "matchBasis": "High-confidence composite match: Name identity + corroborating geographic location (Gaza / Palestinian Territories, Address Num: 12128)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Composite match verified: Name matches Ent Num 9641 and address matches Address Num 12128 (Gaza / Palestinian Territories). POB remarks (Jabalia Camp) corroborated.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Understand how SAP GTS evaluates address components (City, Country, Postal Code) as supporting evidence alongside name screening to confirm or refute identity.",
+    "commonMistake": "Relying on name matching alone or assuming address data alone proves identity. Address serves as corroborating evidence in composite scoring.",
+    "interviewExplanation": "GTS screening evaluates both party name and address. In SPRO, consultants configure address weights (e.g. Street, City, Country). When a high name match is corroborated by matching city and country data, confidence increases significantly.",
+    "consultantNote": "Address data alone does not create a sanctions block, but matching city/country data strongly corroborates a potential name match.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Customer name matches Ent Num 9641 and delivery address matches Address Num 12128 ('Gaza', 'Palestinian').",
+      "whyGtsPerformsCheck": "Sanctions lists include known physical locations to help officers verify common names.",
+      "dataEvaluated": "Customer name, city ('Gaza'), country ('PS'), and POB remarks ('Jabalia Camp').",
+      "officerReviewNeeds": "Compare the synthetic delivery address with the official listed address records in /SAPSLL/TSPLAD.",
+      "decisionOptions": "1. Confirmed Match — Block (Address corroborates identity), 2. False Positive (if address is completely unrelated).",
+      "afterRelease": "Would clear hold if address contradicted the listing.",
+      "afterBlock": "Applies hard block in S/4HANA.",
+      "s4Reaction": "Maintains delivery block in S/4HANA.",
+      "ewmReaction": "Warehouse execution remains stopped.",
+      "interviewExplanation": "Explain how GTS supports address screening through the /SAPSLL/TSPLAD database table."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-006",
+    "scenarioName": "False Positive Due to Distinct Identifiers",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Beginner",
+    "gtsProcessArea": "False-Positive Resolution / Audit Justification",
+    "sourceList": "OFAC_SDN",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10005",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "BANCO NACIONAL DE CREDITO SA",
+      "street": "Paseo de la Castellana 88",
+      "city": "Madrid",
+      "country": "ES",
+      "countryName": "Spain",
+      "taxId": "ES-A28001928"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800005",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "2 EA",
+      "netValue": 15400,
+      "currency": "EUR",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "BANCO NACIONAL DE CREDITO SA",
+      "country": "ES",
+      "city": "Madrid"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Specially Designated Nationals (SDN) List",
+      "entityId": "SDN-306",
+      "dataId": "306",
+      "primaryName": "BANCO NACIONAL DE CUBA",
+      "program": "CUBA",
+      "remarks": "a.k.a. 'BNC'.",
+      "officialUrl": "https://sanctionslist.ofac.treas.gov/Home/SdnList"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 82,
+      "matchBasis": "Partial fuzzy name similarity (82%) with Cuban state entity 'BANCO NACIONAL DE CUBA' (Ent Num: 306)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "RELEASE",
+    "expectedReasonCode": "RC01",
+    "expectedComment": "False positive identity disproved. Customer is a regulated Spanish commercial financial institution in Madrid (Tax ID: ES-A28001928), completely distinct from the Cuban government bank (Ent Num 306).",
+    "expectedGtsStatus": "RELEASED",
+    "expectedS4Status": "CLEARED: Delivery Block 01 removed in VBAK/VBEP. Feeder status synced via RFC.",
+    "expectedEwmStatus": "RELEASED: Warehouse Outbound Delivery created. Picking waves activated in EWM.",
+    "learningObjective": "Learn how to investigate and safely release a false positive match by comparing jurisdiction, corporate registry data, and tax identification, while ensuring mandatory reason codes and comments are recorded.",
+    "commonMistake": "Releasing a hit without recording evidence and justification in the audit trail, which exposes the company to regulatory fines during trade compliance audits.",
+    "interviewExplanation": "A false positive occurs when legitimate partners share generic name tokens with sanctioned entities. The compliance officer must document why the partner is not the sanctioned entity using reason code RC01, which releases VBAK-LIFSK in S/4HANA via CIF.",
+    "consultantNote": "Documenting why an entity is NOT a match is just as critical as documenting why an entity IS a match. Auditors review release rationale during trade inspections.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Order NX-SO-800005 is held due to 82% token similarity between 'BANCO NACIONAL DE CREDITO SA' and 'BANCO NACIONAL DE CUBA'.",
+      "whyGtsPerformsCheck": "Automated screening casts a wide net based on search index thresholds to avoid false negatives.",
+      "dataEvaluated": "Name tokens, jurisdiction (Spain vs Cuba), tax identification, and corporate ownership.",
+      "officerReviewNeeds": "Verify customer credentials and prove independence from the sanctioned Cuban state entity.",
+      "decisionOptions": "1. False Positive — Release (Recommended), 2. Escalate if cross-border ownership is unclear.",
+      "afterRelease": "GTS immediately dispatches an RFC queue to S/4HANA clearing delivery block '01', allowing warehouse wave creation in EWM.",
+      "afterBlock": "Would erroneously halt legitimate EU commercial operations.",
+      "s4Reaction": "Removes delivery block 01 in VBAK.",
+      "ewmReaction": "Unlocks warehouse delivery request and allows picking wave generation.",
+      "interviewExplanation": "Highlight the use of /SAPSLL/CHG_LOG to audit every release decision."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "RELEASED",
+      "s4StatusAfterDecision": "CLEARED",
+      "ewmStatusAfterDecision": "ELIGIBLE_FOR_EXECUTION"
+    }
+  },
+  {
+    "scenarioId": "SPL-007",
+    "scenarioName": "No Match (Clean Fictional Partner)",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Beginner",
+    "gtsProcessArea": "Automated Clearance / Clean Transaction Flow",
+    "sourceList": "ALL_ACTIVE_LISTS",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10006",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "NEXUS TRAINING PARTNER 999",
+      "street": "Plot 42, Electronic City Phase 1",
+      "city": "Bengaluru",
+      "country": "IN",
+      "countryName": "India",
+      "taxId": "29AABCN9999Z1Z5"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800006",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "10 EA",
+      "netValue": 72000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "NEXUS TRAINING PARTNER 999",
+      "country": "IN",
+      "city": "Bengaluru"
+    },
+    "matchedSourceRecord": null,
+    "expectedMatch": {
+      "matchFound": false,
+      "matchScore": 0,
+      "matchBasis": "No matching entities or aliases detected across active sanctions databases",
+      "initialScreeningStatus": "Screened — no potential match"
+    },
+    "expectedOfficerAction": "NO_ACTION_REQUIRED",
+    "expectedReasonCode": "N/A",
+    "expectedComment": "Automated screening successful: 0 hits returned. Document cleared for immediate fulfillment.",
+    "expectedGtsStatus": "RELEASED",
+    "expectedS4Status": "CLEARED: Feeder system document unblocked. No compliance hold applied.",
+    "expectedEwmStatus": "ELIGIBLE_FOR_EXECUTION: Outbound delivery ready for immediate wave picking.",
+    "learningObjective": "Observe how clean business partners pass through synchronous GTS screening without manual intervention, enabling frictionless logistics execution.",
+    "commonMistake": "Assuming all transactions require human officer review. GTS is designed to automate 95%+ of clean transactions straight-through.",
+    "interviewExplanation": "When a sales order creates no SPL hits, GTS returns status 'Screened / Released'. S/4HANA receives a confirmation flag, leaving delivery block empty. EWM immediately ingests the delivery and schedules warehouse tasks without human delay.",
+    "consultantNote": "Straight-through processing (STP) is the primary ROI driver of SAP GTS. The screening index and exclusion words ensure clean orders flow instantly.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Order NX-SO-800006 is evaluated against 22,639 sanctions records. Zero potential matches are found.",
+      "whyGtsPerformsCheck": "Every transactional document must be logged with a positive verification record for regulatory auditability.",
+      "dataEvaluated": "Partner name and address against UN and OFAC master tables.",
+      "officerReviewNeeds": "No officer review needed; status is automated clean pass.",
+      "decisionOptions": "System handles automatically.",
+      "afterRelease": "Outbound delivery is generated automatically in S/4HANA.",
+      "afterBlock": "N/A.",
+      "s4Reaction": "Sales order is saved with LIFSK = '' (Blank / Unblocked).",
+      "ewmReaction": "Warehouse tasks are immediately eligible for wave release.",
+      "interviewExplanation": "Discuss synchronous CIF RFC execution time (typically < 300ms) for clean sales orders."
+    },
+    "expectedValidation": {
+      "screeningStatus": "CLEAN",
+      "officerDecisionRequired": false,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "RELEASED",
+      "s4StatusAfterDecision": "CLEARED",
+      "ewmStatusAfterDecision": "ELIGIBLE_FOR_EXECUTION"
+    }
+  },
+  {
+    "scenarioId": "SPL-008",
+    "scenarioName": "Incomplete Master Data (Missing Mandatory Attributes)",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Beginner",
+    "gtsProcessArea": "Data Quality / Incomplete Information Management",
+    "sourceList": "N/A (Data Quality Guard)",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10007",
+      "partnerType": "Customer (Incomplete Record)",
+      "name": "GLOBAL TRADE LOGISTICS CO",
+      "street": null,
+      "city": null,
+      "country": null,
+      "countryName": "Unspecified",
+      "taxId": null
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800007",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "5 EA",
+      "netValue": 35000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "GLOBAL TRADE LOGISTICS CO"
+    },
+    "matchedSourceRecord": null,
+    "expectedMatch": {
+      "matchFound": false,
+      "matchScore": 0,
+      "matchBasis": "Payload missing mandatory screening parameters (Country, Street, Tax Registration)",
+      "initialScreeningStatus": "Insufficient data — request information"
+    },
+    "expectedOfficerAction": "INSUFFICIENT_DATA",
+    "expectedReasonCode": "RC05",
+    "expectedComment": "Screening cannot be certified complete due to missing country and address data. Document remains on technical hold pending master data enrichment in S/4HANA.",
+    "expectedGtsStatus": "UNDER_REVIEW",
+    "expectedS4Status": "DATA INCOMPLETE HOLD: Feeder sales order blocked pending master data maintenance in BP transaction.",
+    "expectedEwmStatus": "ON HOLD: Warehouse execution suspended pending compliance review completion.",
+    "learningObjective": "Understand why GTS prevents the release or screening clearance of partners with missing mandatory master data attributes (country, address, legal entity).",
+    "commonMistake": "Releasing a document with missing data under the assumption that 'no hits were found'. Screening with missing data provides zero legal protection.",
+    "interviewExplanation": "In SAP GTS, incomplete partner data triggers an 'Incomplete Screening' status. S/4HANA maintains delivery block '01' until the master data team updates transaction BP with a valid country and address, triggering automated re-screening.",
+    "consultantNote": "A screening engine is only as good as the input data. Missing country codes prevent jurisdiction-based sanctions filtering.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Order NX-SO-800007 contains a partner without country or address data.",
+      "whyGtsPerformsCheck": "Trade laws require screening against country-specific sanctions lists; screening without country is incomplete.",
+      "dataEvaluated": "Validation of mandatory fields: Name, Country, Address.",
+      "officerReviewNeeds": "Instruct the commercial sales operations team to update master data in S/4HANA BP.",
+      "decisionOptions": "1. Request Information / Maintain Incomplete Hold, 2. Do not release.",
+      "afterRelease": "Releasing without address violates standard compliance operating procedures.",
+      "afterBlock": "Order remains on hold until enriched.",
+      "s4Reaction": "Feeder document remains in delivery block.",
+      "ewmReaction": "Warehouse execution remains blocked.",
+      "interviewExplanation": "Explain how GTS error logs in SLG1 flag incomplete business partner replication."
+    },
+    "expectedValidation": {
+      "screeningStatus": "INSUFFICIENT_DATA",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "UNDER_REVIEW",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-009",
+    "scenarioName": "Multiple Ranked Candidate Review",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Multi-Candidate Adjudication / Hit Ranking",
+    "sourceList": "UN_Consolidated & OFAC_SDN",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10008",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "AHMED MOHAMMED TRADING",
+      "street": "Al-Rigga Road, Deira",
+      "city": "Dubai",
+      "country": "AE",
+      "countryName": "United Arab Emirates",
+      "taxId": "AE-TRN-1002948"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800008",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "15 EA",
+      "netValue": 112000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "AHMED MOHAMMED TRADING",
+      "country": "AE",
+      "city": "Dubai"
+    },
+    "matchedSourceRecord": {
+      "candidateCount": 4,
+      "sampleCandidate": {
+        "entityId": "QDi.019",
+        "name": "ABDULLAH AHMED ABDULLAH",
+        "sourceList": "UN Consolidated Sanctions List"
+      }
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 84,
+      "matchBasis": "Multiple candidate matches returned for common tokens 'AHMED' and 'MOHAMMED' across UN and OFAC databases",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "ESCALATE",
+    "expectedReasonCode": "RC04",
+    "expectedComment": "Multiple candidate hits identified across UN and OFAC lists. Escalated for candidate-by-candidate entity disambiguation.",
+    "expectedGtsStatus": "UNDER_REVIEW",
+    "expectedS4Status": "COMPLIANCE REVIEW IN PROGRESS: Feeder system delivery block remains active pending four-eyes approval.",
+    "expectedEwmStatus": "ON HOLD: Warehouse execution suspended pending compliance review completion.",
+    "learningObjective": "Learn how SAP GTS ranks multiple potential candidates and why compliance officers must evaluate each candidate individually rather than relying on automated selection.",
+    "commonMistake": "Reviewing only the top ranked result and ignoring other candidates that might represent the actual sanctioned entity.",
+    "interviewExplanation": "In the GTS screening cockpit /SAPSLL/SPL_CHCK, multiple candidates are presented with comparison scores. The officer must inspect each candidate's details (DOB, nationality, passport, alias) and record individual findings before taking action.",
+    "consultantNote": "High token frequency names require strict disambiguation using secondary identifiers such as passport numbers or national tax IDs.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Screening produces 4 distinct candidate matches due to common name tokens.",
+      "whyGtsPerformsCheck": "Prevents false negatives by surfacing all candidates above the configured percentage threshold.",
+      "dataEvaluated": "Token similarity ranking across multiple entities.",
+      "officerReviewNeeds": "Examine each candidate's full profile to rule them in or out.",
+      "decisionOptions": "1. Escalate (Recommended for disambiguation), 2. Confirm block if one candidate is proven, 3. Release if all candidates are disproved.",
+      "afterRelease": "Only permissible if all returned candidates are proven non-identical.",
+      "afterBlock": "Applies if any one candidate is verified as the customer.",
+      "s4Reaction": "Maintains delivery hold in S/4HANA.",
+      "ewmReaction": "Warehouse execution paused.",
+      "interviewExplanation": "Explain how GTS displays the comparison hit list with individual match percentage bars."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "UNDER_REVIEW",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-010",
+    "scenarioName": "Multi-Source Sanctions Match (UN & OFAC Cross-Listing)",
+    "category": "Sanctioned Party List Screening",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Cross-Jurisdictional Screening / Multi-Feed Reconciliation",
+    "sourceList": "UN_Consolidated & OFAC_SDN",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10009",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "ABU SAYYAF GROUP",
+      "street": "Jolo Island Commercial Complex",
+      "city": "Jolo, Sulu",
+      "country": "PH",
+      "countryName": "Philippines",
+      "taxId": "PH-SEC-468800"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800009",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "50 EA",
+      "netValue": 385000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "ABU SAYYAF GROUP",
+      "country": "PH",
+      "city": "Jolo"
+    },
+    "matchedSourceRecord": {
+      "unRecord": {
+        "entityId": "QDe.001",
+        "dataId": "113445",
+        "name": "ABU SAYYAF GROUP",
+        "listType": "Al-Qaida",
+        "listedDate": "2001-10-06",
+        "aliases": "QUALITY=a.k.a.; ALIAS_NAME=Al Harakat Al Islamiyya"
+      },
+      "ofacRecord": {
+        "entityId": "SDN-4688",
+        "name": "ABU SAYYAF GROUP",
+        "program": "FTO] [SDGT"
+      },
+      "officialUrl": "https://scsanctions.un.org & https://sanctionslist.ofac.treas.gov"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 100,
+      "matchBasis": "Simultaneous 100% exact match across UN Consolidated (QDe.001) and OFAC SDN List (Ent Num: 4688, [FTO] [SDGT])",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "CRITICAL COMPLIANCE BLOCK: Cross-jurisdictional match confirmed across UN Security Council (QDe.001) and US OFAC (Ent Num 4688 FTO/SDGT). Permanent hard block enforced.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Understand the regulatory gravity of multi-source sanctions listings and how SAP GTS presents cross-jurisdictional evidence side-by-side to ensure compliance across all governing authorities.",
+    "commonMistake": "Closing an investigation after satisfying one national list while failing to address obligations under other applicable international frameworks.",
+    "interviewExplanation": "When an entity is sanctioned by both the UN and OFAC, both legal frameworks apply. GTS consolidates screening results in /SAPSLL/SPL_LOG, showing each legal regulation and list type that triggered the block.",
+    "consultantNote": "Cross-listed entities represent maximum compliance risk. Rejection Reason 98 must be immediately written to the feeder system.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Customer 'ABU SAYYAF GROUP' is detected simultaneously on both the UN Consolidated List (QDe.001) and the OFAC SDN List (4688).",
+      "whyGtsPerformsCheck": "Global enterprises must comply with both local jurisdiction laws and US extraterritorial sanctions.",
+      "dataEvaluated": "Name match against UN XML and OFAC CSV feeds.",
+      "officerReviewNeeds": "Confirm identity and trigger mandatory enterprise legal escalations.",
+      "decisionOptions": "1. Confirmed Hard Block (Immediate), 2. Under no circumstances may this be released.",
+      "afterRelease": "Release is strictly prohibited under international sanctions treaties.",
+      "afterBlock": "Permanently cancels the order in S/4HANA and files internal suspicious activity reports.",
+      "s4Reaction": "Sets rejection code 98 in VBAK and locks the business partner globally in BP transaction.",
+      "ewmReaction": "All logistics activity halted.",
+      "interviewExplanation": "Discuss how multiple Legal Regulations (LEGLG) in GTS can be configured concurrently."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-011",
+    "scenarioName": "Sales Order Compliance Hold & RFC Propagation",
+    "category": "Document Compliance / Feeder Integration",
+    "difficulty": "Intermediate",
+    "gtsProcessArea": "Sales Order Integration / CIF RFC Sync",
+    "sourceList": "UN_Consolidated",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10001",
+      "partnerType": "Customer (Sold-To Party)",
+      "name": "GEDO HAMDAN AHMED",
+      "street": "Industrial Port Area, Wharf 4",
+      "city": "Port Sudan",
+      "country": "SD",
+      "countryName": "Sudan",
+      "taxId": "SD-TR-904128"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800001",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "24 EA",
+      "netValue": 142500,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10",
+      "deliveryBlock": "01 (Legal Control Block)"
+    },
+    "screeningInput": {
+      "name": "GEDO HAMDAN AHMED",
+      "country": "SD",
+      "city": "Port Sudan"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "UN Consolidated Sanctions List",
+      "entityId": "SDi.007",
+      "primaryName": "GEDO HAMDAN AHMED",
+      "unListType": "Sudan"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 100,
+      "matchBasis": "Exact match against UN Consolidated list entry SDi.007",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Sales order blocked by SPL screening. Feeder system delivery block confirmed via /SAPSLL/BL_DOCS.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Trace the exact technical flow from sales order creation in S/4HANA (VA01), CIF replication to GTS, delivery block assignment (VBAK-LIFSK), and officer adjudication in /SAPSLL/BL_DOCS.",
+    "commonMistake": "Confusing Business Partner screening (/SAPSLL/SPL_CHCK) with Document screening (/SAPSLL/BL_DOCS). Document screening evaluates the whole transaction including ship-to, carrier, and bill-to parties.",
+    "interviewExplanation": "When VA01 is saved in S/4HANA, the CIF plug-in calls GTS RFC function /SAPSLL/API_6800_SYNCHRONOUS. If any partner in the document is blocked, GTS returns a block status, causing S/4HANA to write '01' to VBAK-LIFSK.",
+    "consultantNote": "Document screening evaluates all partner functions on the order (Sold-to, Ship-to, Forwarder, Bill-to). A block on any partner blocks the whole document.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Sales Order NX-SO-800001 is placed in blocked documents worklist (/SAPSLL/BL_DOCS).",
+      "whyGtsPerformsCheck": "Ensures no sales order can generate an outbound delivery while subject to a compliance query.",
+      "dataEvaluated": "All document partner roles replicated from S/4HANA table VBPA.",
+      "officerReviewNeeds": "Adjudicate the document block in /SAPSLL/BL_DOCS.",
+      "decisionOptions": "1. Confirm Block, 2. Release Document, 3. Escalate.",
+      "afterRelease": "Clears VBAK-LIFSK via qRFC.",
+      "afterBlock": "Writes rejection reason 98 to VBAK-ABGRU.",
+      "s4Reaction": "Maintains delivery block 01.",
+      "ewmReaction": "Warehouse delivery creation blocked.",
+      "interviewExplanation": "Explain the role of CIF user exits in S/4HANA (e.g. SLL_PI_S4HANA_CIF)."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-012",
+    "scenarioName": "Purchase Order Block (Inbound Supply Chain)",
+    "category": "Document Compliance / Feeder Integration",
+    "difficulty": "Intermediate",
+    "gtsProcessArea": "Procurement Compliance / Inbound Legal Control",
+    "sourceList": "OFAC_SDN",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-VEND-20001",
+      "partnerType": "Vendor (Inbound Supplier)",
+      "name": "AEROCARIBBEAN AIRLINES",
+      "street": "Terminal A, Jose Marti International",
+      "city": "Havana",
+      "country": "CU",
+      "countryName": "Cuba",
+      "taxId": "CU-CORP-0036"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-PO-450001",
+      "docType": "Standard Purchase Order (NB)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100002",
+      "materialDesc": "Turbine Blade Castings & Maintenance Spares",
+      "quantity": "12 SET",
+      "netValue": 88000,
+      "currency": "EUR",
+      "purchasingOrg": "1000",
+      "purchasingGroup": "001"
+    },
+    "screeningInput": {
+      "name": "AEROCARIBBEAN AIRLINES",
+      "country": "CU",
+      "city": "Havana"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Specially Designated Nationals (SDN) List",
+      "entityId": "SDN-36",
+      "primaryName": "AEROCARIBBEAN AIRLINES",
+      "program": "CUBA"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 100,
+      "matchBasis": "Exact match against OFAC SDN List (Ent Num: 36)",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Purchase order blocked due to vendor sanctions listing. Procurement block ratified under OFAC sanctions compliance.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Understand inbound procurement screening where purchase orders replicated from S/4HANA (ME21N) are evaluated before goods receipt and invoice processing can occur.",
+    "commonMistake": "Focusing solely on export compliance and neglecting inbound trade compliance. Purchasing from sanctioned suppliers violates OFAC and global regulations.",
+    "interviewExplanation": "Purchase order replication to GTS uses MM document types. When blocked, GTS prevents goods receipt posting in MIGO and logs the procurement violation in /SAPSLL/BL_DOCS.",
+    "consultantNote": "Inbound supply chain screening is critical for preventing indirect financing of prohibited regimes.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Purchase Order NX-PO-450001 is placed on inbound compliance hold.",
+      "whyGtsPerformsCheck": "Regulatory prohibition against remitting funds or receiving property from designated entities.",
+      "dataEvaluated": "Vendor details, supplying plant, country of origin.",
+      "officerReviewNeeds": "Investigate whether the vendor is an authorized supplier or subject to strict sanctions.",
+      "decisionOptions": "1. Confirm Block, 2. Escalate, 3. False Positive.",
+      "afterRelease": "Allows MIGO goods receipt.",
+      "afterBlock": "Sets deletion flag on PO line items in S/4HANA.",
+      "s4Reaction": "Sets block indicator on EKKO header.",
+      "ewmReaction": "Inbound delivery processing disabled in EWM.",
+      "interviewExplanation": "Explain how GTS supports both MM (Purchasing) and SD (Sales) integration."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-013",
+    "scenarioName": "Outbound Delivery Block & EWM Wave Picking Halt",
+    "category": "Warehouse Logistics / EWM Integration",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Outbound Logistics / EWM Wave Management",
+    "sourceList": "OFAC_NonSDN_Primary",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10004",
+      "partnerType": "Customer (Ship-To Party)",
+      "name": "Jamileh Abdullah Al-Shanti",
+      "street": "Main Street, Jabalia District",
+      "city": "Gaza",
+      "country": "PS",
+      "countryName": "Palestinian Territories",
+      "taxId": "PS-TAX-964101"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-DEL-900001",
+      "docType": "Outbound Delivery (LF)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "8 EA",
+      "netValue": 56400,
+      "currency": "USD",
+      "shippingPoint": "1000",
+      "precedingSalesOrder": "NX-SO-800004"
+    },
+    "screeningInput": {
+      "name": "Jamileh Abdullah Al-Shanti",
+      "country": "PS",
+      "city": "Gaza"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "OFAC Non-SDN List",
+      "entityId": "NSDN-9641",
+      "primaryName": "AL-SHANTI, Jamileh Abdullah",
+      "program": "NS-PLC"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 96,
+      "matchBasis": "High-confidence composite match against OFAC Non-SDN record NSDN-9641",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "RELEASE",
+    "expectedReasonCode": "RC01",
+    "expectedComment": "Verified during pre-shipment audit: End-user customer is a registered municipal infrastructure department with distinct registration documents. False positive cleared for delivery.",
+    "expectedGtsStatus": "RELEASED",
+    "expectedS4Status": "CLEARED: Delivery Block 01 removed in VBAK/VBEP. Feeder status synced via RFC.",
+    "expectedEwmStatus": "RELEASED: Warehouse Outbound Delivery created. Picking waves activated in EWM.",
+    "learningObjective": "Understand the downstream interaction between SAP GTS, S/4HANA Delivery processing (VL01N/VL02N), and SAP Extended Warehouse Management (EWM) wave picking and warehouse task creation.",
+    "commonMistake": "Believing that EWM can begin physical warehouse picking while an outbound delivery has an active GTS compliance block.",
+    "interviewExplanation": "In SAP EWM, Outbound Delivery Orders (ODO) check the GTS status via status type 'DCO' (Compliance). If blocked, EWM sets status 'Blocked' and prevents wave assignment. When GTS releases the document, qRFC updates S/4HANA (LIKP-SPE_LOEKZ) and sends an update to EWM, unlocking wave picking.",
+    "consultantNote": "EWM integration is fail-safe. If GTS is unavailable or documents are blocked, EWM automatically withholds physical warehouse inventory movement.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Outbound Delivery NX-DEL-900001 is replicated to EWM with status 'Blocked by GTS'. Warehouse picking waves are halted.",
+      "whyGtsPerformsCheck": "Pre-shipment verification prevents goods from physically leaving the warehouse dock.",
+      "dataEvaluated": "Delivery document header, ship-to party, and logistics forwarder.",
+      "officerReviewNeeds": "Adjudicate the delivery before physical loading begins.",
+      "decisionOptions": "1. Release (Unlocks picking), 2. Confirm Block (Cancels delivery).",
+      "afterRelease": "EWM generates picking warehouse tasks and assigns items to the next picking wave.",
+      "afterBlock": "EWM cancels the warehouse delivery order and returns stock to bin storage.",
+      "s4Reaction": "Clears delivery block flag in LIKP.",
+      "ewmReaction": "Unlocks warehouse delivery order for picking wave execution.",
+      "interviewExplanation": "Explain status profile 'DCO' in SAP EWM and how it ties to GTS /SAPSLL/BL_DOCS."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "RELEASED",
+      "s4StatusAfterDecision": "CLEARED",
+      "ewmStatusAfterDecision": "ELIGIBLE_FOR_EXECUTION"
+    }
+  },
+  {
+    "scenarioId": "SPL-014",
+    "scenarioName": "Source Update Delta & Periodic Re-Screening",
+    "category": "Sanctions Master Data / Source Updates",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Periodic Batch Re-Screening / Delta Ingestion",
+    "sourceList": "FIU_Recent_Updates",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10010",
+      "partnerType": "Customer (Existing Master Partner)",
+      "name": "KHALAF ENTERPRISES",
+      "street": "Damascus Highway Sector 4",
+      "city": "Damascus",
+      "country": "SY",
+      "countryName": "Syria",
+      "taxId": "SY-REG-202503"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800010",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100001",
+      "materialDesc": "High-Pressure Hydraulic Servo Valves",
+      "quantity": "10 EA",
+      "netValue": 75000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "KHALAF ENTERPRISES",
+      "country": "SY",
+      "city": "Damascus"
+    },
+    "matchedSourceRecord": {
+      "sourceList": "FIU-India Sanctions Updates / UNSC Delta Feed",
+      "noticeDate": "2025-03-12",
+      "action": "Amended 12 entries",
+      "sanctionsCommittee": "ISIL (Da’esh) and Al-Qaida",
+      "officialUrl": "https://fiuindia.gov.in/pdfs/downloads/Update12032025.pdf"
+    },
+    "expectedMatch": {
+      "matchFound": true,
+      "matchScore": 88,
+      "matchBasis": "Delta re-screening triggered by FIU Notice Date 2025-03-12 (Amended 12 entries). Existing clean partner matched amended entry.",
+      "initialScreeningStatus": "Potential match — manual review required"
+    },
+    "expectedOfficerAction": "CONFIRM_BLOCK",
+    "expectedReasonCode": "RC02",
+    "expectedComment": "Re-screening triggered by FIU/UNSC master data update. Confirmed match against newly amended sanctions list.",
+    "expectedGtsStatus": "CONFIRMED_BLOCK",
+    "expectedS4Status": "PERMANENT HARD BLOCK: Rejection Reason '98' (Compliance Block) set in VBAK.",
+    "expectedEwmStatus": "CANCELLED: Inbound/Outbound delivery rejected. Stock released back to available inventory.",
+    "learningObjective": "Learn how periodic re-screening jobs (/SAPSLL/SPL_RESCR) re-evaluate previously approved business partners and open documents whenever new sanctions lists or FIU updates are uploaded.",
+    "commonMistake": "Assuming that once a business partner is approved, it remains approved forever. Sanctions lists change daily, requiring automated re-screening.",
+    "interviewExplanation": "In SAP GTS, when a new XML/delta list is uploaded via /SAPSLL/SPL_ML01, the system triggers periodic background job /SAPSLL/SPL_RESCR_BUPA. Any previously approved partners matching new or amended entries are immediately moved back to status 'Blocked'.",
+    "consultantNote": "Batch re-screening in background job mode is essential for regulatory compliance. It ensures newly designated parties are caught even if no new sales order was created today.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "FIU-India / UNSC update introduces amended sanctions entries. Background job /SAPSLL/SPL_RESCR re-screens master partners and flags customer 'KHALAF ENTERPRISES'.",
+      "whyGtsPerformsCheck": "Sanctions designations apply immediately upon governmental publication; companies must re-screen active master data.",
+      "dataEvaluated": "Delta differences between previous and updated XML master versions.",
+      "officerReviewNeeds": "Review partners newly blocked by the periodic re-screening batch run.",
+      "decisionOptions": "1. Confirm Block, 2. Release if distinct, 3. Escalate.",
+      "afterRelease": "Restores partner to approved status.",
+      "afterBlock": "Blocks all open sales orders for this partner across S/4HANA.",
+      "s4Reaction": "Retroactively places delivery blocks on all open sales orders.",
+      "ewmReaction": "Stops pending warehouse picking for open deliveries.",
+      "interviewExplanation": "Discuss transaction /SAPSLL/SPL_RESCR and how SM37 background jobs are scheduled."
+    },
+    "expectedValidation": {
+      "screeningStatus": "POTENTIAL_MATCH",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "CONFIRMED_BLOCK",
+      "s4StatusAfterDecision": "COMPLIANCE_BLOCK",
+      "ewmStatusAfterDecision": "WAREHOUSE_HOLD"
+    }
+  },
+  {
+    "scenarioId": "SPL-015",
+    "scenarioName": "DGFT SCOMET Separation (Export Control vs Party Sanctions)",
+    "category": "Export Control / Product Classification",
+    "difficulty": "Advanced",
+    "gtsProcessArea": "Product Export Control / Dual-Use Licensing",
+    "sourceList": "Source_Register (DGFT SCOMET List 2025)",
+    "legalNotice": "Training simulation — verify against current official sources.",
+    "syntheticPartner": {
+      "partnerId": "NX-CUST-10006",
+      "partnerType": "Customer (Clean Japanese Importer)",
+      "name": "NEXUS TRAINING PARTNER 999",
+      "street": "Chiyoda-ku, Marunouchi 1-1",
+      "city": "Tokyo",
+      "country": "JP",
+      "countryName": "Japan",
+      "taxId": "JP-CORP-999001"
+    },
+    "syntheticDocument": {
+      "docNumber": "NX-SO-800011",
+      "docType": "Standard Sales Order (TA)",
+      "feederSystem": "S4H_100",
+      "material": "NX-MAT-100003",
+      "materialDesc": "Dual-Use Carbon Fiber Prepreg Composite (SCOMET 8A102)",
+      "quantity": "500 KG",
+      "netValue": 245000,
+      "currency": "USD",
+      "salesOrg": "1010",
+      "distChannel": "10"
+    },
+    "screeningInput": {
+      "name": "NEXUS TRAINING PARTNER 999",
+      "country": "JP",
+      "city": "Tokyo",
+      "materialNumber": "NX-MAT-100003",
+      "scometCategory": "Category 8A102 (Special Materials)"
+    },
+    "matchedSourceRecord": {
+      "sourceId": "IN-02",
+      "authority": "India / DGFT, Ministry of Commerce and Industry",
+      "listFeed": "SCOMET List 2025 (Appendix 3, Schedule 2, ITC (HS))",
+      "useInGts": "Product / technology export-control screening; not a denied-party list",
+      "statusCaveat": "Include as a separate product-control module; do not combine with party sanctions screening.",
+      "officialUrl": "https://content.dgft.gov.in/Website/dgftprod/82cccea3-646e-435c-876f-88476c4ed5ca/Updated%20SCOMET%20List%202025%20%28as%20on%2023.09.2025%29.docx.pdf"
+    },
+    "expectedMatch": {
+      "matchFound": false,
+      "matchScore": 0,
+      "matchBasis": "SPL Party Screening: Clean pass (0 hits). Product Export Control: Flagged under DGFT SCOMET 2025 (Category 8A102) requiring government export license.",
+      "initialScreeningStatus": "Screened — no potential match (Party Clean / License Required)"
+    },
+    "expectedOfficerAction": "ASSIGN_LICENSE",
+    "expectedReasonCode": "LIC_SCOMET_01",
+    "expectedComment": "Party screening clean. Product classification verified against DGFT SCOMET List 2025 Category 8A102. Assigned Directorate General of Foreign Trade dual-use export license authorization.",
+    "expectedGtsStatus": "RELEASED",
+    "expectedS4Status": "CLEARED: Feeder system document unblocked. No compliance hold applied.",
+    "expectedEwmStatus": "ELIGIBLE_FOR_EXECUTION: Outbound delivery ready for immediate wave picking.",
+    "learningObjective": "Master the crucial architectural distinction in SAP GTS between Sanctioned Party List (SPL) screening (WHO is involved) and Product Export Control / SCOMET classification (WHAT is being exported).",
+    "commonMistake": "Searching DGFT SCOMET lists in SPL screening engines. SCOMET is a dual-use technical goods classification, not a denied persons list.",
+    "interviewExplanation": "In SAP GTS, Trade Compliance is divided into SPL Screening (/SAPSLL/SPL_CHCK) and Legal Control / Export Licenses (/SAPSLL/LIC_MGMT). SCOMET, EAR99, and ITAR classify products via Export Control Classification Numbers (ECCNs). A clean partner can still be blocked if the material requires a government export license.",
+    "consultantNote": "Never combine SCOMET product control data with sanctioned party screening. SCOMET determines whether an export license is legally mandated based on item capability and destination country.",
+    "evidenceStatus": "Verified against uploaded source snapshot",
+    "explanationPanel": {
+      "whatIsHappening": "Customer 'NEXUS TRAINING PARTNER 999' is completely clean on sanctions lists. However, document NX-SO-800011 is held under Export Control because material NX-MAT-100003 is classified under DGFT SCOMET Category 8A102.",
+      "whyGtsPerformsCheck": "DGFT regulations mandate government export authorizations for dual-use strategic goods to prevent illicit technology proliferation.",
+      "dataEvaluated": "Material Master Export Control Classification (ECCN/SCOMET) and Destination Country (JP).",
+      "officerReviewNeeds": "Assign an active DGFT export license in /SAPSLL/LIC_MGMT.",
+      "decisionOptions": "1. Assign Valid SCOMET Export License, 2. Block if no valid government license exists.",
+      "afterRelease": "Decrements license quota value and clears sales order hold in S/4HANA.",
+      "afterBlock": "Prevents shipment until government license is granted.",
+      "s4Reaction": "Clears legal control block once valid license is assigned.",
+      "ewmReaction": "Releases warehouse delivery for packaging.",
+      "interviewExplanation": "Explain the architectural difference between SPL (/SAPSLL/SPL_CHCK) and Legal Control (/SAPSLL/LIC_MGMT)."
+    },
+    "expectedValidation": {
+      "screeningStatus": "LICENSE_REQUIRED",
+      "officerDecisionRequired": true,
+      "auditEventRequired": true,
+      "gtsStatusAfterDecision": "RELEASED",
+      "s4StatusAfterDecision": "CLEARED",
+      "ewmStatusAfterDecision": "ELIGIBLE_FOR_EXECUTION"
+    }
+  }
+]
