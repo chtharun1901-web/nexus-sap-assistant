@@ -2,200 +2,105 @@
  * Session Deck Analyzer Engine for Nexus SAP Enterprise Platform
  * 
  * Pipeline:
- * STEP 1 — Collect Complete Session Data (All Multi-Turn Inquiries)
- * STEP 2 — Normalize & Deduplicate Content
- * STEP 3 — Detect SAP Modules & Cross-Module Relationships per Turn
- * STEP 4 — Detect End-to-End Business Processes
- * STEP 5 — Build Dynamic Content Graph & Slide Presentation Outline with Explicit Topic Slides
+ * STEP 1 — Collect Complete Session Data (All User Inquiries)
+ * STEP 2 — Normalize & Extract Information per Inquiry
+ * STEP 3 — Detect SAP Modules per Inquiry
+ * STEP 4 — Build Slide Outline FOCUSED STRICTLY ON USER INQUIRIES (No Unrelated Boilerplate)
  */
 
-// Module Definition & Classification Rules
 export const SAP_MODULE_SPECS = {
   GTS: {
     name: "SAP Global Trade Services (GTS)",
     code: "GTS",
-    color: "#8B5CF6",
-    badgeBg: "rgba(139, 92, 246, 0.15)",
-    badgeBorder: "#8B5CF6",
+    color: "#6E1A2D",
+    badgeBg: "rgba(110, 26, 45, 0.12)",
+    badgeBorder: "rgba(110, 26, 45, 0.35)",
     patterns: [
       /gts\b/i, /spl\b/i, /sanctioned\s*party/i, /embargo/i, /export\s*control/i,
       /export\s*licen[sc]e/i, /customs\s*management/i, /\/sapsll\//i, /legal\s*regulation/i,
       /blocked\s*partner/i, /screening/i, /compliance\s*officer/i, /customs\s*declaration/i
     ],
-    signatureTcodes: ["/SAPSLL/SPL_CHG1", "/SAPSLL/BL_DOCS", "/SAPSLL/LEGCUS", "/SAPSLL/CUHD_01", "/SAPSLL/EMB_CHG"],
-    coreProcesses: ["Sanctioned Party Screening", "Export Compliance & Licensing", "Embargo Checks", "Customs Declaration"]
+    signatureTcodes: ["/SAPSLL/SPL_CHG1", "/SAPSLL/BL_DOCS", "/SAPSLL/LEGCUS", "/SAPSLL/CUHD_01", "/SAPSLL/EMB_CHG"]
   },
   EWM: {
     name: "SAP Extended Warehouse Management (EWM)",
     code: "EWM",
     color: "#06B6D4",
-    badgeBg: "rgba(6, 182, 212, 0.15)",
-    badgeBorder: "#06B6D4",
+    badgeBg: "rgba(6, 182, 212, 0.12)",
+    badgeBorder: "rgba(6, 182, 212, 0.35)",
     patterns: [
       /ewm\b/i, /\/scwm\//i, /warehouse\s*task/i, /warehouse\s*order/i, /wave\s*management/i,
       /putaway/i, /picking/i, /staging/i, /storage\s*bin/i, /storage\s*type/i, /inbound\s*delivery/i,
       /outbound\s*delivery\s*order/i, /pmr\b/i, /production\s*material\s*request/i, /radio\s*frequency|rf\b/i
     ],
-    signatureTcodes: ["/SCWM/MON", "/SCWM/TO_CONF", "/SCWM/PRDO", "/SCWM/PRDI", "/SCWM/PMR", "/SCWM/CANCL"],
-    coreProcesses: ["Inbound Receiving & Putaway", "Outbound Picking & Wave Release", "Production Staging (PMR)", "Internal Warehouse Movements"]
+    signatureTcodes: ["/SCWM/MON", "/SCWM/TO_CONF", "/SCWM/PRDO", "/SCWM/PRDI", "/SCWM/PMR"]
   },
   PP: {
     name: "SAP Production Planning (PP)",
     code: "PP",
-    color: "#F59E0B",
-    badgeBg: "rgba(245, 158, 11, 0.15)",
-    badgeBorder: "#F59E0B",
+    color: "#D97706",
+    badgeBg: "rgba(217, 119, 6, 0.12)",
+    badgeBorder: "rgba(217, 119, 6, 0.35)",
     patterns: [
       /\bpp\b/i, /production\s*order/i, /process\s*order/i, /co01|co02|co03/i, /cor1|cor2/i,
       /bom\b|bill\s*of\s*material/i, /routing\b/i, /work\s*center/i, /mrp\b|material\s*requirements\s*planning/i,
       /component\s*staging/i, /order\s*release/i, /co11n|co15/i, /backflush/i, /planned\s*order/i
     ],
-    signatureTcodes: ["CO01", "CO02", "MD04", "CO11N", "CS01", "CA01", "CO09"],
-    coreProcesses: ["Plan-to-Produce", "MRP Evaluation", "Production Order Execution", "Material Confirmation & Backflush"]
+    signatureTcodes: ["CO01", "CO02", "MD04", "CO11N", "CS01", "CA01"]
   },
   MM: {
     name: "SAP Materials Management (MM)",
     code: "MM",
     color: "#10B981",
-    badgeBg: "rgba(16, 185, 129, 0.15)",
-    badgeBorder: "#10B981",
+    badgeBg: "rgba(16, 185, 129, 0.12)",
+    badgeBorder: "rgba(16, 185, 129, 0.35)",
     patterns: [
       /\bmm\b/i, /purchase\s*order|po\b/i, /me21n|me22n|me23n/i, /migo\b/i, /goods\s*receipt/i,
       /inventory\s*management/i, /material\s*master/i, /mm01|mm02|mm03/i, /purchasing\s*info\s*record/i,
       /vendor\s*master|business\s*partner/i, /movement\s*type\s*(101|261|311|541)/i, /miro\b/i, /procure\s*to\s*pay/i
     ],
-    signatureTcodes: ["ME21N", "MIGO", "MIRO", "MM03", "ME23N", "MMBE"],
-    coreProcesses: ["Procure-to-Pay (P2P)", "Goods Receipt Processing", "Inventory Management", "Vendor Invoice Verification"]
+    signatureTcodes: ["ME21N", "MIGO", "MIRO", "MM03", "ME23N", "MMBE"]
   },
   SD: {
     name: "SAP Sales and Distribution (SD)",
     code: "SD",
-    color: "#3B82F6",
-    badgeBg: "rgba(59, 130, 246, 0.15)",
-    badgeBorder: "#3B82F6",
+    color: "#2563EB",
+    badgeBg: "rgba(37, 99, 235, 0.12)",
+    badgeBorder: "rgba(37, 99, 235, 0.35)",
     patterns: [
       /\bsd\b/i, /sales\s*order/i, /va01|va02|va03/i, /outbound\s*delivery/i, /vl01n|vl02n/i,
       /billing\s*document|invoice/i, /vf01|vf02/i, /order\s*to\s*cash|o2c/i, /pricing\s*procedure/i,
       /customer\s*master/i, /vk11|vkoal/i, /atp\s*check/i, /shipping\s*point/i
     ],
-    signatureTcodes: ["VA01", "VL01N", "VF01", "VK11", "VA03", "VL02N"],
-    coreProcesses: ["Order-to-Cash (O2C)", "Outbound Delivery Creation", "Customer Billing & Invoicing", "ATP & Pricing Determination"]
+    signatureTcodes: ["VA01", "VL01N", "VF01", "VK11", "VA03", "VL02N"]
   },
   FICO: {
     name: "SAP Financial Accounting & Controlling (FI/CO)",
     code: "FI/CO",
     color: "#EC4899",
-    badgeBg: "rgba(236, 72, 153, 0.15)",
-    badgeBorder: "#EC4899",
+    badgeBg: "rgba(236, 72, 153, 0.12)",
+    badgeBorder: "rgba(236, 72, 153, 0.35)",
     patterns: [
       /\bfi\b|\bco\b|fi\/co/i, /general\s*ledger|g\/l/i, /fb50|fb60|f-02/i, /cost\s*center/i,
       /profit\s*center/i, /controlling\s*area/i, /company\s*code/i, /account\s*document/i,
-      /posting\s*period/i, /settlement/i, /wbs\s*element/i, /profitability\s*analysis|copa/i
+      /posting\s*period/i, /settlement/i, /wbs\s*element/i
     ],
-    signatureTcodes: ["FB50", "FB60", "F-02", "KS01", "FAGLL03", "KO88"],
-    coreProcesses: ["Financial Postings & Journals", "Cost Center Accounting", "Order Settlement", "Periodic Financial Close"]
-  },
-  QM: {
-    name: "SAP Quality Management (QM)",
-    code: "QM",
-    color: "#14B8A6",
-    badgeBg: "rgba(20, 184, 166, 0.15)",
-    badgeBorder: "#14B8A6",
-    patterns: [
-      /\bqm\b/i, /inspection\s*lot/i, /qa01|qa02|qa32/i, /usage\s*decision/i, /qe51n/i,
-      /quality\s*notification/i, /sample\s*size/i, /inspection\s*plan/i, /certificate\s*of\s*analysis/i
-    ],
-    signatureTcodes: ["QA32", "QA01", "QE51N", "QS21", "QP01"],
-    coreProcesses: ["Goods Receipt Quality Inspection", "In-Process Quality Inspection", "Usage Decision & Stock Posting"]
-  },
-  PM: {
-    name: "SAP Plant Maintenance (PM)",
-    code: "PM",
-    color: "#F97316",
-    badgeBg: "rgba(249, 115, 22, 0.15)",
-    badgeBorder: "#F97316",
-    patterns: [
-      /\bpm\b/i, /maintenance\s*order/i, /iw31|iw32|iw33/i, /equipment\s*master/i,
-      /functional\s*location/i, /maintenance\s*notification/i, /iw21|iw22/i, /preventive\s*maintenance/i
-    ],
-    signatureTcodes: ["IW31", "IW32", "IW21", "IE01", "IL01"],
-    coreProcesses: ["Corrective Maintenance", "Preventive Maintenance Scheduling", "Equipment Lifecycle Management"]
-  },
-  RETAIL: {
-    name: "SAP IS-Retail / Retail Solutions",
-    code: "IS-Retail",
-    color: "#6366F1",
-    badgeBg: "rgba(99, 102, 241, 0.15)",
-    badgeBorder: "#6366F1",
-    patterns: [
-      /is-retail|retail\b/i, /article\s*master/i, /mm41|mm42|mm43/i, /assortment/i,
-      /merchandise\s*category/i, /site\s*master/i, /allocation\s*table/i, /wa01|wa02/i,
-      /listing\s*condition/i, /pos\s*inbound|pos\s*outbound/i, /store\s*replenishment/i
-    ],
-    signatureTcodes: ["MM41", "WB01", "WSL10", "WA01", "WRP1", "MM43"],
-    coreProcesses: ["Article Master & Hierarchy", "Assortment & Listing", "Store Allocation & Replenishment", "POS Integration"]
+    signatureTcodes: ["FB50", "FB60", "F-02", "KS01", "FAGLL03", "KO88"]
   },
   BASIS: {
     name: "SAP Basis, ABAP & Integration",
     code: "Basis/Integration",
-    color: "#64748B",
-    badgeBg: "rgba(100, 116, 139, 0.15)",
-    badgeBorder: "#64748B",
+    color: "#475569",
+    badgeBg: "rgba(71, 85, 105, 0.12)",
+    badgeBorder: "rgba(71, 85, 105, 0.35)",
     patterns: [
       /basis\b/i, /abap\b/i, /st22\b/i, /sm37\b/i, /smq1\b|smq2\b/i, /qrfc|bgrfc|trfc/i,
       /idoc\b/i, /we02|we05|we19|bd87/i, /slg1\b/i, /sm59\b/i, /badi\b|user\s*exit/i,
       /odata\b/i, /short\s*dump/i, /background\s*job/i, /rfc\s*destination/i
     ],
-    signatureTcodes: ["SMQ1", "SMQ2", "SM59", "ST22", "SM37", "SLG1", "WE02", "BD87"],
-    coreProcesses: ["qRFC & bgRFC Queue Management", "IDoc Interfacing & Monitoring", "Runtime Dump & Error Triage", "RFC Destination Configuration"]
+    signatureTcodes: ["SMQ1", "SMQ2", "SM59", "ST22", "SM37", "SLG1", "WE02", "BD87"]
   }
 };
-
-// Business Process Definitions
-export const BUSINESS_PROCESS_SPECS = [
-  {
-    id: "GTS_COMPLIANCE",
-    name: "Global Trade Compliance & Screening",
-    modules: ["GTS", "SD", "MM", "EWM"],
-    patterns: [/spl\s*screening/i, /sanctioned\s*party/i, /embargo\s*check/i, /export\s*compliance/i, /legal\s*regulation/i, /gts/i],
-    typicalFlow: ["Document Replication to GTS", "SPL & Embargo Automated Screening", "Compliance Decision (Release / Block)", "Release Notification to S/4HANA & EWM"]
-  },
-  {
-    id: "O2C",
-    name: "Order-to-Cash (O2C)",
-    modules: ["SD", "GTS", "EWM", "FI/CO"],
-    patterns: [/order\s*to\s*cash|o2c/i, /sales\s*order.*delivery.*billing/i, /va01.*vl01n/i],
-    typicalFlow: ["Sales Order (VA01)", "GTS Compliance / SPL Check", "Outbound Delivery (VL01N)", "EWM Picking & Goods Issue", "Billing (VF01)"]
-  },
-  {
-    id: "P2P",
-    name: "Procure-to-Pay (P2P)",
-    modules: ["MM", "FI/CO", "EWM"],
-    patterns: [/procure\s*to\s*pay/i, /purchase\s*order.*receipt/i, /po.*gr.*ir/i, /me21n.*migo/i],
-    typicalFlow: ["Purchase Order (ME21N)", "Inbound Delivery (VL31N)", "Goods Receipt (MIGO / EWM)", "Invoice Verification (MIRO)", "Payment (F110)"]
-  },
-  {
-    id: "P2P_PROD",
-    name: "Plan-to-Produce (P2P / Production)",
-    modules: ["PP", "EWM", "MM", "FI/CO"],
-    patterns: [/plan\s*to\s*produce/i, /production\s*order.*staging/i, /mrp.*co01/i, /pmr.*staging/i],
-    typicalFlow: ["MRP Run (MD01N)", "Production Order Creation (CO01)", "Component Staging (PMR / EWM)", "Order Confirmation (CO11N)", "Goods Receipt (MIGO)"]
-  },
-  {
-    id: "EWM_WAREHOUSE",
-    name: "Advanced Warehouse Operations",
-    modules: ["EWM", "MM", "SD", "PP"],
-    patterns: [/warehouse\s*task/i, /warehouse\s*order/i, /wave\s*release/i, /rf\s*picking/i, /putaway\s*strategy/i],
-    typicalFlow: ["Inbound/Outbound Notification", "Wave Creation & Release", "Warehouse Task Generation", "RF Execution & Confirmation", "Goods Movement Posting"]
-  },
-  {
-    id: "INTEGRATION_QUEUE",
-    name: "Cross-System Interface & Queue Management",
-    modules: ["Basis/Integration", "EWM", "GTS", "SD"],
-    patterns: [/qrfc/i, /bgrfc/i, /smq1|smq2/i, /idoc\s*transmission/i, /rfc\s*timeout/i],
-    typicalFlow: ["Document Posting in S/4HANA", "qRFC Transmission (SMQ1)", "Inbound Queue Processing (SMQ2)", "Document Synchronization / Error Handling"]
-  }
-];
 
 /**
  * Extract T-Codes from any text
@@ -225,16 +130,58 @@ function detectModuleForText(text) {
 }
 
 /**
+ * Clean and summarize model response into 2 key points and clean paragraph
+ */
+function cleanResponseForSlide(text) {
+  if (!text) return { summary: "Operational analysis completed.", bullets: [] };
+  
+  // Remove markdown headings, LaTeX markers, and asterisks
+  const cleaned = text
+    .replace(/\*Reasoning\.\.\.\*/g, '')
+    .replace(/^### [^\n]+/gm, '')
+    .replace(/^## [^\n]+/gm, '')
+    .replace(/^# [^\n]+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim();
+
+  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+  
+  // Extract bullet points
+  const bullets = [];
+  const paragraphs = [];
+
+  lines.forEach(l => {
+    if (l.startsWith("* ") || l.startsWith("- ") || l.startsWith("• ")) {
+      const cleanBullet = l.replace(/^[*\-•\s]+/, '').trim();
+      if (cleanBullet.length > 20 && bullets.length < 4) {
+        bullets.push(cleanBullet);
+      }
+    } else if (!l.startsWith("|") && !l.startsWith("```")) {
+      if (l.length > 30 && paragraphs.length < 3) {
+        paragraphs.push(l);
+      }
+    }
+  });
+
+  const mainSummary = paragraphs.slice(0, 2).join(" ") || cleaned.substring(0, 320) + "...";
+  return {
+    summary: mainSummary.substring(0, 360) + (mainSummary.length > 360 ? "..." : ""),
+    bullets: bullets.length > 0 ? bullets : ["Verified against SAP standard architecture and configuration rules."]
+  };
+}
+
+/**
  * Step 1: Collect session raw messages, turns, and metadata
  */
 export function collectSessionData(rawSession, aiText, doc, conversationTurns = []) {
   const turns = [];
-  const initialTitle = rawSession?.title?.replace(/^NX-[^:]+:\s*/, "") || doc?.title || "Comprehensive SAP Investigation";
+  const initialTitle = rawSession?.title?.replace(/^NX-[^:]+:\s*/, "") || doc?.title || "SAP Technical Investigation";
   
   // 1. If structured conversationTurns exist, utilize them
   if (conversationTurns && conversationTurns.length > 0) {
     conversationTurns.forEach((turn, idx) => {
-      let queryTitle = turn.title || (idx === 0 ? initialTitle : `Follow-up Query ${idx}`);
+      let queryTitle = turn.title || (idx === 0 ? initialTitle : `Inquiry ${idx + 1}`);
       let turnContent = turn.content || "";
       
       const qMatch = turnContent.match(/^### Follow-up Query:\s*([^\n]+)/);
@@ -243,73 +190,66 @@ export function collectSessionData(rawSession, aiText, doc, conversationTurns = 
         turnContent = turnContent.replace(/^### Follow-up Query:[^\n]*\n*/, '').trim();
       }
 
-      const cleanResponse = turnContent.replace(/\*Reasoning\.\.\.\*/g, '').trim();
-      const detectedMod = detectModuleForText(queryTitle + " " + cleanResponse);
-      const tcodes = extractTcodesFromText(queryTitle + " " + cleanResponse);
-      
-      // Extract 2 key bullet points
-      const bulletPoints = cleanResponse
-        .split("\n")
-        .filter(l => l.trim().startsWith("*") || l.trim().startsWith("-") || l.trim().startsWith("•"))
-        .map(l => l.replace(/^[*\-•\s]+/, '').replace(/\*\*(.*?)\*\*/g, '$1').trim())
-        .filter(l => l.length > 15 && l.length < 180)
-        .slice(0, 3);
+      const detectedMod = detectModuleForText(queryTitle + " " + turnContent);
+      const tcodes = extractTcodesFromText(queryTitle + " " + turnContent);
+      const parsed = cleanResponseForSlide(turnContent);
 
       turns.push({
         id: turn.id || `turn-${idx}`,
         index: idx,
         query: queryTitle,
-        response: cleanResponse,
-        raw: turn.content,
+        response: turnContent,
+        summary: parsed.summary,
+        bullets: parsed.bullets,
         module: detectedMod.code,
         moduleName: detectedMod.name,
         moduleColor: detectedMod.color,
-        tcodes,
-        bulletPoints: bulletPoints.length > 0 ? bulletPoints : ["Verified operational procedure according to SAP enterprise architecture standard."]
+        tcodes
       });
     });
   } else if (aiText) {
     // 2. Parse from raw stitched aiText
     const rawSegments = aiText.split(/\n\n---\n\n(?=### Follow-up Query:)/g);
     rawSegments.forEach((segment, sIdx) => {
-      let queryTitle = sIdx === 0 ? initialTitle : `Follow-up ${sIdx}`;
+      let queryTitle = sIdx === 0 ? initialTitle : `Inquiry ${sIdx + 1}`;
       let turnContent = segment;
       const qMatch = segment.match(/^### Follow-up Query:\s*([^\n]+)/);
       if (qMatch) {
         queryTitle = qMatch[1].replace(/\*\([^\)]+\)\*/g, '').trim();
         turnContent = segment.replace(/^### Follow-up Query:[^\n]*\n*/, '').trim();
       }
-      const cleanResponse = turnContent.replace(/\*Reasoning\.\.\.\*/g, '').trim();
-      const detectedMod = detectModuleForText(queryTitle + " " + cleanResponse);
-      const tcodes = extractTcodesFromText(queryTitle + " " + cleanResponse);
+      const detectedMod = detectModuleForText(queryTitle + " " + turnContent);
+      const tcodes = extractTcodesFromText(queryTitle + " " + turnContent);
+      const parsed = cleanResponseForSlide(turnContent);
 
       turns.push({
         id: `turn-${sIdx}`,
         index: sIdx,
         query: queryTitle,
-        response: cleanResponse,
-        raw: segment,
+        response: turnContent,
+        summary: parsed.summary,
+        bullets: parsed.bullets,
         module: detectedMod.code,
         moduleName: detectedMod.name,
         moduleColor: detectedMod.color,
-        tcodes,
-        bulletPoints: ["Verified operational procedure and diagnostic runbook."]
+        tcodes
       });
     });
   } else if (doc) {
     // 3. Fallback to doc properties if fresh preset
     const detectedMod = detectModuleForText(doc.title + " " + doc.overview);
+    const parsed = cleanResponseForSlide(doc.overview || doc.summary);
     turns.push({
       id: "turn-0",
       index: 0,
       query: doc.title,
-      response: `${doc.overview || ''}\n\n### Symptoms:\n${(doc.symptoms || []).join('\n')}\n\n### Triage:\n${(doc.procedure || []).join('\n')}`,
-      raw: doc.overview,
+      response: doc.overview,
+      summary: parsed.summary,
+      bullets: (doc.symptoms || []).slice(0, 3),
       module: detectedMod.code,
       moduleName: detectedMod.name,
       moduleColor: detectedMod.color,
-      tcodes: (doc.tcodes || []).map(t => t.code),
-      bulletPoints: (doc.symptoms || []).slice(0, 3)
+      tcodes: (doc.tcodes || []).map(t => t.code)
     });
   }
 
@@ -323,505 +263,186 @@ export function collectSessionData(rawSession, aiText, doc, conversationTurns = 
 }
 
 /**
- * Step 2: Normalize content, remove duplicates, extract T-Codes & Key Entities
- */
-export function normalizeSessionContent(sessionData) {
-  const combinedText = sessionData.turns.map(t => `${t.query}\n${t.response}`).join("\n\n");
-  const tcodesFound = extractTcodesFromText(combinedText);
-
-  // Detect Corrections or Clarifications in text
-  const correctionMatches = [];
-  const lines = combinedText.split("\n");
-  lines.forEach(line => {
-    if (line.includes("⚠️") || /correction|clarification|misconception|note that|caution|do not confuse/i.test(line)) {
-      const cleanLine = line.replace(/^[>#*\-\s]+/, '').trim();
-      if (cleanLine.length > 20 && cleanLine.length < 220 && !correctionMatches.includes(cleanLine)) {
-        correctionMatches.push(cleanLine);
-      }
-    }
-  });
-
-  // Extract Troubleshooting / Error Items
-  const issueItems = [];
-  lines.forEach(line => {
-    if (/status\s*STOP|SYSFAIL|RETRY|Dump|Error|Timeout|Blocked|Jam|Failure|Not being confirmed|Locked/i.test(line)) {
-      const cleanLine = line.replace(/^[>#*\-\s]+/, '').trim();
-      if (cleanLine.length > 25 && cleanLine.length < 180 && !issueItems.includes(cleanLine)) {
-        issueItems.push(cleanLine);
-      }
-    }
-  });
-
-  return {
-    rawTurnsCount: sessionData.turns.length,
-    distinctTcodes: tcodesFound,
-    corrections: correctionMatches.slice(0, 4),
-    issueItems: issueItems.slice(0, 6),
-    duplicatesRemovedCount: Math.max(0, sessionData.turns.length > 3 ? sessionData.turns.length - 1 : 0),
-    combinedText
-  };
-}
-
-/**
- * Step 3: Detect Modules & Cross-Module Relationships
- */
-export function detectSessionModules(combinedText, tcodesFound) {
-  const detected = [];
-  const textToScan = combinedText + " " + tcodesFound.join(" ");
-
-  Object.keys(SAP_MODULE_SPECS).forEach(modKey => {
-    const spec = SAP_MODULE_SPECS[modKey];
-    let score = 0;
-    
-    // Check patterns
-    spec.patterns.forEach(pat => {
-      const matches = textToScan.match(new RegExp(pat.source, "gi"));
-      if (matches) score += matches.length * 2;
-    });
-
-    // Check signature T-Codes
-    spec.signatureTcodes.forEach(tc => {
-      if (tcodesFound.includes(tc.toUpperCase())) score += 5;
-    });
-
-    if (score >= 4) {
-      detected.push({
-        ...spec,
-        score
-      });
-    }
-  });
-
-  // Sort by score descending
-  detected.sort((a, b) => b.score - a.score);
-
-  if (detected.length === 0) {
-    detected.push(SAP_MODULE_SPECS.GTS);
-  }
-
-  const isCrossModule = detected.length > 1;
-  const crossModuleLabel = isCrossModule
-    ? detected.map(m => m.code).join(" ↔ ")
-    : detected[0].code;
-
-  return {
-    detectedModules: detected,
-    isCrossModule,
-    crossModuleLabel
-  };
-}
-
-/**
- * Step 4: Detect Business Processes
- */
-export function detectSessionProcesses(combinedText, detectedModules) {
-  const matchedProcesses = [];
-  const moduleCodes = new Set(detectedModules.map(m => m.code));
-
-  BUSINESS_PROCESS_SPECS.forEach(proc => {
-    let matchCount = 0;
-    proc.patterns.forEach(pat => {
-      if (pat.test(combinedText)) matchCount++;
-    });
-
-    const hasModuleOverlap = proc.modules.some(m => moduleCodes.has(m));
-    if (matchCount > 0 || (hasModuleOverlap && matchedProcesses.length === 0)) {
-      matchedProcesses.push({
-        ...proc,
-        relevance: matchCount + (hasModuleOverlap ? 2 : 0)
-      });
-    }
-  });
-
-  matchedProcesses.sort((a, b) => b.relevance - a.relevance);
-
-  if (matchedProcesses.length === 0) {
-    matchedProcesses.push(BUSINESS_PROCESS_SPECS[0]);
-  }
-
-  return {
-    primaryProcess: matchedProcesses[0],
-    allProcesses: matchedProcesses
-  };
-}
-
-/**
- * Step 5: Build Comprehensive Presentation Slide Outline (Includes Explicit Topic Inquiries)
+ * Step 2: Build Complete Session-Focused Slide Outline (STRICTLY BASED ON USER'S INQUIRIES)
  */
 export function buildSessionPresentationGraph(rawSession, aiText, doc, conversationTurns = []) {
   const sessionData = collectSessionData(rawSession, aiText, doc, conversationTurns);
-  const normalized = normalizeSessionContent(sessionData);
-  const moduleAnalysis = detectSessionModules(normalized.combinedText, normalized.distinctTcodes);
-  const processAnalysis = detectSessionProcesses(normalized.combinedText, moduleAnalysis.detectedModules);
-
-  const title = sessionData.sessionTitle || "SAP End-to-End Technical Investigation";
+  const title = sessionData.sessionTitle || "SAP End-to-End Session Learning Summary";
   const caseId = sessionData.docData?.caseId || "NX-SESS-" + new Date().getFullYear();
   const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
-  // List of actual searched topics from session turns
-  const searchedInquiries = sessionData.turns.map((t, idx) => ({
-    turnIndex: idx + 1,
-    query: t.query,
-    module: t.module,
-    moduleName: t.moduleName,
-    moduleColor: t.moduleColor,
-    tcodes: t.tcodes,
-    bulletPoints: t.bulletPoints,
-    responseSnippet: t.response.substring(0, 260) + "..."
-  }));
+  // Distinct modules across all inquiries
+  const detectedModulesMap = new Map();
+  const allTcodesSet = new Set();
+
+  sessionData.turns.forEach(t => {
+    if (t.module) {
+      detectedModulesMap.set(t.module, {
+        code: t.module,
+        name: t.moduleName,
+        color: t.moduleColor
+      });
+    }
+    (t.tcodes || []).forEach(tc => allTcodesSet.add(tc));
+  });
+
+  const detectedModules = Array.from(detectedModulesMap.values());
+  const distinctTcodes = Array.from(allTcodesSet);
+  const crossModuleLabel = detectedModules.map(m => m.code).join(" ↔ ") || "SAP Enterprise";
 
   const slides = [];
   let sNum = 1;
 
-  // SLIDE 1: Title Slide
+  // ──────────────────────────────────────────────────────────────────────────
+  // SLIDE 1: Executive Title Cover
+  // ──────────────────────────────────────────────────────────────────────────
   slides.push({
-    id: "slide-1",
+    id: "slide-title",
     slideNumber: sNum++,
     type: "TITLE",
     title: title,
-    subtitle: "SAP End-to-End Enterprise Learning & Architecture Summary",
-    categoryTag: "SAP ARCHITECTURE & CONSULTING DECK",
-    purpose: `Executive cover with session title, ${sessionData.turns.length} analyzed inquiries, and landscape metadata.`,
-    module: moduleAnalysis.crossModuleLabel,
+    subtitle: "SAP End-to-End Session Learning Summary",
+    categoryTag: "NEXUS SESSION INTELLIGENCE",
+    purpose: `Session executive cover covering ${sessionData.turns.length} specific user inquiries across ${crossModuleLabel}.`,
+    module: crossModuleLabel,
     confidence: "100%",
-    sourceCount: sessionData.citations.length || 2,
     data: {
       title,
-      subtitle: "SAP End-to-End Learning Summary",
+      subtitle: "SAP End-to-End Session Learning Summary",
       caseId,
       date: dateStr,
-      landscape: "S/4HANA 2023 FPS02 · Embedded Architecture",
-      detectedModules: moduleAnalysis.detectedModules.map(m => m.name),
+      landscape: "S/4HANA 2023 FPS02 · Enterprise Landscape",
+      detectedModules: detectedModules.map(m => m.name),
       inquiriesCount: sessionData.turns.length,
       author: "Nexus SAP Enterprise Copilot",
-      footnote: `Generated from Complete Session Analysis · ${sessionData.turns.length} Inquiries Analyzed`
+      footnote: `Complete Session Analysis · ${sessionData.turns.length} Inquiries Covered`
     },
-    speakerNotes: `Executive Presentation generated by Nexus SAP Copilot analyzing session ${sessionData.sessionId}. Scope includes ${sessionData.turns.length} searched inquiries across ${moduleAnalysis.detectedModules.length} detected SAP modules: ${moduleAnalysis.detectedModules.map(m => m.code).join(", ")}.`
+    speakerNotes: `Executive Session Presentation summarizing all ${sessionData.turns.length} inquiries asked during session ${sessionData.sessionId}.`
   });
 
-  // SLIDE 2: Executive Summary & Inquiries Index
+  // ──────────────────────────────────────────────────────────────────────────
+  // SLIDE 2: Session Inquiries Agenda & Scope Overview
+  // ──────────────────────────────────────────────────────────────────────────
   slides.push({
-    id: "slide-2",
+    id: "slide-overview",
     slideNumber: sNum++,
     type: "EXECUTIVE_SUMMARY",
-    title: "Executive Summary & Session Inquiries Index",
-    categoryTag: "STRATEGIC OVERVIEW",
-    purpose: "Synthesized overview of all searched questions, primary business process, and key takeaways.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "98%",
-    sourceCount: 2,
+    title: "Session Agenda & Inquiries Summary",
+    categoryTag: "SESSION INQUIRIES INDEX",
+    purpose: `Consolidated index of all ${sessionData.turns.length} questions investigated in this session.`,
+    module: crossModuleLabel,
+    confidence: "99%",
     data: {
-      sessionScope: `In-depth technical analysis analyzing ${sessionData.turns.length} queries across ${moduleAnalysis.crossModuleLabel}.`,
-      businessObjective: "Establish resilient cross-module transaction flow, eliminate queue latency, and ensure strict compliance and operational integrity.",
-      keyModules: moduleAnalysis.detectedModules.map(m => m.name).slice(0, 4),
-      primaryProcess: processAnalysis.primaryProcess.name,
-      searchedQueriesSummary: searchedInquiries.map(sq => `Q${sq.turnIndex}: ${sq.query}`).slice(0, 6),
-      takeaways: [
-        `Multi-turn investigation covering ${sessionData.turns.length} distinct inquiries across ${moduleAnalysis.crossModuleLabel}.`,
-        normalized.distinctTcodes.length > 0
-          ? `Signature transaction monitoring centers on ${normalized.distinctTcodes.slice(0, 4).join(", ")}.`
-          : "Strict separation of Master Data maintenance and transactional Customizing.",
-        "Production safety guidelines mandate read-only inspection prior to queue unlocking or master data changes.",
-        normalized.corrections.length > 0
-          ? `Clarification: ${normalized.corrections[0].substring(0, 95)}...`
-          : "Cross-module dependencies require verified RFC destination status in transaction SM59."
-      ],
-      correctionCallout: normalized.corrections.length > 0 ? normalized.corrections[0] : null
+      sessionScope: `Analysis of ${sessionData.turns.length} specific inquiries investigated during this session across ${crossModuleLabel}.`,
+      businessObjective: "Provide structured, consultant-grade answers, architectural data flows, and transactional triage for all session questions.",
+      keyModules: detectedModules.map(m => m.name),
+      primaryProcess: "End-to-End SAP Technical & Compliance Learning",
+      searchedQueriesSummary: sessionData.turns.map((t, idx) => `Q${idx + 1}: ${t.query}`).slice(0, 8),
+      takeaways: sessionData.turns.slice(0, 4).map((t, idx) => `Inquiry #${idx + 1} (${t.module}): ${t.query} — ${t.summary.substring(0, 110)}...`)
     },
-    speakerNotes: `This slide outlines all ${sessionData.turns.length} questions investigated during the session and summarizes the overarching business process (${processAnalysis.primaryProcess.name}).`
+    speakerNotes: `Overview of all ${sessionData.turns.length} specific questions asked during this session.`
   });
 
-  // SLIDE 3: Session Landscape & Architecture
-  slides.push({
-    id: "slide-3",
-    slideNumber: sNum++,
-    type: "LANDSCAPE_ARCHITECTURE",
-    title: "Session Landscape & System Architecture",
-    categoryTag: "ENTERPRISE ARCHITECTURE",
-    purpose: "Visual architecture showing SAP systems, communication directions, and decision points.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "96%",
-    sourceCount: 3,
-    data: {
-      landscapeType: "S/4HANA Core ↔ Embedded / Decentralized Subsystems",
-      nodes: [
-        { name: "S/4HANA Enterprise Core", sub: "Document Inception (Sales/Production/Purchase)", type: "core", color: "#1E3A8A" },
-        { name: "Compliance & Orchestration", sub: "GTS Screening / Scheduler / qRFC", type: "middleware", color: "#6B21A8" },
-        { name: "Execution Layer", sub: "EWM Warehouse / Shop Floor Execution", type: "execution", color: "#065F46" },
-        { name: "Financial Settlement", sub: "General Ledger & Cost Controlling", type: "finance", color: "#9D174D" }
-      ],
-      integrationFlow: "S/4HANA → RFC / CIF / bgRFC → Compliance Screening → Decentralized / Embedded Execution → Confirmation & Settlement",
-      decisionPoint: "Compliance & Queue Verification: Release / Block status determines whether downstream warehouse tasks and material documents can post."
-    },
-    speakerNotes: "Explain the architecture from left to right. Note that document release status acts as the strict gatekeeper between transaction creation in S/4HANA and physical execution in EWM."
+  // ──────────────────────────────────────────────────────────────────────────
+  // SLIDES 3 to N: ONE DEDICATED SLIDE FOR EVERY INQUIRY ASKED BY USER
+  // ──────────────────────────────────────────────────────────────────────────
+  sessionData.turns.forEach((t, idx) => {
+    slides.push({
+      id: `slide-inquiry-${idx + 1}`,
+      slideNumber: sNum++,
+      type: "TOPIC_INQUIRY",
+      title: `Inquiry #${idx + 1}: ${t.query}`,
+      categoryTag: `INQUIRY #${idx + 1} · ${t.module}`,
+      purpose: `Detailed technical explanation, procedural runbook, and T-codes for: "${t.query}"`,
+      module: t.module,
+      confidence: "98%",
+      data: {
+        inquiryIndex: idx + 1,
+        queryTitle: t.query,
+        moduleCode: t.module,
+        moduleName: t.moduleName,
+        moduleColor: t.moduleColor,
+        tcodes: t.tcodes.length > 0 ? t.tcodes : (t.module === "GTS" ? ["/SAPSLL/BL_DOCS", "/SAPSLL/SPL_CHG1"] : ["SMQ1", "SMQ2", "SM59"]),
+        bulletPoints: t.bullets,
+        solutionSummary: t.summary
+      },
+      speakerNotes: `Detailed breakdown of inquiry #${idx + 1}: "${t.query}". Covers verified technical solution and transactions for ${t.moduleName}.`
+    });
   });
 
-  // SLIDE 4: Module Map
-  slides.push({
-    id: "slide-4",
-    slideNumber: sNum++,
-    type: "MODULE_MAP",
-    title: "SAP Module Scope & Functional Responsibilities",
-    categoryTag: "FUNCTIONAL BREAKDOWN",
-    purpose: "Structured visual cards per detected SAP module showing responsibilities, T-codes, and dependencies.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "97%",
-    sourceCount: 2,
-    data: {
-      moduleCards: moduleAnalysis.detectedModules.slice(0, 4).map(mod => {
-        const matchingTcodes = normalized.distinctTcodes.filter(tc => mod.signatureTcodes.includes(tc));
-        const tcodesToDisplay = matchingTcodes.length > 0 ? matchingTcodes : mod.signatureTcodes.slice(0, 3);
-        return {
-          name: mod.name,
-          code: mod.code,
-          color: mod.color,
-          responsibility: mod.coreProcesses[0] || "Operational processing and data maintenance",
-          keyTcodes: tcodesToDisplay.join(", "),
-          dependency: `Integrates with ${moduleAnalysis.detectedModules.filter(m => m.code !== mod.code).map(m => m.code).join(", ") || "S/4HANA Core"}`
-        };
-      })
-    },
-    speakerNotes: "Review each module's role within this specific topic. Emphasize how changes in one module directly impact down-stream modules."
-  });
+  // ──────────────────────────────────────────────────────────────────────────
+  // FINAL SLIDE: Consolidated Runbook & Signature T-Codes from this Session
+  // ──────────────────────────────────────────────────────────────────────────
+  if (distinctTcodes.length > 0) {
+    slides.push({
+      id: "slide-runbook-summary",
+      slideNumber: sNum++,
+      type: "TRANSACTION_GUIDE",
+      title: "Session Signature T-Codes & Runbook",
+      categoryTag: "OPERATIONAL REFERENCE",
+      purpose: "Consolidated reference of all SAP transaction codes utilized across this session.",
+      module: crossModuleLabel,
+      confidence: "99%",
+      data: {
+        tableRows: distinctTcodes.slice(0, 8).map((tc, idx) => {
+          let desc = "Diagnostic inspection and monitoring";
+          let moduleCode = "Basis/Integration";
+          let result = "Displays active operational queue status and unit logs.";
 
-  // SLIDE 5: End-to-End Business Process
-  slides.push({
-    id: "slide-5",
-    slideNumber: sNum++,
-    type: "E2E_PROCESS",
-    title: "End-to-End Business Process Flow",
-    categoryTag: "PROCESS ORCHESTRATION",
-    purpose: "Step-by-step process flow layout showing inputs, owning modules, outputs, and handoffs.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "95%",
-    sourceCount: 3,
-    data: {
-      processName: processAnalysis.primaryProcess.name,
-      steps: processAnalysis.primaryProcess.typicalFlow.map((stepDesc, idx) => ({
-        stepNumber: idx + 1,
-        stepName: stepDesc,
-        owner: moduleAnalysis.detectedModules[idx % moduleAnalysis.detectedModules.length]?.code || "S/4HANA",
-        input: idx === 0 ? "Demand / Master Data Trigger" : `Output from Step ${idx}`,
-        output: idx === processAnalysis.primaryProcess.typicalFlow.length - 1 ? "Completed Transaction & Financial Posting" : `Verified Document / Status for Step ${idx + 2}`,
-        status: idx === 1 ? "VERIFIED" : (idx === 2 ? "EXECUTION" : "STANDARD")
-      }))
-    },
-    speakerNotes: "Walk through the sequential process flow from initiation to financial posting. Highlight handover points where document status changes occur."
-  });
+          if (tc.startsWith("/SAPSLL/")) {
+            moduleCode = "GTS";
+            desc = "Compliance screening & blocked document triage";
+            result = "Provides manual release and audit verification.";
+          } else if (tc.startsWith("/SCWM/")) {
+            moduleCode = "EWM";
+            desc = "Warehouse execution and monitor inspection";
+            result = "Shows warehouse task status and waves.";
+          } else if (tc.startsWith("CO")) {
+            moduleCode = "PP";
+            desc = "Production order execution and confirmation";
+            result = "Generates reservations and component staging.";
+          } else if (tc.startsWith("ME") || tc === "MIGO") {
+            moduleCode = "MM";
+            desc = "Purchasing and inventory goods movement";
+            result = "Posts material document and creates financial line items.";
+          } else if (tc.startsWith("VA") || tc.startsWith("VL")) {
+            moduleCode = "SD";
+            desc = "Sales order creation and shipping delivery";
+            result = "Generates delivery order and initiates picking waves.";
+          }
 
-  // SLIDES 6+: Specific Topic Inquiries Deep-Dive Slides (Directly reflecting what the user searched!)
-  if (sessionData.turns.length > 0) {
-    // Group or take representative turns (up to 4 prominent turns)
-    const turnsToFeature = sessionData.turns.slice(0, 4);
-    turnsToFeature.forEach((t, tIdx) => {
-      slides.push({
-        id: `slide-inquiry-${tIdx + 1}`,
-        slideNumber: sNum++,
-        type: "TOPIC_INQUIRY",
-        title: `Topic Deep-Dive: ${t.query}`,
-        categoryTag: `INQUIRY #${t.index + 1} · ${t.module}`,
-        purpose: `Detailed examination and runbook for searched topic: "${t.query}"`,
-        module: t.module,
-        confidence: "98%",
-        sourceCount: 2,
-        data: {
-          inquiryIndex: t.index + 1,
-          queryTitle: t.query,
-          moduleCode: t.module,
-          moduleName: t.moduleName,
-          moduleColor: t.moduleColor,
-          tcodes: t.tcodes.length > 0 ? t.tcodes : ["/SAPSLL/BL_DOCS", "/SCWM/MON"],
-          bulletPoints: t.bulletPoints,
-          solutionSummary: t.response.substring(0, 320) + (t.response.length > 320 ? "..." : "")
-        },
-        speakerNotes: `Detailed breakdown of inquiry #${t.index + 1} ("${t.query}"). Highlights verified configuration, signature transactions (${t.tcodes.join(", ") || "Standard S/4HANA"}), and resolution runbook.`
-      });
+          return {
+            step: `T-${idx + 1}`,
+            tcode: tc,
+            module: moduleCode,
+            action: desc,
+            expectedResult: result
+          };
+        })
+      },
+      speakerNotes: "Consolidated reference table of all transaction codes verified during this session."
     });
   }
 
-  // Master Data & Configuration Matrix
-  slides.push({
-    id: "slide-config-matrix",
-    slideNumber: sNum++,
-    type: "MASTER_DATA_CONFIG",
-    title: "Master Data & Configuration Architecture",
-    categoryTag: "SYSTEM GOVERNANCE",
-    purpose: "Clean separation of Master Data, Org Structure, Determination Logic, and Customizing paths.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "96%",
-    sourceCount: 2,
-    data: {
-      masterDataItems: [
-        { entity: "Business Partner / Customer / Vendor", desc: "Maintains addresses, tax classifications, and sanction screening indicators." },
-        { entity: "Material / Product Master", desc: "Storage views, control cycles, commodity codes, and production scheduling profiles." },
-        { entity: "Organizational Units", desc: "Company Code, Plant (Werk), Storage Location, Warehouse Number, Shipping Point." }
-      ],
-      configPaths: [
-        { area: "Queue & RFC Scheduling", path: "SPRO → ABAP Platform → Connectivity → RFC → Inbound/Outbound Scheduler (SMQS/SMQR)" },
-        { area: "Warehouse & Integration", path: "SPRO → SCM Extended Warehouse Management → Interfaces → ERP Integration" },
-        { area: "Document Determination Logic", path: "SPRO → Logistics Execution / Sales → Shipping → Basic Functions → Delivery / Staging Control" }
-      ],
-      safeguardNote: "Never modify customizing tables directly in Production. All transport changes require QA rehearsal."
-    },
-    speakerNotes: "Explain that configuration defines the routing and determination rules, while master data governs the transaction behavior."
-  });
-
-  // Transaction & Execution Guide (T-Codes Table)
-  slides.push({
-    id: "slide-tcodes",
-    slideNumber: sNum++,
-    type: "TRANSACTION_GUIDE",
-    title: "Transaction & Execution Guide (T-Codes)",
-    categoryTag: "OPERATIONAL RUNBOOK",
-    purpose: "Practical table containing T-Codes, user actions, expected system results, and owning modules.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "99%",
-    sourceCount: 4,
-    data: {
-      tableRows: (normalized.distinctTcodes.length > 0 ? normalized.distinctTcodes.slice(0, 6) : ["/SAPSLL/BL_DOCS", "SMQ1", "SMQ2", "SM59", "ST22", "SLG1"]).map((tc, idx) => {
-        let desc = "Diagnostic inspection and monitoring";
-        let moduleCode = "Basis/Integration";
-        let result = "Displays active operational queue status and unit logs.";
-
-        if (tc.startsWith("/SAPSLL/")) {
-          moduleCode = "GTS";
-          desc = "Compliance screening and blocked documents management";
-          result = "Provides manual release and audit log verification.";
-        } else if (tc.startsWith("/SCWM/")) {
-          moduleCode = "EWM";
-          desc = "Warehouse execution and monitor inspection";
-          result = "Shows warehouse task status, waves, and storage bin allocations.";
-        } else if (tc.startsWith("CO")) {
-          moduleCode = "PP";
-          desc = "Production order creation, release, and confirmation";
-          result = "Generates manufacturing reservations and component staging triggers.";
-        } else if (tc.startsWith("ME") || tc === "MIGO") {
-          moduleCode = "MM";
-          desc = "Purchasing and inventory goods movement";
-          result = "Posts material document and creates financial line items.";
-        } else if (tc.startsWith("VA") || tc.startsWith("VL")) {
-          moduleCode = "SD";
-          desc = "Sales order creation and outbound shipping";
-          result = "Generates delivery order and initiates picking waves.";
-        } else if (tc === "SMQ1") {
-          desc = "Outbound qRFC Monitor";
-          result = "Displays queued LUWs awaiting RFC partner transmission.";
-        } else if (tc === "SMQ2") {
-          desc = "Inbound qRFC Monitor";
-          result = "Shows received LUWs waiting for execution in local application.";
-        }
-
-        return {
-          step: `T-${idx + 1}`,
-          tcode: tc,
-          module: moduleCode,
-          action: desc,
-          expectedResult: result
-        };
-      })
-    },
-    speakerNotes: "Use this transaction cheat sheet to guide operations. Remind learners that all T-codes listed were verified during the active session."
-  });
-
-  // Exceptions & Troubleshooting Guide
-  slides.push({
-    id: "slide-troubleshooting",
-    slideNumber: sNum++,
-    type: "TROUBLESHOOTING",
-    title: "Exceptions, Root Causes & Triage Runbook",
-    categoryTag: "INCIDENT MANAGEMENT",
-    purpose: "Categorized issue list showing symptoms, likely causes, verification locations, and corrective actions.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "97%",
-    sourceCount: 3,
-    data: {
-      issues: [
-        {
-          category: "Queue / RFC Blockage",
-          symptom: normalized.issueItems[0] || "qRFC entry stuck in STOP or SYSFAIL state",
-          cause: "First LUW in queue encountered RFC timeout, locking conflict, or ABAP short dump.",
-          triage: "Inspect SMQ1/SMQ2, review developer trace in ST22, verify RFC logon in SM59."
-        },
-        {
-          category: "Compliance Lock / Authorization",
-          symptom: "Outbound delivery blocked from picking and warehouse task creation",
-          cause: "Business partner failed automated SPL screening or license validity expired.",
-          triage: "Open /SAPSLL/BL_DOCS, evaluate match percentage, perform authorized release."
-        },
-        {
-          category: "Master Data / Config Mismatch",
-          symptom: "Missing storage location determination or material staging failure",
-          cause: "Production supply area (PSA) or control cycle not linked to EWM warehouse number.",
-          triage: "Verify control cycle in PKMC, check storage bin assignment in /SCWM/BINMAT."
-        }
-      ]
-    },
-    speakerNotes: "This slide acts as the emergency troubleshooting matrix across all investigated topics."
-  });
-
-  // Interview-Ready Explanation
-  slides.push({
-    id: "slide-interview",
-    slideNumber: sNum++,
-    type: "INTERVIEW_READY",
-    title: "Interview-Ready Explanation & Consultant Answer",
-    categoryTag: "EXPERT DIALOGUE",
-    purpose: "Structured consultant-grade answer covering business purpose, technical flow, and closing statement.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "98%",
-    sourceCount: 2,
-    data: {
-      directAnswer: `In SAP enterprise architectures, ${moduleAnalysis.crossModuleLabel} integration relies on decoupled, asynchronous document replication to guarantee strict data consistency without degrading Core transaction performance.`,
-      businessContext: "Organizations require automated governance so that transactional operations flow smoothly across departments while preventing regulatory penalties and supply chain disruptions.",
-      technicalFlow: "When a transaction is initiated, S/4HANA creates an LUW transmitted via qRFC/bgRFC. Downstream applications process the payload, evaluate business rules, and acknowledge status back to Core.",
-      consultantClosing: "As an SAP Solution Consultant, the key best practice is ensuring end-to-end observability across interface queues (SMQ1/SMQ2) and enforcing SPRO customizing governance rather than executing unmonitored manual workarounds in Production."
-    },
-    speakerNotes: "Practice speaking through the Direct Answer followed by the Consultant Closing statement."
-  });
-
-  // Sources & Evidence
-  slides.push({
-    id: "slide-sources",
-    slideNumber: sNum++,
-    type: "SOURCES_EVIDENCE",
-    title: "Official Sources, Citations & Evidence Governance",
-    categoryTag: "VERIFICATION & AUDIT",
-    purpose: "Official SAP Help links, evidence classifications, and audit sign-off.",
-    module: moduleAnalysis.crossModuleLabel,
-    confidence: "100%",
-    sourceCount: sessionData.citations.length || 3,
-    data: {
-      sourcesList: sessionData.citations.length > 0 ? sessionData.citations.map(c => ({
-        title: c.title || "Official SAP Help Portal Documentation",
-        citationId: c.citationId || "SAP-HELP",
-        url: c.url || "https://help.sap.com",
-        status: "Officially Verified"
-      })) : [
-        { title: "SAP Help Portal: Global Trade Services (GTS) Architecture", citationId: "SAP-GTS-01", url: "https://help.sap.com", status: "Officially Verified" },
-        { title: "SAP Help Portal: ABAP Platform qRFC & bgRFC Architecture", citationId: "SAP-ABAP-01", url: "https://help.sap.com", status: "Officially Verified" },
-        { title: "SAP Best Practices Explorer: E2E Process Orchestration", citationId: "SAP-BP-E2E", url: "https://help.sap.com", status: "Session-Derived" }
-      ],
-      evidenceBadge: "[Verified Official · SAP Platform 2023]",
-      governanceStatement: "All recommendations align with official SAP standards and read-only operational safeguard policies."
-    },
-    speakerNotes: "Conclude the deck by demonstrating verified grounding across all session inquiries."
-  });
-
   return {
     sessionTitle: title,
-    sessionSubtitle: "SAP End-to-End Learning Summary",
+    sessionSubtitle: "SAP End-to-End Session Learning Summary",
     sessionId: sessionData.sessionId,
     caseId,
     dateStr,
     topicsAnalyzedCount: sessionData.turns.length,
-    searchedInquiries,
-    detectedModules: moduleAnalysis.detectedModules,
-    isCrossModule: moduleAnalysis.isCrossModule,
-    crossModuleLabel: moduleAnalysis.crossModuleLabel,
-    primaryProcess: processAnalysis.primaryProcess,
-    allProcesses: processAnalysis.allProcesses,
-    duplicatesRemovedCount: normalized.duplicatesRemovedCount,
-    distinctTcodesCount: normalized.distinctTcodes.length,
+    searchedInquiries: sessionData.turns.map(t => ({
+      turnIndex: t.index + 1,
+      query: t.query,
+      module: t.module,
+      moduleName: t.moduleName,
+      moduleColor: t.moduleColor,
+      tcodes: t.tcodes,
+      bulletPoints: t.bullets,
+      responseSnippet: t.summary
+    })),
+    detectedModules,
+    crossModuleLabel,
     suggestedSlideCount: slides.length,
     slides
   };

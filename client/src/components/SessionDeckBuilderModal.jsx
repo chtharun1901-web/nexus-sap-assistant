@@ -21,12 +21,12 @@ export default function SessionDeckBuilderModal({
   const [editingSlideId, setEditingSlideId] = useState(null);
   const [activeTab, setActiveTab] = useState("slides"); // "slides" | "inquiries"
 
-  // Initialize or re-analyze session graph whenever modal opens
+  // Initialize session graph
   useEffect(() => {
     if (isOpen) {
       const graph = buildSessionPresentationGraph(rawSession, aiText, doc, conversationTurns);
       setDeckGraph(graph);
-      setCustomTitle(graph.sessionTitle || "SAP End-to-End Learning Summary");
+      setCustomTitle(graph.sessionTitle || "SAP End-to-End Session Learning Summary");
       setCustomSubtitle(graph.sessionSubtitle || "SAP Enterprise Architecture & Diagnostic Review");
       setSelectedSlideIds(graph.slides.map(s => s.id));
       setExportSuccess(false);
@@ -35,7 +35,7 @@ export default function SessionDeckBuilderModal({
 
   if (!isOpen || !deckGraph) return null;
 
-  // Handle slide reordering (Move Up / Move Down)
+  // Move slide up/down
   const moveSlide = (index, direction) => {
     const newSlides = [...deckGraph.slides];
     const targetIdx = index + direction;
@@ -45,7 +45,6 @@ export default function SessionDeckBuilderModal({
     newSlides[index] = newSlides[targetIdx];
     newSlides[targetIdx] = temp;
 
-    // Recalculate slide numbers
     newSlides.forEach((s, idx) => {
       s.slideNumber = idx + 1;
     });
@@ -53,7 +52,7 @@ export default function SessionDeckBuilderModal({
     setDeckGraph({ ...deckGraph, slides: newSlides });
   };
 
-  // Remove / delete individual slide
+  // Remove slide
   const removeSlide = (slideId) => {
     const newSlides = deckGraph.slides.filter(s => s.id !== slideId);
     newSlides.forEach((s, idx) => {
@@ -70,7 +69,7 @@ export default function SessionDeckBuilderModal({
     );
   };
 
-  // Select all or deselect all
+  // Select / Deselect all
   const toggleSelectAll = () => {
     if (selectedSlideIds.length === deckGraph.slides.length) {
       setSelectedSlideIds([]);
@@ -79,7 +78,7 @@ export default function SessionDeckBuilderModal({
     }
   };
 
-  // Regenerate entire deck structure from raw session
+  // Reset / Regenerate structure from session
   const handleRegenerate = () => {
     const graph = buildSessionPresentationGraph(rawSession, aiText, doc, conversationTurns);
     setDeckGraph(graph);
@@ -88,46 +87,7 @@ export default function SessionDeckBuilderModal({
     setSelectedSlideIds(graph.slides.map(s => s.id));
   };
 
-  // Add individual inquiry as a dedicated slide
-  const handleAddInquiryAsSlide = (inquiry) => {
-    const newSlide = {
-      id: `slide-custom-inq-${Date.now()}`,
-      slideNumber: deckGraph.slides.length + 1,
-      type: "TOPIC_INQUIRY",
-      title: `Topic Deep-Dive: ${inquiry.query}`,
-      categoryTag: `INQUIRY #${inquiry.turnIndex} · ${inquiry.module}`,
-      purpose: `Detailed examination and runbook for searched topic: "${inquiry.query}"`,
-      module: inquiry.module,
-      confidence: "98%",
-      sourceCount: 2,
-      data: {
-        inquiryIndex: inquiry.turnIndex,
-        queryTitle: inquiry.query,
-        moduleCode: inquiry.module,
-        moduleName: inquiry.moduleName,
-        moduleColor: inquiry.moduleColor,
-        tcodes: inquiry.tcodes.length > 0 ? inquiry.tcodes : ["/SAPSLL/BL_DOCS", "/SCWM/MON"],
-        bulletPoints: inquiry.bulletPoints || ["Verified operational runbook according to SAP platform standards."],
-        solutionSummary: inquiry.responseSnippet || "Verified operational diagnostic analysis."
-      },
-      speakerNotes: `Detailed breakdown of inquiry #${inquiry.turnIndex} ("${inquiry.query}").`
-    };
-
-    const newSlides = [...deckGraph.slides, newSlide];
-    newSlides.forEach((s, idx) => {
-      s.slideNumber = idx + 1;
-    });
-
-    setDeckGraph({
-      ...deckGraph,
-      slides: newSlides,
-      suggestedSlideCount: newSlides.length
-    });
-    setSelectedSlideIds(prev => [...prev, newSlide.id]);
-    setActiveTab("slides");
-  };
-
-  // Handle slide title edit
+  // Edit slide title
   const handleSlideTitleChange = (slideId, newTitle) => {
     const newSlides = deckGraph.slides.map(s => {
       if (s.id === slideId) {
@@ -138,7 +98,7 @@ export default function SessionDeckBuilderModal({
     setDeckGraph({ ...deckGraph, slides: newSlides });
   };
 
-  // Export to PowerPoint
+  // Export to PowerPoint (.pptx)
   const handleExportPptx = async () => {
     if (selectedSlideIds.length === 0) {
       alert("Please select at least one slide to export.");
@@ -158,7 +118,7 @@ export default function SessionDeckBuilderModal({
         includeNotes
       });
       setExportSuccess(true);
-      setTimeout(() => setExportSuccess(false), 4000);
+      setTimeout(() => setExportSuccess(false), 4500);
     } catch (err) {
       console.error("Session PowerPoint Export failed:", err);
       alert("Failed to export PowerPoint deck: " + (err.message || err));
@@ -179,7 +139,7 @@ export default function SessionDeckBuilderModal({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(10, 15, 29, 0.78)",
+        backgroundColor: "rgba(28, 25, 23, 0.75)",
         backdropFilter: "blur(6px)",
         zIndex: 10000,
         display: "flex",
@@ -193,13 +153,14 @@ export default function SessionDeckBuilderModal({
     >
       <div
         style={{
-          background: "#FFFFFF",
-          color: "#0F172A",
+          background: "var(--bg-card, #FAF8F5)",
+          color: "var(--text-primary, #1C1917)",
           width: "100%",
           maxWidth: 980,
           maxHeight: "92vh",
           borderRadius: 14,
-          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0,0,0,0.08)",
+          border: "1px solid var(--border-strong, rgba(0,0,0,0.16))",
+          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -214,12 +175,12 @@ export default function SessionDeckBuilderModal({
           }
         `}</style>
 
-        {/* Modal Header */}
+        {/* Modal Header: Nexus Signature Burgundy Gradient */}
         <div
           style={{
-            padding: "18px 24px",
-            borderBottom: "1px solid #E2E8F0",
-            background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
+            padding: "16px 24px",
+            borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+            background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
             color: "#FFFFFF",
             display: "flex",
             alignItems: "center",
@@ -229,29 +190,29 @@ export default function SessionDeckBuilderModal({
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: "linear-gradient(135deg, #EA580C 0%, #D97706 100%)",
+                width: 38,
+                height: 38,
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.25)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 20,
-                boxShadow: "0 2px 8px rgba(234, 88, 12, 0.35)"
+                fontSize: 19
               }}
             >
               📽️
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
-                  Session Deck Builder
+                <h2 style={{ fontSize: 16.5, fontWeight: 700, margin: 0, letterSpacing: "-0.01em", color: "#FFFFFF" }}>
+                  Session PowerPoint Deck Builder
                 </h2>
                 <span
                   style={{
-                    background: "rgba(245, 158, 11, 0.2)",
-                    border: "1px solid rgba(245, 158, 11, 0.4)",
-                    color: "#FCD34D",
+                    background: "rgba(252, 211, 77, 0.2)",
+                    border: "1px solid rgba(252, 211, 77, 0.5)",
+                    color: "#FDE68A",
                     fontSize: 10,
                     fontWeight: 700,
                     padding: "2px 7px",
@@ -259,11 +220,11 @@ export default function SessionDeckBuilderModal({
                     fontFamily: "var(--font-mono, monospace)"
                   }}
                 >
-                  FULL SESSION ANALYSIS
+                  {deckGraph.topicsAnalyzedCount} INQUIRIES COVERED
                 </span>
               </div>
-              <p style={{ fontSize: 12, color: "#94A3B8", margin: "2px 0 0 0" }}>
-                Multi-turn conversation normalized into an editable consultant-grade PowerPoint presentation
+              <p style={{ fontSize: 12, color: "#F3CBD2", margin: "2px 0 0 0" }}>
+                Converts your active session questions and answers into a structured presentation deck
               </p>
             </div>
           </div>
@@ -271,69 +232,71 @@ export default function SessionDeckBuilderModal({
           <button
             onClick={onClose}
             style={{
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "#CBD5E1",
-              width: 32,
-              height: 32,
-              borderRadius: 8,
+              background: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "#FFFFFF",
+              width: 30,
+              height: 30,
+              borderRadius: 6,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 16,
+              fontSize: 15,
               transition: "all 0.15s ease"
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "#FFFFFF"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#CBD5E1"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
           >
             ✕
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: "18px 24px", overflowY: "auto", flex: 1, background: "var(--bg-main, #F5F1EB)" }}>
           
-          {/* 1. Title & Subtitle Edit Fields */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+          {/* 1. Presentation Title & Subtitle */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
             <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: 5 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--burgundy-rich, #6E1A2D)", textTransform: "uppercase", marginBottom: 5 }}>
                 Presentation Title
               </label>
               <input
                 type="text"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
-                placeholder="Enter deck title..."
+                placeholder="Enter presentation title..."
                 style={{
                   width: "100%",
-                  padding: "9px 12px",
-                  borderRadius: 7,
-                  border: "1px solid #CBD5E1",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border-strong, rgba(0,0,0,0.16))",
                   fontSize: 13.5,
                   fontWeight: 600,
-                  color: "#0F172A",
+                  color: "var(--text-primary, #1C1917)",
+                  background: "var(--bg-card, #FAF8F5)",
                   outline: "none",
                   boxSizing: "border-box"
                 }}
               />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: 5 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--burgundy-rich, #6E1A2D)", textTransform: "uppercase", marginBottom: 5 }}>
                 Presentation Subtitle
               </label>
               <input
                 type="text"
                 value={customSubtitle}
                 onChange={(e) => setCustomSubtitle(e.target.value)}
-                placeholder="Enter deck subtitle..."
+                placeholder="Enter presentation subtitle..."
                 style={{
                   width: "100%",
-                  padding: "9px 12px",
-                  borderRadius: 7,
-                  border: "1px solid #CBD5E1",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border-strong, rgba(0,0,0,0.16))",
                   fontSize: 13.5,
-                  color: "#334155",
+                  color: "var(--text-body, #44403C)",
+                  background: "var(--bg-card, #FAF8F5)",
                   outline: "none",
                   boxSizing: "border-box"
                 }}
@@ -341,49 +304,50 @@ export default function SessionDeckBuilderModal({
             </div>
           </div>
 
-          {/* 2. Analysis Intelligence Pipeline Metrics */}
+          {/* 2. Session Summary Bar in Nexus Style */}
           <div
             style={{
-              background: "#F8FAFC",
-              border: "1px solid #E2E8F0",
-              borderRadius: 10,
-              padding: "12px 16px",
-              marginBottom: 16,
+              background: "var(--bg-card, #FAF8F5)",
+              border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+              borderRadius: 8,
+              padding: "10px 14px",
+              marginBottom: 14,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: 12
+              gap: 10
             }}
           >
-            <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
               <div>
-                <span style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, textTransform: "uppercase", display: "block" }}>
-                  Topics Analyzed
+                <span style={{ fontSize: 10, color: "var(--text-muted, #78716C)", fontWeight: 700, textTransform: "uppercase", display: "block" }}>
+                  Session Inquiries
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "#0F172A" }}>
-                  {deckGraph.topicsAnalyzedCount} {deckGraph.topicsAnalyzedCount === 1 ? "Inquiry" : "Turns"}
+                <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--burgundy-rich, #6E1A2D)", fontFamily: "var(--font-mono)" }}>
+                  {deckGraph.topicsAnalyzedCount} Searched Turns
                 </span>
               </div>
 
-              <div style={{ height: 24, width: 1, background: "#CBD5E1" }} />
+              <div style={{ height: 22, width: 1, background: "var(--border-strong, rgba(0,0,0,0.12))" }} />
 
               <div>
-                <span style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, textTransform: "uppercase", display: "block" }}>
-                  Modules Detected
+                <span style={{ fontSize: 10, color: "var(--text-muted, #78716C)", fontWeight: 700, textTransform: "uppercase", display: "block" }}>
+                  Modules Explored
                 </span>
-                <div style={{ display: "flex", gap: 5, marginTop: 2 }}>
+                <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
                   {deckGraph.detectedModules.map((m, idx) => (
                     <span
                       key={idx}
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        padding: "1px 7px",
+                        padding: "1px 6px",
                         borderRadius: 4,
-                        background: m.badgeBg || "rgba(59, 130, 246, 0.12)",
-                        border: `1px solid ${m.badgeBorder || "#3B82F6"}`,
-                        color: m.color || "#2563EB"
+                        background: "var(--burgundy-light, #FDF2F4)",
+                        border: "1px solid var(--burgundy-border, #F3CBD2)",
+                        color: "var(--burgundy-rich, #6E1A2D)",
+                        fontFamily: "var(--font-mono)"
                       }}
                     >
                       {m.code}
@@ -392,126 +356,111 @@ export default function SessionDeckBuilderModal({
                 </div>
               </div>
 
-              <div style={{ height: 24, width: 1, background: "#CBD5E1" }} />
+              <div style={{ height: 22, width: 1, background: "var(--border-strong, rgba(0,0,0,0.12))" }} />
 
               <div>
-                <span style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, textTransform: "uppercase", display: "block" }}>
-                  Primary Business Process
+                <span style={{ fontSize: 10, color: "var(--text-muted, #78716C)", fontWeight: 700, textTransform: "uppercase", display: "block" }}>
+                  Generated Presentation
                 </span>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: "#065F46" }}>
-                  ⚙️ {deckGraph.primaryProcess?.name || "Global Trade Compliance & Screening"}
-                </span>
-              </div>
-
-              <div style={{ height: 24, width: 1, background: "#CBD5E1" }} />
-
-              <div>
-                <span style={{ fontSize: 10.5, color: "#64748B", fontWeight: 600, textTransform: "uppercase", display: "block" }}>
-                  Deduplicated / Cleaned
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#64748B" }}>
-                  ✓ {deckGraph.duplicatesRemovedCount} Noise items removed
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--green-text, #065F46)" }}>
+                  ✓ {deckGraph.slides.length} Focused Slides
                 </span>
               </div>
             </div>
 
             <button
               onClick={handleRegenerate}
-              title="Re-analyze session and regenerate standard structure"
+              title="Reset and regenerate all inquiry slides"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 5,
-                background: "#FFFFFF",
-                border: "1px solid #CBD5E1",
-                padding: "6px 12px",
-                borderRadius: 6,
-                fontSize: 12,
+                gap: 4,
+                background: "var(--bg-surface, #EDE8E0)",
+                border: "1px solid var(--border-strong, rgba(0,0,0,0.16))",
+                padding: "5px 10px",
+                borderRadius: 5,
+                fontSize: 11.5,
                 fontWeight: 600,
-                color: "#1E293B",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+                color: "var(--text-primary, #1C1917)",
+                cursor: "pointer"
               }}
             >
-              🔄 Regenerate Structure
+              🔄 Reset Structure
             </button>
           </div>
 
-          {/* 3. Navigation Tabs: Slides Outline vs All Searched Inquiries */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 16, borderBottom: "2px solid #E2E8F0" }}>
+          {/* 3. Navigation Tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, borderBottom: "1.5px solid var(--border-strong, rgba(0,0,0,0.12))" }}>
             <button
               type="button"
               onClick={() => setActiveTab("slides")}
               style={{
-                padding: "8px 16px",
-                fontSize: 13,
+                padding: "8px 14px",
+                fontSize: 12.5,
                 fontWeight: 700,
                 cursor: "pointer",
                 background: "none",
                 border: "none",
-                borderBottom: activeTab === "slides" ? "2px solid #EA580C" : "2px solid transparent",
-                color: activeTab === "slides" ? "#EA580C" : "#64748B",
-                marginBottom: -2,
+                borderBottom: activeTab === "slides" ? "2.5px solid var(--burgundy-rich, #6E1A2D)" : "2.5px solid transparent",
+                color: activeTab === "slides" ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-muted, #78716C)",
+                marginBottom: -1.5,
                 display: "flex",
                 alignItems: "center",
                 gap: 6
               }}
             >
               <span>📑</span>
-              <span>Slide Outline Preview ({deckGraph.slides.length} Slides)</span>
+              <span>Inquiry Slides List ({deckGraph.slides.length} Slides)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("inquiries")}
               style={{
-                padding: "8px 16px",
-                fontSize: 13,
+                padding: "8px 14px",
+                fontSize: 12.5,
                 fontWeight: 700,
                 cursor: "pointer",
                 background: "none",
                 border: "none",
-                borderBottom: activeTab === "inquiries" ? "2px solid #EA580C" : "2px solid transparent",
-                color: activeTab === "inquiries" ? "#EA580C" : "#64748B",
-                marginBottom: -2,
+                borderBottom: activeTab === "inquiries" ? "2.5px solid var(--burgundy-rich, #6E1A2D)" : "2.5px solid transparent",
+                color: activeTab === "inquiries" ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-muted, #78716C)",
+                marginBottom: -1.5,
                 display: "flex",
                 alignItems: "center",
                 gap: 6
               }}
             >
               <span>📋</span>
-              <span>All Searched Inquiries ({deckGraph.searchedInquiries?.length || deckGraph.topicsAnalyzedCount} Turns)</span>
-              <span style={{ fontSize: 10, background: "rgba(234, 88, 12, 0.15)", color: "#C2410C", padding: "1px 6px", borderRadius: 10 }}>
-                Full Trace
-              </span>
+              <span>All Searched Inquiries ({deckGraph.topicsAnalyzedCount} Turns)</span>
             </button>
           </div>
 
           {/* 4. Tab 1 Content: Slide Outline Cards */}
           {activeTab === "slides" && (
             <>
-              {/* Theme & Export Customization Options */}
+              {/* Style & Options Bar */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  marginBottom: 12,
-                  paddingBottom: 10,
-                  borderBottom: "1px solid #E2E8F0",
+                  marginBottom: 10,
+                  paddingBottom: 8,
+                  borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.06))",
                   flexWrap: "wrap",
                   gap: 10
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#475569" }}>
-                    Visual Style:
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted, #78716C)" }}>
+                    Theme:
                   </span>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 5 }}>
                     {[
-                      { id: "executive", label: "Executive Navy Dark", icon: "🌌" },
-                      { id: "midnight", label: "SAP Midnight Pro", icon: "🔷" },
-                      { id: "slate", label: "Clean Enterprise Slate", icon: "📄" }
+                      { id: "executive", label: "Executive Dark", icon: "🌌" },
+                      { id: "midnight", label: "SAP Midnight", icon: "🔷" },
+                      { id: "slate", label: "Nexus Slate Light", icon: "📄" }
                     ].map((t) => (
                       <button
                         key={t.id}
@@ -521,14 +470,14 @@ export default function SessionDeckBuilderModal({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4,
-                          padding: "4px 10px",
-                          borderRadius: 6,
-                          fontSize: 11.5,
+                          padding: "3px 8px",
+                          borderRadius: 5,
+                          fontSize: 11,
                           fontWeight: theme === t.id ? 700 : 500,
                           cursor: "pointer",
-                          border: theme === t.id ? "1.5px solid #2563EB" : "1px solid #CBD5E1",
-                          background: theme === t.id ? "#EFF6FF" : "#FFFFFF",
-                          color: theme === t.id ? "#1D4ED8" : "#475569",
+                          border: theme === t.id ? "1.5px solid var(--burgundy-rich, #6E1A2D)" : "1px solid var(--border-strong, rgba(0,0,0,0.12))",
+                          background: theme === t.id ? "var(--burgundy-light, #FDF2F4)" : "var(--bg-card, #FAF8F5)",
+                          color: theme === t.id ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-body, #44403C)",
                           transition: "all 0.15s ease"
                         }}
                       >
@@ -539,14 +488,14 @@ export default function SessionDeckBuilderModal({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#334155", cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--text-body)", cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       checked={includeNotes}
                       onChange={(e) => setIncludeNotes(e.target.checked)}
                     />
-                    <span style={{ fontWeight: 600 }}>Include Speaker Notes</span>
+                    <span>Speaker Notes</span>
                   </label>
 
                   <button
@@ -555,9 +504,9 @@ export default function SessionDeckBuilderModal({
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#2563EB",
-                      fontSize: 12,
-                      fontWeight: 600,
+                      color: "var(--burgundy-rich, #6E1A2D)",
+                      fontSize: 11.5,
+                      fontWeight: 700,
                       cursor: "pointer",
                       padding: 0
                     }}
@@ -567,8 +516,8 @@ export default function SessionDeckBuilderModal({
                 </div>
               </div>
 
-              {/* Slides List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Slide Cards List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {deckGraph.slides.map((slide, idx) => {
                   const isSelected = selectedSlideIds.includes(slide.id);
                   const isEditing = editingSlideId === slide.id;
@@ -580,21 +529,20 @@ export default function SessionDeckBuilderModal({
                       style={{
                         display: "flex",
                         alignItems: "flex-start",
-                        gap: 12,
-                        padding: "12px 14px",
-                        borderRadius: 8,
+                        gap: 10,
+                        padding: "10px 14px",
+                        borderRadius: 7,
                         border: isTopicInquiry
-                          ? "1.5px solid rgba(234, 88, 12, 0.4)"
-                          : isSelected ? "1px solid #CBD5E1" : "1px solid #E2E8F0",
+                          ? "1.5px solid var(--burgundy-border, #F3CBD2)"
+                          : isSelected ? "1px solid var(--border-strong, rgba(0,0,0,0.16))" : "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
                         background: isTopicInquiry
-                          ? "#FFFBF8"
-                          : isSelected ? "#FFFFFF" : "#F8FAFC",
+                          ? "var(--burgundy-light, #FDF2F4)"
+                          : isSelected ? "var(--bg-card, #FAF8F5)" : "var(--bg-surface, #EDE8E0)",
                         opacity: isSelected ? 1 : 0.65,
-                        boxShadow: isSelected ? "0 1px 3px rgba(0,0,0,0.03)" : "none",
+                        boxShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.03)" : "none",
                         transition: "all 0.15s ease"
                       }}
                     >
-                      {/* Select Checkbox */}
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -605,10 +553,10 @@ export default function SessionDeckBuilderModal({
                       {/* Slide Number Badge */}
                       <div
                         style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 6,
-                          background: isTopicInquiry ? "#EA580C" : "#0F172A",
+                          width: 26,
+                          height: 26,
+                          borderRadius: 5,
+                          background: isTopicInquiry ? "var(--burgundy-rich, #6E1A2D)" : "#1F1F1E",
                           color: "#FFFFFF",
                           fontSize: 11,
                           fontWeight: 800,
@@ -624,7 +572,7 @@ export default function SessionDeckBuilderModal({
 
                       {/* Slide Details */}
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
                           {isEditing ? (
                             <input
                               type="text"
@@ -633,12 +581,12 @@ export default function SessionDeckBuilderModal({
                               onBlur={() => setEditingSlideId(null)}
                               autoFocus
                               style={{
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: 700,
-                                color: "#0F172A",
+                                color: "var(--text-primary)",
                                 padding: "2px 6px",
                                 borderRadius: 4,
-                                border: "1px solid #2563EB",
+                                border: "1px solid var(--burgundy-rich, #6E1A2D)",
                                 width: "70%"
                               }}
                             />
@@ -646,7 +594,7 @@ export default function SessionDeckBuilderModal({
                             <span
                               onClick={() => setEditingSlideId(slide.id)}
                               title="Click to edit slide title"
-                              style={{ fontSize: 13.5, fontWeight: 700, color: "#0F172A", cursor: "pointer" }}
+                              style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", cursor: "pointer" }}
                             >
                               {slide.title} ✏️
                             </span>
@@ -658,46 +606,32 @@ export default function SessionDeckBuilderModal({
                               fontWeight: 700,
                               padding: "1px 6px",
                               borderRadius: 4,
-                              background: isTopicInquiry ? "rgba(234, 88, 12, 0.15)" : "#F1F5F9",
-                              color: isTopicInquiry ? "#C2410C" : "#475569",
-                              textTransform: "uppercase"
+                              background: "rgba(0,0,0,0.06)",
+                              color: "var(--text-body)",
+                              fontFamily: "var(--font-mono)"
                             }}
                           >
                             {slide.categoryTag || "CONTENT"}
                           </span>
-
-                          <span
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 700,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: "rgba(16, 185, 129, 0.12)",
-                              color: "#065F46"
-                            }}
-                          >
-                            ✓ {slide.confidence || "98%"} Confidence
-                          </span>
                         </div>
 
-                        <p style={{ fontSize: 12, color: "#64748B", margin: 0, lineHeight: 1.4 }}>
+                        <p style={{ fontSize: 11.5, color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
                           {slide.purpose}
                         </p>
                       </div>
 
-                      {/* Reorder & Action Controls */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      {/* Reorder / Action buttons */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                         <button
                           type="button"
                           onClick={() => moveSlide(idx, -1)}
                           disabled={idx === 0}
-                          title="Move slide up"
                           style={{
-                            background: "#F1F5F9",
-                            border: "1px solid #CBD5E1",
+                            background: "var(--bg-surface)",
+                            border: "1px solid var(--border-strong)",
                             borderRadius: 4,
-                            padding: "3px 7px",
-                            fontSize: 11,
+                            padding: "2px 6px",
+                            fontSize: 10,
                             cursor: idx === 0 ? "not-allowed" : "pointer",
                             opacity: idx === 0 ? 0.3 : 1
                           }}
@@ -708,13 +642,12 @@ export default function SessionDeckBuilderModal({
                           type="button"
                           onClick={() => moveSlide(idx, 1)}
                           disabled={idx === deckGraph.slides.length - 1}
-                          title="Move slide down"
                           style={{
-                            background: "#F1F5F9",
-                            border: "1px solid #CBD5E1",
+                            background: "var(--bg-surface)",
+                            border: "1px solid var(--border-strong)",
                             borderRadius: 4,
-                            padding: "3px 7px",
-                            fontSize: 11,
+                            padding: "2px 6px",
+                            fontSize: 10,
                             cursor: idx === deckGraph.slides.length - 1 ? "not-allowed" : "pointer",
                             opacity: idx === deckGraph.slides.length - 1 ? 0.3 : 1
                           }}
@@ -724,17 +657,17 @@ export default function SessionDeckBuilderModal({
                         <button
                           type="button"
                           onClick={() => removeSlide(slide.id)}
-                          title="Remove slide from presentation"
+                          title="Remove slide"
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#94A3B8",
-                            fontSize: 13,
+                            color: "var(--text-muted)",
+                            fontSize: 12,
                             cursor: "pointer",
-                            padding: "2px 6px"
+                            padding: "2px 5px"
                           }}
                           onMouseEnter={(e) => { e.currentTarget.style.color = "#DC2626"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = "#94A3B8"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
                         >
                           🗑️
                         </button>
@@ -746,33 +679,32 @@ export default function SessionDeckBuilderModal({
             </>
           )}
 
-          {/* 5. Tab 2 Content: All Searched Inquiries & Topics Detailed View */}
+          {/* 5. Tab 2 Content: All Searched Inquiries */}
           {activeTab === "inquiries" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, background: "#F1F5F9", padding: "10px 14px", borderRadius: 8 }}>
-                💡 <strong>Session Search Trace:</strong> Here are all <strong>{deckGraph.searchedInquiries?.length || 0} user inquiries</strong> captured and analyzed in this active session. You can review the extracted technical findings or click <strong>"+ Add as Dedicated Slide"</strong> to append any inquiry directly into your PowerPoint deck!
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 12.5, color: "var(--text-body)", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-subtle)" }}>
+                💡 <strong>Session Inquiries ({deckGraph.topicsAnalyzedCount} Turns):</strong> Each inquiry below is automatically included as a dedicated slide in your presentation.
               </div>
 
               {(deckGraph.searchedInquiries || []).map((inq, idx) => (
                 <div
                   key={idx}
                   style={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E2E8F0",
-                    borderRadius: 10,
-                    padding: "14px 18px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+                    background: "var(--bg-card, #FAF8F5)",
+                    border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+                    borderRadius: 8,
+                    padding: "12px 14px"
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span
                         style={{
-                          background: "#0F172A",
+                          background: "var(--burgundy-rich, #6E1A2D)",
                           color: "#FFFFFF",
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: 800,
-                          padding: "2px 8px",
+                          padding: "2px 6px",
                           borderRadius: 4,
                           fontFamily: "var(--font-mono)"
                         }}
@@ -781,11 +713,12 @@ export default function SessionDeckBuilderModal({
                       </span>
                       <span
                         style={{
-                          background: "rgba(139, 92, 246, 0.15)",
-                          color: "#7C3AED",
-                          fontSize: 11,
+                          background: "var(--burgundy-light, #FDF2F4)",
+                          color: "var(--burgundy-rich, #6E1A2D)",
+                          border: "1px solid var(--burgundy-border, #F3CBD2)",
+                          fontSize: 10.5,
                           fontWeight: 700,
-                          padding: "2px 8px",
+                          padding: "2px 6px",
                           borderRadius: 4
                         }}
                       >
@@ -793,50 +726,32 @@ export default function SessionDeckBuilderModal({
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleAddInquiryAsSlide(inq)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        background: "#EFF6FF",
-                        border: "1px solid #BFDBFE",
-                        color: "#1D4ED8",
-                        fontSize: 11.5,
-                        fontWeight: 700,
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        cursor: "pointer"
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "#DBEAFE"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "#EFF6FF"; }}
-                    >
-                      <span>+ Add as Dedicated Slide</span>
-                    </button>
+                    <span style={{ fontSize: 11, color: "var(--green-text, #065F46)", fontWeight: 700 }}>
+                      ✓ Generated in Slide #{idx + 3}
+                    </span>
                   </div>
 
-                  <h3 style={{ fontSize: 14.5, fontWeight: 700, color: "#0F172A", margin: "0 0 6px 0" }}>
+                  <h3 style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px 0" }}>
                     {inq.query}
                   </h3>
 
-                  <p style={{ fontSize: 12.5, color: "#334155", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 12, color: "var(--text-body)", margin: "0 0 6px 0", lineHeight: 1.45 }}>
                     {inq.responseSnippet}
                   </p>
 
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#64748B" }}>T-Codes:</span>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text-muted)" }}>T-Codes:</span>
                     {(inq.tcodes && inq.tcodes.length > 0 ? inq.tcodes : ["/SAPSLL/BL_DOCS"]).map((tc, tcIdx) => (
                       <span
                         key={tcIdx}
                         style={{
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontFamily: "var(--font-mono)",
-                          background: "#F8FAFC",
-                          border: "1px solid #CBD5E1",
-                          color: "#1E293B",
-                          padding: "1px 6px",
-                          borderRadius: 4,
+                          background: "var(--bg-surface)",
+                          border: "1px solid var(--border-strong)",
+                          color: "var(--text-primary)",
+                          padding: "1px 5px",
+                          borderRadius: 3,
                           fontWeight: 600
                         }}
                       >
@@ -853,57 +768,56 @@ export default function SessionDeckBuilderModal({
         {/* Modal Footer Controls */}
         <div
           style={{
-            padding: "16px 24px",
-            borderTop: "1px solid #E2E8F0",
-            background: "#F8FAFC",
+            padding: "14px 24px",
+            borderTop: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+            background: "var(--bg-card, #FAF8F5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: 12
+            gap: 10
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 12.5, color: "#64748B" }}>
-              Total: <strong>{selectedSlideIds.length}</strong> of <strong>{deckGraph.slides.length}</strong> slides selected for presentation
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Total: <strong>{selectedSlideIds.length}</strong> of <strong>{deckGraph.slides.length}</strong> slides selected
             </span>
             {exportSuccess && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#16A34A", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                ✓ PowerPoint Deck Exported Successfully!
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--green-text, #065F46)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                ✓ PowerPoint (.pptx) Exported!
               </span>
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
               onClick={handlePrintOutline}
-              title="Print slide summary outline"
               style={{
-                padding: "8px 14px",
-                borderRadius: 7,
-                fontSize: 12.5,
+                padding: "7px 12px",
+                borderRadius: 6,
+                fontSize: 12,
                 fontWeight: 600,
-                color: "#475569",
-                background: "#FFFFFF",
-                border: "1px solid #CBD5E1",
+                color: "var(--text-body)",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-strong)",
                 cursor: "pointer"
               }}
             >
-              🖨️ Print Outline
+              🖨️ Print
             </button>
 
             <button
               type="button"
               onClick={onClose}
               style={{
-                padding: "8px 16px",
-                borderRadius: 7,
-                fontSize: 12.5,
+                padding: "7px 14px",
+                borderRadius: 6,
+                fontSize: 12,
                 fontWeight: 600,
-                color: "#475569",
-                background: "#FFFFFF",
-                border: "1px solid #CBD5E1",
+                color: "var(--text-body)",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-strong)",
                 cursor: "pointer"
               }}
             >
@@ -914,30 +828,25 @@ export default function SessionDeckBuilderModal({
               type="button"
               onClick={handleExportPptx}
               disabled={isExporting || selectedSlideIds.length === 0}
+              className="btn-primary"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                padding: "8px 20px",
-                borderRadius: 7,
-                fontSize: 13,
+                padding: "7px 18px",
+                fontSize: 12.5,
                 fontWeight: 700,
-                color: "#FFFFFF",
-                background: "linear-gradient(135deg, #EA580C 0%, #C2410C 100%)",
-                border: "none",
-                cursor: isExporting || selectedSlideIds.length === 0 ? "not-allowed" : "pointer",
-                boxShadow: "0 2px 6px rgba(234, 88, 12, 0.35)",
-                transition: "all 0.15s ease"
+                cursor: isExporting || selectedSlideIds.length === 0 ? "not-allowed" : "pointer"
               }}
             >
               {isExporting ? (
                 <>
-                  <span style={{ width: 14, height: 14, border: "2px solid #FFFFFF", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
-                  <span>Building PowerPoint...</span>
+                  <span style={{ width: 12, height: 12, border: "2px solid #FFFFFF", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                  <span>Generating Deck...</span>
                 </>
               ) : (
                 <>
-                  <span style={{ fontSize: 14 }}>📽️</span>
+                  <span>📽️</span>
                   <span>Export to PowerPoint (.pptx)</span>
                 </>
               )}
