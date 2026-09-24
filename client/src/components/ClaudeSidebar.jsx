@@ -131,6 +131,38 @@ export default function ClaudeSidebar({
           </button>
         </div>
 
+        {/* Nexus 2.0 Simulator Launcher */}
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))", background: activeView === "simulator" ? "rgba(110,26,45,0.08)" : "transparent" }}>
+          <button
+            type="button"
+            onClick={() => onNavigate && onNavigate("simulator")}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "7px 10px",
+              background: activeView === "simulator" ? "var(--orange, #6E1A2D)" : "var(--bg-card, #FAF8F5)",
+              color: activeView === "simulator" ? "#FFFFFF" : "var(--text-primary)",
+              border: "1px solid " + (activeView === "simulator" ? "var(--orange)" : "var(--border-subtle)"),
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              transition: "all 0.15s ease"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span>⚡</span>
+              <span>Nexus 2.0 (GTS Simulator)</span>
+            </div>
+            <span style={{ fontSize: 9.5, padding: "1px 5px", borderRadius: 3, background: activeView === "simulator" ? "rgba(255,255,255,0.2)" : "rgba(110,26,45,0.12)", color: activeView === "simulator" ? "#FFFFFF" : "var(--orange, #6E1A2D)", fontFamily: "var(--font-mono)" }}>
+              FIORI
+            </span>
+          </button>
+        </div>
+
         {/* 1. Active Case Block (Image 2 Top) */}
         <div
           style={{

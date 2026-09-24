@@ -13,6 +13,7 @@ import Knowledge from "./views/Knowledge.jsx";
 import KnowledgeBase from "./views/KnowledgeBase.jsx";
 import InterviewPrep from "./views/InterviewPrep.jsx";
 import KeyboardShortcuts from "./components/KeyboardShortcuts.jsx";
+import Nexus2Simulator from "./views/nexus2/Nexus2Simulator.jsx";
 import "./styles/theme.css";
 
 export const AuthCtx = createContext(null);
@@ -137,6 +138,7 @@ export default function App() {
     cases:     <Cases onOpen={(c) => navigateTo("workspace", c.title || c.case_id)} />,
     knowledge: <Knowledge />,
     kb:        <KnowledgeBase />,
+    simulator: <Nexus2Simulator onNavigate={navigateTo} />,
   }[activeView] || (
     <Workspace
       activeTopic={activeTopic}
