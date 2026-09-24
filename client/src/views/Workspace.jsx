@@ -3,6 +3,7 @@ import SessionDeckBuilderModal from "../components/SessionDeckBuilderModal.jsx";
 import { exportValueStreamMapExcel } from "../utils/valueStreamMapping.js";
 import { exportSapPresentationPptx } from "../utils/exportPptx.js";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import Lenis from "lenis";
 import * as XLSX from "xlsx";
 import { api } from "../api.js";
 import OrganizationalDiagram from "../components/diagram/OrganizationalDiagram.jsx";
@@ -1223,6 +1224,8 @@ export default function Workspace({
   const [activeClassification, setActiveClassification] = useState(null);
   const [followUpInput, setFollowUpInput] = useState("");
   const mainScrollRef = useRef(null);
+  const mainContentRef = useRef(null);
+  const lenisRef = useRef(null);
   const userScrolledUpRef = useRef(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
@@ -1671,28 +1674,38 @@ export default function Workspace({
     return turns;
   }, [aiText, doc, searchTopic]);
 
-  // Smooth Auto-Follow generation down without restricting manual scroll
+  // 60FPS Butter Smooth Lenis Inertia Momentum Scroll Engine
   useEffect(() => {
-    if (!aiStreaming) return;
-    if (userScrolledUpRef.current) return; // User manually scrolled up; allow them to freely browse
+    if (!mainScrollRef.current || !mainContentRef.current) return;
 
-    const container = mainScrollRef.current;
-    if (!container) return;
-
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth"
+    const lenis = new Lenis({
+      wrapper: mainScrollRef.current,
+      content: mainContentRef.current,
+      duration: 1.05,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // 60fps exponential momentum deceleration
+      orientation: "vertical",
+      gestureOrientation: "vertical",
+      smoothWheel: true,
+      wheelMultiplier: 1.05,
+      touchMultiplier: 1.6,
+      infinite: false
     });
-  }, [aiText, aiStreaming]);
 
-  // Scroll listener to update active turn dot & detect manual user scrolling
-  useEffect(() => {
-    const container = mainScrollRef.current;
-    if (!container) return;
+    lenisRef.current = lenis;
 
-    const handleScroll = () => {
-      // 1. Detect if user scrolled away from the active generating bottom
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    let animationFrameId;
+    function raf(time) {
+      lenis.raf(time);
+      animationFrameId = requestAnimationFrame(raf);
+    }
+    animationFrameId = requestAnimationFrame(raf);
+
+    // High performance 60fps scroll observer without layout thrashing
+    lenis.on("scroll", (e) => {
+      const scrollPos = e.scroll ?? mainScrollRef.current.scrollTop;
+      const limit = e.limit ?? (mainScrollRef.current.scrollHeight - mainScrollRef.current.clientHeight);
+      const distanceFromBottom = limit - scrollPos;
+
       if (distanceFromBottom > 100) {
         userScrolledUpRef.current = true;
         setIsScrolledUp(true);
@@ -1701,7 +1714,9 @@ export default function Workspace({
         setIsScrolledUp(false);
       }
 
-      // 2. Update active turn navigation rail indicator
+      // Update active turn navigation rail indicator
+      const container = mainScrollRef.current;
+      if (!container) return;
       const turnEls = container.querySelectorAll('[id^="turn-seg-"]');
       if (!turnEls.length) return;
 
@@ -1716,11 +1731,33 @@ export default function Workspace({
       });
 
       setActiveTurnIndex(currentActive);
-    };
+    });
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
   }, [conversationTurns]);
+
+  // Smooth 60fps Auto-Follow generation down with Lenis
+  useEffect(() => {
+    if (!aiStreaming) return;
+    if (userScrolledUpRef.current) return; // User manually scrolled up; allow them to freely browse
+
+    if (lenisRef.current && mainScrollRef.current) {
+      lenisRef.current.scrollTo(mainScrollRef.current.scrollHeight, {
+        duration: 0.6,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        lock: false
+      });
+    } else if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({
+        top: mainScrollRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [aiText, aiStreaming]);
 
   const handleBottomSubmit = (e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -1914,9 +1951,22 @@ export default function Workspace({
       >
 
 
-        {/* Full-width Scrollable Container inside framed box */}
-        <div ref={mainScrollRef} style={{ flex: 1, overflowY: "auto", width: "100%", background: "#FFFFFF", position: "relative" }}>
-          <div style={{ padding: "28px 44px 32px", maxWidth: 1040, margin: "0 auto", width: "100%" }}>
+        {/* Full-width Scrollable Container inside framed box with 60fps Lenis Engine */}
+        <div
+          ref={mainScrollRef}
+          className="smooth-scroll-container"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            width: "100%",
+            background: "#FFFFFF",
+            position: "relative",
+            transform: "translateZ(0)",
+            willChange: "scroll-position",
+            overscrollBehaviorY: "contain"
+          }}
+        >
+          <div ref={mainContentRef} style={{ padding: "28px 44px 32px", maxWidth: 1040, margin: "0 auto", width: "100%" }}>
 
 
 
@@ -2534,7 +2584,9 @@ export default function Workspace({
             onClick={() => {
               userScrolledUpRef.current = false;
               setIsScrolledUp(false);
-              if (mainScrollRef.current) {
+              if (lenisRef.current && mainScrollRef.current) {
+                lenisRef.current.scrollTo(mainScrollRef.current.scrollHeight, { duration: 0.9 });
+              } else if (mainScrollRef.current) {
                 mainScrollRef.current.scrollTo({
                   top: mainScrollRef.current.scrollHeight,
                   behavior: "smooth"
@@ -2795,7 +2847,11 @@ export default function Workspace({
                     onClick={() => {
                       const el = document.getElementById(turn.id);
                       if (el) {
-                        el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        if (lenisRef.current) {
+                          lenisRef.current.scrollTo(el, { offset: -40, duration: 0.9 });
+                        } else {
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
                         setActiveTurnIndex(tIdx);
                       }
                     }}

@@ -50,13 +50,35 @@ code{font-family:var(--font-mono);}
 .badge-blue{background:var(--blue-light);border:1px solid var(--blue-border);color:var(--blue-text);}
 .badge-red{background:var(--red-light);color:var(--red-text);}
 
-/* Ultra Smooth Scrolling & GPU Performance Acceleration */
+/* Ultra Smooth 60fps Lenis Momentum Scrolling & GPU Performance Acceleration */
 html {
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
 }
 
 .smooth-scroll-container {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   transform: translate3d(0, 0, 0);
@@ -66,18 +88,18 @@ html {
 }
 
 .smooth-scroll-container::-webkit-scrollbar {
-  width: 9px;
+  width: 7px;
 }
 .smooth-scroll-container::-webkit-scrollbar-track {
-  background: rgba(8, 5, 2, 0.75);
+  background: transparent;
 }
 .smooth-scroll-container::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.4);
-  border-radius: 5px;
-  border: 1px solid rgba(212, 175, 55, 0.2);
+  background: rgba(110, 26, 45, 0.22);
+  border-radius: 6px;
+  border: 1px solid transparent;
 }
 .smooth-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.8);
+  background: rgba(110, 26, 45, 0.45);
 }
 
 .story-card-gpu {
