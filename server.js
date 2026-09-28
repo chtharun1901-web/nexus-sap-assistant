@@ -1388,9 +1388,32 @@ Candidate Target Profile:
           }
         };
 
+        let isClosed = false;
+        let streamIdleTimer = null;
+
+        const clearTimers = () => {
+          if (streamIdleTimer) {
+            clearTimeout(streamIdleTimer);
+            streamIdleTimer = null;
+          }
+        };
+
+        const resetIdleTimer = () => {
+          clearTimers();
+          streamIdleTimer = setTimeout(() => {
+            if (!isClosed) {
+              console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream stream idle timeout (30s without chunks). Finalizing stream.`);
+              gemReq.destroy(new Error('Upstream stream idle timeout'));
+            }
+          }, 30000);
+        };
+
         const gemReq = https.request(reqOptions, gemRes => {
+          resetIdleTimer();
+
           // If search tool returned 429/400 and we haven't tried fallback yet, retry without tools
           if ((gemRes.statusCode === 429 || gemRes.statusCode === 400) && requestPayload.tools && !isFallback) {
+            clearTimers();
             console.log(`[${new Date().toISOString()}] [${reqId}] Google Search tool returned ${gemRes.statusCode}. Falling back to high-accuracy SAP Fact Validator...`);
             delete requestPayload.tools;
             return executeGeminiStream(requestPayload, true);
@@ -1430,6 +1453,7 @@ Candidate Target Profile:
         let liveGroundingMetadata = null;
 
         gemRes.on('data', chunk => {
+          resetIdleTimer();
           sseBuffer += chunk.toString();
           const lines = sseBuffer.split('\n');
           sseBuffer = lines.pop(); // keep partial line in buffer
@@ -1439,6 +1463,9 @@ Candidate Target Profile:
             if (trimmed.startsWith('data: ')) {
               try {
                 const json = JSON.parse(trimmed.slice(6));
+                if (json.error) {
+                  console.error(`[${new Date().toISOString()}] [${reqId}] Gemini stream error event:`, json.error);
+                }
                 const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (text) {
                   fullModelOutput += text;
@@ -1453,6 +1480,7 @@ Candidate Target Profile:
         });
 
         gemRes.on('end', () => {
+          clearTimers();
           if (sseBuffer.trim().startsWith('data: ')) {
             try {
               const json = JSON.parse(sseBuffer.trim().slice(6));
@@ -1548,7 +1576,24 @@ Candidate Target Profile:
         });
       });
 
+      gemReq.setTimeout(45000, () => {
+        if (!isClosed) {
+          console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream connection socket timeout (45s).`);
+          gemReq.destroy(new Error('Upstream socket timeout (45s)'));
+        }
+      });
+
+      req.on('close', () => {
+        isClosed = true;
+        clearTimers();
+        if (gemReq && !gemReq.destroyed) {
+          console.log(`[${new Date().toISOString()}] [${reqId}] Client aborted request. Destroying upstream stream.`);
+          gemReq.destroy();
+        }
+      });
+
       gemReq.on('error', err => { 
+        clearTimers();
         console.error(`[${new Date().toISOString()}] [${reqId}] Upstream error:`, err.message);
         db.recordAuditLog({
           userId,
@@ -1566,6 +1611,9 @@ Candidate Target Profile:
           res.writeHead(500, { 'Content-Type': 'application/json', 'X-Nexus-Request-ID': reqId });
           res.end(JSON.stringify({ error: { message: err.message, requestId: reqId } }));
         } else {
+          try {
+            res.write(`event: nexus-error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
+          } catch(e) {}
           res.end();
         }
       });
