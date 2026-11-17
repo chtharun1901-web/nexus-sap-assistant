@@ -59,6 +59,7 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
+    project_id TEXT,
     FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
@@ -257,6 +258,169 @@ db.exec(`
     created_at TEXT NOT NULL,
     FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS conversation_token_usage (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    request_id TEXT,
+    prompt_tokens INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    total_tokens INTEGER DEFAULT 0,
+    model TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS response_cache (
+    cache_key TEXT PRIMARY KEY,
+    query_text TEXT NOT NULL,
+    response_text TEXT NOT NULL,
+    model TEXT,
+    sources_json TEXT,
+    hit_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS user_preferences (
+    id TEXT PRIMARY KEY,
+    user_id TEXT UNIQUE NOT NULL,
+    response_style TEXT DEFAULT 'detailed',
+    technical_depth TEXT DEFAULT 'functional',
+    default_module TEXT DEFAULT 'ALL',
+    default_edition TEXT DEFAULT 'ALL',
+    language_tone TEXT DEFAULT 'professional',
+    auto_save INTEGER DEFAULT 1,
+    daily_digest INTEGER DEFAULT 0,
+    preferred_export_format TEXT DEFAULT 'word',
+    custom_instructions TEXT DEFAULT '',
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS message_bookmarks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    conversation_id TEXT,
+    message_id TEXT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    module TEXT,
+    tags_json TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS prompt_templates (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    prompt_template TEXT NOT NULL,
+    variables_json TEXT,
+    description TEXT,
+    is_system INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS conversation_summaries (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT UNIQUE NOT NULL,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    key_takeaways_json TEXT,
+    tcodes_json TEXT,
+    modules_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS quizzes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    module TEXT NOT NULL,
+    difficulty TEXT DEFAULT 'intermediate',
+    questions_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id TEXT PRIMARY KEY,
+    quiz_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    total_questions INTEGER NOT NULL,
+    answers_json TEXT NOT NULL,
+    completed_at TEXT NOT NULL,
+    FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS nexus_docs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_conversation_id TEXT,
+    source_turn_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    sap_module TEXT DEFAULT 'General SAP',
+    custom_instructions TEXT,
+    color_tag TEXT DEFAULT '#6E1A2D',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    archived_at TEXT,
+    FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS project_files (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    owner_user_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    file_type TEXT DEFAULT 'text/plain',
+    file_size INTEGER DEFAULT 0,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_conversations_owner ON conversations(owner_user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_project_files_proj ON project_files(project_id);
+  CREATE INDEX IF NOT EXISTS idx_project_files_user ON project_files(owner_user_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
+  CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(owner_user_id, timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_investigations_owner ON investigations(owner_user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_documents_owner ON documents(owner_user_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_feedback_user ON user_feedback(owner_user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_sap_contexts_owner ON sap_contexts(owner_user_id);
+  CREATE INDEX IF NOT EXISTS idx_token_usage_conv ON conversation_token_usage(conversation_id);
+  CREATE INDEX IF NOT EXISTS idx_cache_expires ON response_cache(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON message_bookmarks(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_prompt_templates_user ON prompt_templates(user_id);
+  CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON quiz_attempts(user_id, completed_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_nexus_docs_user ON nexus_docs(user_id, updated_at DESC);
 `);
 
 // ── Schema Column Migrations ───────────────────────────────────────────────
@@ -273,6 +437,19 @@ addColumnIfMissing('users', 'primary_goals_json', 'TEXT');
 addColumnIfMissing('users', 'sap_areas_json', 'TEXT');
 addColumnIfMissing('users', 'favorite_context_id', 'TEXT');
 addColumnIfMissing('conversations', 'uploaded_docs_json', 'TEXT');
+
+// Safe migration check to ensure conversations table has project_id TEXT
+try {
+  const convCols = db.prepare("PRAGMA table_info('conversations')").all();
+  if (!convCols.some(c => c.name === 'project_id')) {
+    db.exec('ALTER TABLE conversations ADD COLUMN project_id TEXT;');
+  }
+} catch (e) {
+  addColumnIfMissing('conversations', 'project_id', 'TEXT');
+}
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_proj ON conversations(project_id);');
+} catch (e) {}
 
 addColumnIfMissing('sap_contexts', 'ewm_pp_version', 'TEXT');
 addColumnIfMissing('sap_contexts', 'release_level', 'TEXT');
@@ -378,18 +555,32 @@ function getUserByEmail(email) {
   return row || null;
 }
 
+function serializeUser(row) {
+  if (!row) return null;
+  const name = row.display_name || row.displayName || row.name || 'User';
+  return {
+    id: row.id || row.user_id,
+    email: row.email,
+    display_name: name,
+    displayName: name,
+    name: name,
+    avatar_url: row.avatar_url || row.avatarUrl || null,
+    avatarUrl: row.avatar_url || row.avatarUrl || null,
+    role: row.role || 'Enterprise Consultant',
+    workspace_id: row.workspace_id || row.workspaceId || null,
+    workspaceId: row.workspace_id || row.workspaceId || null,
+    status: row.status || row.user_status || 'active',
+    created_at: row.created_at || null,
+    last_active_at: row.last_active_at || null
+  };
+}
+
 function getUserById(id) {
   if (!id) return null;
   const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
   const row = stmt.get(id);
   if (!row) return null;
-  // Exclude password hashes from general return
-  const { password_hash, password_salt, ...safeUser } = row;
-  safeUser.name = safeUser.display_name;
-  safeUser.displayName = safeUser.display_name;
-  safeUser.workspaceId = safeUser.workspace_id;
-  safeUser.avatarUrl = safeUser.avatar_url;
-  return safeUser;
+  return serializeUser(row);
 }
 
 function updateUserProfile(id, { displayName, role, avatarUrl }) {
@@ -486,15 +677,17 @@ function getSessionByToken(rawToken) {
     userId: session.user_id,
     workspaceId: session.workspace_id,
     expiresAt: session.expires_at,
-    user: {
+    user: serializeUser({
       id: session.user_id,
       email: session.email,
-      displayName: session.display_name,
-      avatarUrl: session.avatar_url,
+      display_name: session.display_name,
+      avatar_url: session.avatar_url,
       role: session.role,
-      workspaceId: session.workspace_id,
-      status: session.user_status
-    }
+      workspace_id: session.workspace_id,
+      status: session.user_status,
+      created_at: session.created_at,
+      last_active_at: session.last_active_at
+    })
   };
 }
 
@@ -510,25 +703,30 @@ function deleteAllUserSessions(userId) {
 
 // ── Conversation & Message Persistence ──────────────────────────────────────
 
-function createConversation(userId, { id: customId, title, selectedRole, activeSapContextId, workspaceId }) {
+function createConversation(userId, { id: customId, title, selectedRole, activeSapContextId, workspaceId, projectId, project_id }) {
   const user = getUserById(userId);
   const id = customId || generateId('conv');
   const now = new Date().toISOString();
+  const effectiveProjectId = projectId || project_id || null;
 
   const existing = db.prepare('SELECT id FROM conversations WHERE id = ? AND owner_user_id = ?').get(id, userId);
   if (existing) {
+    if (effectiveProjectId) {
+      db.prepare('UPDATE conversations SET project_id = ? WHERE id = ?').run(effectiveProjectId, id);
+    }
     return getConversation(userId, id);
   }
 
   const stmt = db.prepare(`
-    INSERT INTO conversations (id, owner_user_id, workspace_id, title, selected_role, active_sap_context_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO conversations (id, owner_user_id, workspace_id, title, selected_role, active_sap_context_id, project_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     id, userId, workspaceId || user?.workspace_id || 'ws-enterprise-default',
     title || 'New SAP Investigation',
     selectedRole || 'SAP Operations Lead',
     activeSapContextId || 'ctx-prd-pp',
+    effectiveProjectId,
     now, now
   );
 
@@ -574,22 +772,24 @@ function listUserConversations(userId, workspaceId = null) {
   return stmt.all(userId);
 }
 
-function updateConversation(userId, conversationId, { title, activeSapContextId, selectedRole, archived }) {
+function updateConversation(userId, conversationId, { title, activeSapContextId, selectedRole, archived, projectId, project_id }) {
   const existing = db.prepare('SELECT * FROM conversations WHERE id = ? AND owner_user_id = ?').get(conversationId, userId);
   if (!existing) return null;
 
   const now = new Date().toISOString();
   const archivedAt = archived ? now : (archived === false ? null : existing.archived_at);
+  const effProjectId = projectId !== undefined ? projectId : (project_id !== undefined ? project_id : existing.project_id);
 
   db.prepare(`
     UPDATE conversations SET
       title = COALESCE(?, title),
       active_sap_context_id = COALESCE(?, active_sap_context_id),
       selected_role = COALESCE(?, selected_role),
+      project_id = ?,
       archived_at = ?,
       updated_at = ?
     WHERE id = ? AND owner_user_id = ?
-  `).run(title || null, activeSapContextId || null, selectedRole || null, archivedAt, now, conversationId, userId);
+  `).run(title || null, activeSapContextId || null, selectedRole || null, effProjectId || null, archivedAt, now, conversationId, userId);
 
   return getConversation(userId, conversationId);
 }
@@ -2085,6 +2285,341 @@ function getUserHomeSummary(userId) {
   };
 }
 
+// ── Nexus Docs (Claude-style persistent documents) ─────────────────────────
+
+function createNexusDoc(userId, { title, content, sourceConversationId = null, sourceTurnId = null }) {
+  const id = generateId('ndoc');
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`INSERT INTO nexus_docs (id, user_id, title, content, source_conversation_id, source_turn_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  stmt.run(id, userId, title, content, sourceConversationId, sourceTurnId, now, now);
+  return { id, user_id: userId, title, content, source_conversation_id: sourceConversationId, source_turn_id: sourceTurnId, created_at: now, updated_at: now };
+}
+
+function listNexusDocs(userId) {
+  const stmt = db.prepare(`SELECT * FROM nexus_docs WHERE user_id = ? ORDER BY updated_at DESC`);
+  return stmt.all(userId);
+}
+
+function getNexusDocById(userId, docId) {
+  const stmt = db.prepare(`SELECT * FROM nexus_docs WHERE id = ? AND user_id = ?`);
+  return stmt.get(docId, userId) || null;
+}
+
+function updateNexusDoc(userId, docId, { title, content }) {
+  const now = new Date().toISOString();
+  const updates = [];
+  const params = [];
+  if (title !== undefined) { updates.push('title = ?'); params.push(title); }
+  if (content !== undefined) { updates.push('content = ?'); params.push(content); }
+  updates.push('updated_at = ?'); params.push(now);
+  params.push(docId, userId);
+  const stmt = db.prepare(`UPDATE nexus_docs SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`);
+  const result = stmt.run(...params);
+  if (result.changes === 0) return null;
+  return getNexusDocById(userId, docId);
+}
+
+function deleteNexusDoc(userId, docId) {
+  const stmt = db.prepare(`DELETE FROM nexus_docs WHERE id = ? AND user_id = ?`);
+  const result = stmt.run(docId, userId);
+  return result.changes > 0;
+}
+
+// ── Nexus Projects & Project Files ─────────────────────────────────────────
+
+function createProject(userId, { id: customId, name, description, sap_module, sapModule, custom_instructions, customInstructions, color_tag, colorTag }) {
+  if (!name || !String(name).trim()) {
+    throw new Error('Project name is required');
+  }
+  const id = customId || generateId('proj');
+  const now = new Date().toISOString();
+  const effectiveName = String(name).trim();
+  const effectiveModule = (sap_module || sapModule || 'General SAP').trim();
+  const effectiveInstructions = custom_instructions !== undefined ? custom_instructions : (customInstructions !== undefined ? customInstructions : '');
+  const effectiveColor = (color_tag || colorTag || '#6E1A2D').trim();
+  const effectiveDescription = (description !== undefined && description !== null) ? String(description).trim() : '';
+
+  const stmt = db.prepare(`
+    INSERT INTO projects (id, owner_user_id, name, description, sap_module, custom_instructions, color_tag, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(id, userId, effectiveName, effectiveDescription, effectiveModule, effectiveInstructions, effectiveColor, now, now);
+
+  return getProjectById(userId, id);
+}
+
+function listProjects(userId, includeArchived = false) {
+  const whereArchived = includeArchived ? '' : 'AND p.archived_at IS NULL';
+  const stmt = db.prepare(`
+    SELECT p.*,
+           (SELECT COUNT(*) FROM conversations c WHERE c.project_id = p.id AND c.archived_at IS NULL) as session_count,
+           (SELECT COUNT(*) FROM project_files pf WHERE pf.project_id = p.id) as file_count
+    FROM projects p
+    WHERE p.owner_user_id = ? ${whereArchived}
+    ORDER BY p.updated_at DESC
+  `);
+  return stmt.all(userId);
+}
+
+function getProjectById(userId, projectId) {
+  const stmt = db.prepare(`
+    SELECT p.*,
+           (SELECT COUNT(*) FROM conversations c WHERE c.project_id = p.id AND c.archived_at IS NULL) as session_count,
+           (SELECT COUNT(*) FROM project_files pf WHERE pf.project_id = p.id) as file_count
+    FROM projects p
+    WHERE p.id = ? AND p.owner_user_id = ? AND p.archived_at IS NULL
+  `);
+  const project = stmt.get(projectId, userId);
+  if (!project) return null;
+
+  // Attached files
+  const filesStmt = db.prepare(`
+    SELECT id, project_id, owner_user_id, filename, file_type, file_size, content, created_at
+    FROM project_files
+    WHERE project_id = ? AND owner_user_id = ?
+    ORDER BY created_at DESC
+  `);
+  const files = filesStmt.all(projectId, userId);
+
+  // Recent conversations / sessions
+  const convsStmt = db.prepare(`
+    SELECT c.*,
+           (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count,
+           (SELECT content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) as last_message
+    FROM conversations c
+    WHERE c.project_id = ? AND c.owner_user_id = ? AND c.archived_at IS NULL
+    ORDER BY c.updated_at DESC
+    LIMIT 20
+  `);
+  const conversations = convsStmt.all(projectId, userId);
+
+  return {
+    ...project,
+    files,
+    project_files: files,
+    conversations
+  };
+}
+
+function updateProject(userId, projectId, updates = {}) {
+  const existing = getProjectById(userId, projectId);
+  if (!existing) return null;
+
+  let name = existing.name;
+  if (updates.name !== undefined) {
+    if (!updates.name || !String(updates.name).trim()) {
+      throw new Error('Project name cannot be empty');
+    }
+    name = String(updates.name).trim();
+  }
+  const description = updates.description !== undefined ? updates.description : existing.description;
+  const sap_module = updates.sap_module !== undefined ? updates.sap_module : (updates.sapModule !== undefined ? updates.sapModule : existing.sap_module);
+  const custom_instructions = updates.custom_instructions !== undefined ? updates.custom_instructions : (updates.customInstructions !== undefined ? updates.customInstructions : existing.custom_instructions);
+  const color_tag = updates.color_tag !== undefined ? updates.color_tag : (updates.colorTag !== undefined ? updates.colorTag : existing.color_tag);
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    UPDATE projects SET
+      name = ?,
+      description = ?,
+      sap_module = ?,
+      custom_instructions = ?,
+      color_tag = ?,
+      updated_at = ?
+    WHERE id = ? AND owner_user_id = ?
+  `).run(name, description, sap_module, custom_instructions, color_tag, now, projectId, userId);
+
+  return getProjectById(userId, projectId);
+}
+
+function deleteProject(userId, projectId) {
+  const existing = getProjectById(userId, projectId);
+  if (!existing) return false;
+
+  const now = new Date().toISOString();
+  db.prepare(`
+    UPDATE projects SET archived_at = ?, updated_at = ?
+    WHERE id = ? AND owner_user_id = ?
+  `).run(now, now, projectId, userId);
+
+  return true;
+}
+
+function getProjectSessions(userId, projectId) {
+  const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND owner_user_id = ? AND archived_at IS NULL').get(projectId, userId);
+  if (!proj) return [];
+
+  const stmt = db.prepare(`
+    SELECT c.*,
+           (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count,
+           (SELECT content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) as last_message
+    FROM conversations c
+    WHERE c.owner_user_id = ? AND c.project_id = ? AND c.archived_at IS NULL
+    ORDER BY c.updated_at DESC
+  `);
+  return stmt.all(userId, projectId);
+}
+
+function createProjectSession(userId, projectId, sessionData = {}) {
+  const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND owner_user_id = ? AND archived_at IS NULL').get(projectId, userId);
+  if (!proj) {
+    throw new Error('Project not found');
+  }
+  return createConversation(userId, { ...sessionData, projectId });
+}
+
+function addProjectFile(userId, projectId, { filename, content, file_type, fileType, file_size, fileSize }) {
+  const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND owner_user_id = ? AND archived_at IS NULL').get(projectId, userId);
+  if (!proj) {
+    throw new Error('Project not found');
+  }
+  if (!filename || !String(filename).trim()) {
+    throw new Error('Filename is required');
+  }
+  if (typeof content === 'undefined' || content === null) {
+    throw new Error('File content is required');
+  }
+  const fileId = generateId('pfile');
+  const now = new Date().toISOString();
+  const fType = file_type || fileType || 'text/plain';
+  const strContent = String(content);
+  const fSize = (file_size !== undefined && file_size !== null) ? Number(file_size) : Buffer.byteLength(strContent, 'utf8');
+
+  db.prepare(`
+    INSERT INTO project_files (id, project_id, owner_user_id, filename, file_type, file_size, content, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(fileId, projectId, userId, String(filename).trim(), fType, fSize, strContent, now);
+
+  db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(now, projectId);
+
+  return {
+    id: fileId,
+    project_id: projectId,
+    owner_user_id: userId,
+    filename: String(filename).trim(),
+    file_type: fType,
+    file_size: fSize,
+    content: strContent,
+    created_at: now
+  };
+}
+
+function deleteProjectFile(userId, projectId, fileId) {
+  const result = db.prepare(`
+    DELETE FROM project_files
+    WHERE id = ? AND project_id = ? AND owner_user_id = ?
+  `).run(fileId, projectId, userId);
+
+  if (result.changes > 0) {
+    const now = new Date().toISOString();
+    db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(now, projectId);
+    return true;
+  }
+  return false;
+}
+
+function getProjectFiles(userId, projectId) {
+  const stmt = db.prepare(`
+    SELECT id, project_id, owner_user_id, filename, file_type, file_size, content, created_at
+    FROM project_files
+    WHERE project_id = ? AND owner_user_id = ?
+    ORDER BY created_at DESC
+  `);
+  return stmt.all(projectId, userId);
+}
+
+function searchProject(userId, projectId, query) {
+  const q = (query || '').trim();
+  if (!q) {
+    return { sessions: [], messages: [], files: [] };
+  }
+  const pattern = `%${q}%`;
+
+  const sessions = db.prepare(`
+    SELECT c.id, c.title, c.selected_role, c.project_id, c.created_at, c.updated_at,
+           (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count
+    FROM conversations c
+    WHERE c.owner_user_id = ? AND c.project_id = ? AND c.archived_at IS NULL AND c.title LIKE ?
+    ORDER BY c.updated_at DESC
+    LIMIT 50
+  `).all(userId, projectId, pattern);
+
+  const messages = db.prepare(`
+    SELECT m.id, m.conversation_id, m.role, m.content, m.created_at, c.title as conversation_title, c.project_id
+    FROM messages m
+    JOIN conversations c ON m.conversation_id = c.id
+    WHERE m.owner_user_id = ? AND c.project_id = ? AND c.archived_at IS NULL AND m.content LIKE ?
+    ORDER BY m.created_at DESC
+    LIMIT 50
+  `).all(userId, projectId, pattern);
+
+  const files = db.prepare(`
+    SELECT pf.id, pf.project_id, pf.filename, pf.file_type, pf.file_size, pf.created_at,
+           substr(pf.content, 1, 250) as preview
+    FROM project_files pf
+    WHERE pf.owner_user_id = ? AND pf.project_id = ? AND (pf.filename LIKE ? OR pf.content LIKE ?)
+    ORDER BY pf.created_at DESC
+    LIMIT 50
+  `).all(userId, projectId, pattern, pattern);
+
+  return { sessions, messages, files };
+}
+
+function searchGlobal(userId, query, projectId = null) {
+  if (projectId) {
+    const res = searchProject(userId, projectId, query);
+    return { ...res, projects: [] };
+  }
+  const q = (query || '').trim();
+  if (!q) {
+    return { sessions: [], messages: [], files: [], projects: [] };
+  }
+  const pattern = `%${q}%`;
+
+  const projects = db.prepare(`
+    SELECT id, name, description, sap_module, color_tag, created_at, updated_at
+    FROM projects
+    WHERE owner_user_id = ? AND archived_at IS NULL AND (name LIKE ? OR description LIKE ? OR sap_module LIKE ?)
+    ORDER BY updated_at DESC
+    LIMIT 20
+  `).all(userId, pattern, pattern, pattern);
+
+  const sessions = db.prepare(`
+    SELECT c.id, c.title, c.selected_role, c.project_id, c.created_at, c.updated_at,
+           p.name as project_name,
+           (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count
+    FROM conversations c
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE c.owner_user_id = ? AND c.archived_at IS NULL AND c.title LIKE ?
+    ORDER BY c.updated_at DESC
+    LIMIT 50
+  `).all(userId, pattern);
+
+  const messages = db.prepare(`
+    SELECT m.id, m.conversation_id, m.role, m.content, m.created_at, c.title as conversation_title, c.project_id,
+           p.name as project_name
+    FROM messages m
+    JOIN conversations c ON m.conversation_id = c.id
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE m.owner_user_id = ? AND c.archived_at IS NULL AND m.content LIKE ?
+    ORDER BY m.created_at DESC
+    LIMIT 50
+  `).all(userId, pattern);
+
+  const files = db.prepare(`
+    SELECT pf.id, pf.project_id, pf.filename, pf.file_type, pf.file_size, pf.created_at,
+           p.name as project_name,
+           substr(pf.content, 1, 250) as preview
+    FROM project_files pf
+    LEFT JOIN projects p ON pf.project_id = p.id
+    WHERE pf.owner_user_id = ? AND (pf.filename LIKE ? OR pf.content LIKE ?)
+    ORDER BY pf.created_at DESC
+    LIMIT 50
+  `).all(userId, pattern, pattern);
+
+  return { sessions, messages, files, projects };
+}
+
 module.exports = {
   db,
   hashPassword,
@@ -2095,6 +2630,7 @@ module.exports = {
   createUser,
   getUserByEmail,
   getUserById,
+  serializeUser,
   getUserProfile,
   saveUserOnboarding,
   updateUserProfile,
@@ -2165,5 +2701,569 @@ module.exports = {
   listUserFeedback,
   // Omni Search & Home Summary
   omniSearchUser,
-  getUserHomeSummary
+  getUserHomeSummary,
+  // Session Cleanup & Cache
+  cleanupExpiredSessions,
+  recordTokenUsage,
+  getCachedResponse,
+  setCachedResponse,
+  cleanupExpiredCache,
+  // GenAI Features
+  getUserPreferences,
+  upsertUserPreferences,
+  createBookmark,
+  listBookmarks,
+  deleteBookmark,
+  listPromptTemplates,
+  createPromptTemplate,
+  deletePromptTemplate,
+  seedDefaultPromptTemplates,
+  saveConversationSummary,
+  getConversationSummary,
+  saveQuiz,
+  listQuizzes,
+  getQuizById,
+  recordQuizAttempt,
+  getUserQuizStats,
+  getUserAiAnalytics,
+  // Nexus Docs
+  createNexusDoc,
+  listNexusDocs,
+  getNexusDocById,
+  updateNexusDoc,
+  deleteNexusDoc,
+  // Nexus Projects & Files
+  createProject,
+  listProjects,
+  getProjectById,
+  updateProject,
+  deleteProject,
+  getProjectSessions,
+  createProjectSession,
+  addProjectFile,
+  deleteProjectFile,
+  getProjectFiles,
+  searchProject,
+  searchGlobal
 };
+
+// ── Session Expiry & Cleanup ───────────────────────────────────────────────
+
+function cleanupExpiredSessions() {
+  try {
+    const now = new Date().toISOString();
+    db.exec(`DELETE FROM sessions WHERE expires_at < '${now}'`);
+  } catch(e) {}
+}
+
+function cleanupExpiredCache() {
+  try {
+    const now = new Date().toISOString();
+    db.exec(`DELETE FROM response_cache WHERE expires_at < '${now}'`);
+  } catch(e) {}
+}
+
+setInterval(() => {
+  cleanupExpiredSessions();
+  cleanupExpiredCache();
+}, 30 * 60 * 1000);
+
+// ── Conversation Token Tracking ────────────────────────────────────────────
+
+function recordTokenUsage({ conversationId, userId, requestId, promptTokens = 0, completionTokens = 0, model = 'gemini-3.5-flash-lite' }) {
+  try {
+    const id = generateId('tok');
+    const now = new Date().toISOString();
+    const totalTokens = (promptTokens || 0) + (completionTokens || 0);
+    const stmt = db.prepare(`
+      INSERT INTO conversation_token_usage (id, conversation_id, user_id, request_id, prompt_tokens, completion_tokens, total_tokens, model, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(id, conversationId, userId, requestId, promptTokens, completionTokens, totalTokens, model, now);
+    return { id, totalTokens };
+  } catch(e) {
+    return null;
+  }
+}
+
+// ── Response Caching ───────────────────────────────────────────────────────
+
+function getCachedResponse(cacheKey) {
+  try {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`SELECT * FROM response_cache WHERE cache_key = ? AND expires_at > ?`);
+    const row = stmt.get(cacheKey, now);
+    if (row) {
+      db.prepare(`UPDATE response_cache SET hit_count = hit_count + 1 WHERE cache_key = ?`).run(cacheKey);
+      return {
+        text: row.response_text,
+        model: row.model,
+        sources: row.sources_json ? JSON.parse(row.sources_json) : [],
+        hitCount: row.hit_count + 1
+      };
+    }
+    return null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function setCachedResponse({ cacheKey, queryText, responseText, model, sources = [], ttlHours = 24 }) {
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlHours * 3600 * 1000).toISOString();
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO response_cache (cache_key, query_text, response_text, model, sources_json, hit_count, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+    `);
+    stmt.run(cacheKey, queryText, responseText, model, JSON.stringify(sources), now.toISOString(), expiresAt);
+  } catch(e) {}
+}
+
+// ── GenAI: User Preferences ───────────────────────────────────────────────
+
+function getUserPreferences(userId) {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?');
+    let row = stmt.get(userId);
+    if (!row) {
+      const id = generateId('pref');
+      const now = new Date().toISOString();
+      db.prepare(`
+        INSERT INTO user_preferences (
+          id, user_id, response_style, technical_depth, default_module,
+          default_edition, language_tone, auto_save, daily_digest,
+          preferred_export_format, custom_instructions, updated_at
+        ) VALUES (?, ?, 'detailed', 'functional', 'ALL', 'ALL', 'professional', 1, 0, 'word', '', ?)
+      `).run(id, userId, now);
+      row = stmt.get(userId);
+    }
+    return {
+      id: row.id,
+      userId: row.user_id,
+      responseStyle: row.response_style || 'detailed',
+      technicalDepth: row.technical_depth || 'functional',
+      defaultModule: row.default_module || 'ALL',
+      defaultEdition: row.default_edition || 'ALL',
+      languageTone: row.language_tone || 'professional',
+      autoSave: Boolean(row.auto_save),
+      dailyDigest: Boolean(row.daily_digest),
+      preferredExportFormat: row.preferred_export_format || 'word',
+      customInstructions: row.custom_instructions || '',
+      updatedAt: row.updated_at
+    };
+  } catch (e) {
+    return {
+      responseStyle: 'detailed',
+      technicalDepth: 'functional',
+      defaultModule: 'ALL',
+      defaultEdition: 'ALL',
+      languageTone: 'professional',
+      autoSave: true,
+      dailyDigest: false,
+      preferredExportFormat: 'word',
+      customInstructions: ''
+    };
+  }
+}
+
+function upsertUserPreferences(userId, prefs = {}) {
+  const existing = getUserPreferences(userId);
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO user_preferences (
+      id, user_id, response_style, technical_depth, default_module,
+      default_edition, language_tone, auto_save, daily_digest,
+      preferred_export_format, custom_instructions, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      response_style = excluded.response_style,
+      technical_depth = excluded.technical_depth,
+      default_module = excluded.default_module,
+      default_edition = excluded.default_edition,
+      language_tone = excluded.language_tone,
+      auto_save = excluded.auto_save,
+      daily_digest = excluded.daily_digest,
+      preferred_export_format = excluded.preferred_export_format,
+      custom_instructions = excluded.custom_instructions,
+      updated_at = excluded.updated_at
+  `);
+
+  stmt.run(
+    existing.id || generateId('pref'),
+    userId,
+    prefs.responseStyle !== undefined ? prefs.responseStyle : existing.responseStyle,
+    prefs.technicalDepth !== undefined ? prefs.technicalDepth : existing.technicalDepth,
+    prefs.defaultModule !== undefined ? prefs.defaultModule : existing.defaultModule,
+    prefs.defaultEdition !== undefined ? prefs.defaultEdition : existing.defaultEdition,
+    prefs.languageTone !== undefined ? prefs.languageTone : existing.languageTone,
+    prefs.autoSave !== undefined ? (prefs.autoSave ? 1 : 0) : (existing.autoSave ? 1 : 0),
+    prefs.dailyDigest !== undefined ? (prefs.dailyDigest ? 1 : 0) : (existing.dailyDigest ? 1 : 0),
+    prefs.preferredExportFormat !== undefined ? prefs.preferredExportFormat : existing.preferredExportFormat,
+    prefs.customInstructions !== undefined ? prefs.customInstructions : existing.customInstructions,
+    now
+  );
+
+  return getUserPreferences(userId);
+}
+
+// ── GenAI: Message Bookmarks ──────────────────────────────────────────────
+
+function createBookmark(userId, { conversationId, messageId, title, content, module = 'General', tags = [], notes = '' }) {
+  const id = generateId('bmk');
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO message_bookmarks (id, user_id, conversation_id, message_id, title, content, module, tags_json, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    id, userId, conversationId || null, messageId || null,
+    title || 'Saved SAP Insight',
+    content || '',
+    module || 'General',
+    JSON.stringify(tags || []),
+    notes || '',
+    now
+  );
+  return {
+    id, userId, conversationId, messageId, title, content, module, tags, notes, createdAt: now
+  };
+}
+
+function listBookmarks(userId, { search = '', module = '', tag = '' } = {}) {
+  let query = 'SELECT * FROM message_bookmarks WHERE user_id = ?';
+  const params = [userId];
+
+  if (module && module !== 'ALL') {
+    query += ' AND module = ?';
+    params.push(module);
+  }
+  if (search) {
+    query += ' AND (title LIKE ? OR content LIKE ? OR notes LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s, s);
+  }
+
+  query += ' ORDER BY created_at DESC';
+  const rows = db.prepare(query).all(...params);
+
+  return rows.map(r => {
+    let parsedTags = [];
+    try { parsedTags = JSON.parse(r.tags_json || '[]'); } catch (e) {}
+    return {
+      id: r.id,
+      userId: r.user_id,
+      conversationId: r.conversation_id,
+      messageId: r.message_id,
+      title: r.title,
+      content: r.content,
+      module: r.module,
+      tags: parsedTags,
+      notes: r.notes,
+      createdAt: r.created_at
+    };
+  }).filter(b => !tag || b.tags.some(t => t.toLowerCase() === tag.toLowerCase()));
+}
+
+function deleteBookmark(userId, bookmarkId) {
+  const stmt = db.prepare('DELETE FROM message_bookmarks WHERE id = ? AND user_id = ?');
+  const result = stmt.run(bookmarkId, userId);
+  return result.changes > 0;
+}
+
+// ── GenAI: Prompt Templates ───────────────────────────────────────────────
+
+function listPromptTemplates(userId) {
+  const rows = db.prepare(`
+    SELECT * FROM prompt_templates 
+    WHERE user_id = ? OR is_system = 1 
+    ORDER BY is_system DESC, created_at DESC
+  `).all(userId || '');
+
+  return rows.map(r => ({
+    id: r.id,
+    userId: r.user_id,
+    title: r.title,
+    category: r.category,
+    promptTemplate: r.prompt_template,
+    variables: JSON.parse(r.variables_json || '[]'),
+    description: r.description || '',
+    isSystem: Boolean(r.is_system),
+    createdAt: r.created_at
+  }));
+}
+
+function createPromptTemplate(userId, { title, category, promptTemplate, variables = [], description = '' }) {
+  const id = generateId('ptpl');
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO prompt_templates (id, user_id, title, category, prompt_template, variables_json, description, is_system, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+  `).run(id, userId, title, category || 'Custom', promptTemplate, JSON.stringify(variables), description, now);
+
+  return {
+    id, userId, title, category, promptTemplate, variables, description, isSystem: false, createdAt: now
+  };
+}
+
+function deletePromptTemplate(userId, templateId) {
+  const stmt = db.prepare('DELETE FROM prompt_templates WHERE id = ? AND user_id = ? AND is_system = 0');
+  const res = stmt.run(templateId, userId);
+  return res.changes > 0;
+}
+
+function seedDefaultPromptTemplates() {
+  try {
+    const count = db.prepare('SELECT COUNT(*) as count FROM prompt_templates WHERE is_system = 1').get();
+    if (count && count.count > 0) return;
+
+    const defaults = [
+      {
+        id: 'sys-tpl-st22-sm21',
+        title: 'Root Cause & Short Dump Triage (ST22/SM21)',
+        category: 'Troubleshooting',
+        description: 'Systematic diagnostic triage for ABAP dumps, system logs, and lock conflicts.',
+        template: 'Please analyze this SAP dump/error: [ERROR_SYMPTOM]. System landscape: [SAP_EDITION], client: [CLIENT]. Review probable root causes in ST22/SM21, relevant OSS Notes, and safe resolution steps without disrupting active LUWs.',
+        variables: ['ERROR_SYMPTOM', 'SAP_EDITION', 'CLIENT']
+      },
+      {
+        id: 'sys-tpl-sd-pricing',
+        title: 'Condition Technique & Pricing Determination (SD/V/08)',
+        category: 'Configuration',
+        description: 'Step-by-step configuration guide for pricing procedure, condition types, and access sequences.',
+        template: 'Provide a complete configuration blueprint for [PRICING_REQUIREMENT] in SAP SD (S/4HANA Sales). Include condition table definition, access sequence, condition types (V/06), pricing procedure (V/08), and pricing determination rules.',
+        variables: ['PRICING_REQUIREMENT']
+      },
+      {
+        id: 'sys-tpl-qrfc-smq1',
+        title: 'qRFC / tRFC Queue Blockage Resolution (SMQ1/SMQ2)',
+        category: 'Troubleshooting',
+        description: 'Triage blocked outbound or inbound queues during decentralized warehouse or interface replication.',
+        template: 'We have blocked queues in transaction [QUEUE_TRANSACTION] with prefix [QUEUE_NAME] in status [QUEUE_STATUS]. Explain how to safely inspect the LUW, check RFC destinations in SM59, verify payload consistency, and restart queues without creating duplicates.',
+        variables: ['QUEUE_TRANSACTION', 'QUEUE_NAME', 'QUEUE_STATUS']
+      },
+      {
+        id: 'sys-tpl-ewm-staging',
+        title: 'EWM / PP Material Staging & Wave Release (CO02/MF60)',
+        category: 'Configuration',
+        description: 'Configure and troubleshoot production staging from decentralized or embedded EWM.',
+        template: 'Explain the end-to-end integration flow for [STAGING_METHOD] material staging between SAP PP (Production Order [ORDER_TYPE]) and SAP EWM. Include PSA assignment, control cycle (PKMC), warehouse process type, and goods issue posting.',
+        variables: ['STAGING_METHOD', 'ORDER_TYPE']
+      },
+      {
+        id: 'sys-tpl-edition-gap',
+        title: 'S/4HANA Cloud Public vs Private Edition Assessment',
+        category: 'Comparison',
+        description: 'Evaluate feature parity, extensibility, and upgrade lifecycle between Cloud editions.',
+        template: 'Compare SAP S/4HANA Cloud Public Edition vs Private Edition for the [SAP_MODULE] domain. Highlight side-by-side extensibility (BTP vs In-App), release cadence, IMG customizing access, and official SAP best practice scope items.',
+        variables: ['SAP_MODULE']
+      },
+      {
+        id: 'sys-tpl-sap-ai-joule',
+        title: 'SAP Business AI & Joule Capability Architecture',
+        category: 'Release',
+        description: 'Evaluate Joule copilot and generative AI features for a target business process.',
+        template: 'What are the official SAP Business AI and Joule capabilities available for [SAP_PROCESS] in current S/4HANA releases? Include Joule prompt capabilities, SAP Discovery Center service dependencies, BTP Generative AI Hub requirements, and licensing prerequisites.',
+        variables: ['SAP_PROCESS']
+      }
+    ];
+
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      INSERT INTO prompt_templates (id, user_id, title, category, prompt_template, variables_json, description, is_system, created_at)
+      VALUES (?, NULL, ?, ?, ?, ?, ?, 1, ?)
+    `);
+
+    for (const t of defaults) {
+      stmt.run(t.id, t.title, t.category, t.template, JSON.stringify(t.variables), t.description, now);
+    }
+  } catch (e) {
+    // Ignore seeding error
+  }
+}
+
+seedDefaultPromptTemplates();
+
+// ── GenAI: Conversation Summaries ─────────────────────────────────────────
+
+function saveConversationSummary(userId, conversationId, { title, summary, keyTakeaways = [], tcodes = [], modules = [] }) {
+  const id = generateId('sum');
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO conversation_summaries (id, conversation_id, user_id, title, summary, key_takeaways_json, tcodes_json, modules_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(conversation_id) DO UPDATE SET
+      title = excluded.title,
+      summary = excluded.summary,
+      key_takeaways_json = excluded.key_takeaways_json,
+      tcodes_json = excluded.tcodes_json,
+      modules_json = excluded.modules_json,
+      updated_at = excluded.updated_at
+  `);
+
+  stmt.run(
+    id, conversationId, userId,
+    title || 'Investigation Summary',
+    summary || '',
+    JSON.stringify(keyTakeaways || []),
+    JSON.stringify(tcodes || []),
+    JSON.stringify(modules || []),
+    now, now
+  );
+
+  return getConversationSummary(userId, conversationId);
+}
+
+function getConversationSummary(userId, conversationId) {
+  const row = db.prepare('SELECT * FROM conversation_summaries WHERE conversation_id = ? AND user_id = ?').get(conversationId, userId);
+  if (!row) return null;
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    userId: row.user_id,
+    title: row.title,
+    summary: row.summary,
+    keyTakeaways: JSON.parse(row.key_takeaways_json || '[]'),
+    tcodes: JSON.parse(row.tcodes_json || '[]'),
+    modules: JSON.parse(row.modules_json || '[]'),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+// ── GenAI: Quizzes & Knowledge Testing ────────────────────────────────────
+
+function saveQuiz(userId, { topic, module = 'General', difficulty = 'intermediate', questions = [] }) {
+  const id = generateId('qiz');
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO quizzes (id, user_id, topic, module, difficulty, questions_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, userId, topic, module, difficulty, JSON.stringify(questions), now);
+
+  return { id, userId, topic, module, difficulty, questions, createdAt: now };
+}
+
+function listQuizzes(userId) {
+  const rows = db.prepare(`
+    SELECT q.*, 
+      (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = q.id AND a.user_id = q.user_id) as attempt_count,
+      (SELECT MAX(score) FROM quiz_attempts a WHERE a.quiz_id = q.id AND a.user_id = q.user_id) as highest_score,
+      (SELECT total_questions FROM quiz_attempts a WHERE a.quiz_id = q.id AND a.user_id = q.user_id ORDER BY completed_at DESC LIMIT 1) as last_total
+    FROM quizzes q
+    WHERE q.user_id = ?
+    ORDER BY q.created_at DESC
+  `).all(userId);
+
+  return rows.map(r => ({
+    id: r.id,
+    userId: r.user_id,
+    topic: r.topic,
+    module: r.module,
+    difficulty: r.difficulty,
+    questionCount: JSON.parse(r.questions_json || '[]').length,
+    attemptCount: r.attempt_count || 0,
+    highestScore: r.highest_score !== null ? r.highest_score : null,
+    createdAt: r.created_at
+  }));
+}
+
+function getQuizById(userId, quizId) {
+  const row = db.prepare('SELECT * FROM quizzes WHERE id = ? AND user_id = ?').get(quizId, userId);
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    topic: row.topic,
+    module: row.module,
+    difficulty: row.difficulty,
+    questions: JSON.parse(row.questions_json || '[]'),
+    createdAt: row.created_at
+  };
+}
+
+function recordQuizAttempt(userId, { quizId, score, totalQuestions, answers = [] }) {
+  const id = generateId('qatt');
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO quiz_attempts (id, quiz_id, user_id, score, total_questions, answers_json, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, quizId, userId, score, totalQuestions, JSON.stringify(answers), now);
+
+  return { id, quizId, userId, score, totalQuestions, answers, completedAt: now };
+}
+
+function getUserQuizStats(userId) {
+  const rows = db.prepare(`
+    SELECT a.*, q.module, q.topic
+    FROM quiz_attempts a
+    JOIN quizzes q ON a.quiz_id = q.id
+    WHERE a.user_id = ?
+    ORDER BY a.completed_at DESC
+  `).all(userId);
+
+  if (!rows.length) {
+    return {
+      totalAttempts: 0,
+      averageScorePercent: 0,
+      totalQuizzesGenerated: db.prepare('SELECT COUNT(*) as count FROM quizzes WHERE user_id = ?').get(userId)?.count || 0,
+      recentAttempts: []
+    };
+  }
+
+  const totalScore = rows.reduce((sum, r) => sum + (r.score / Math.max(1, r.total_questions)), 0);
+  const avgPct = Math.round((totalScore / rows.length) * 100);
+
+  return {
+    totalAttempts: rows.length,
+    averageScorePercent: avgPct,
+    totalQuizzesGenerated: db.prepare('SELECT COUNT(*) as count FROM quizzes WHERE user_id = ?').get(userId)?.count || 0,
+    recentAttempts: rows.slice(0, 5).map(r => ({
+      id: r.id,
+      topic: r.topic,
+      module: r.module,
+      score: r.score,
+      totalQuestions: r.total_questions,
+      completedAt: r.completed_at
+    }))
+  };
+}
+
+// ── GenAI: User AI Analytics ──────────────────────────────────────────────
+
+function getUserAiAnalytics(userId) {
+  const totalConvs = db.prepare('SELECT COUNT(*) as c FROM conversations WHERE owner_user_id = ? AND archived_at IS NULL').get(userId)?.c || 0;
+  const totalMsgs = db.prepare('SELECT COUNT(*) as c FROM messages WHERE owner_user_id = ?').get(userId)?.c || 0;
+  const totalTokens = db.prepare('SELECT SUM(total_tokens) as t FROM conversation_token_usage WHERE user_id = ?').get(userId)?.t || 0;
+  const bookmarkCount = db.prepare('SELECT COUNT(*) as c FROM message_bookmarks WHERE user_id = ?').get(userId)?.c || 0;
+  const quizStats = getUserQuizStats(userId);
+  const preferences = getUserPreferences(userId);
+
+  // Distribution of modules mentioned in messages or titles
+  const recentConvs = db.prepare('SELECT title FROM conversations WHERE owner_user_id = ? ORDER BY updated_at DESC LIMIT 50').all(userId);
+  const modulesTally = { 'SD': 0, 'MM': 0, 'PP': 0, 'EWM': 0, 'GTS': 0, 'FI/CO': 0, 'AI': 0, 'General': 0 };
+
+  for (const c of recentConvs) {
+    const t = (c.title || '').toUpperCase();
+    if (t.includes('SD') || t.includes('SALES')) modulesTally['SD']++;
+    else if (t.includes('MM') || t.includes('PROCUREMENT') || t.includes('INVENTORY')) modulesTally['MM']++;
+    else if (t.includes('PP') || t.includes('PRODUCTION') || t.includes('MRP')) modulesTally['PP']++;
+    else if (t.includes('EWM') || t.includes('WAREHOUSE')) modulesTally['EWM']++;
+    else if (t.includes('GTS') || t.includes('CUSTOMS')) modulesTally['GTS']++;
+    else if (t.includes('FI') || t.includes('CO') || t.includes('FINANCE')) modulesTally['FI/CO']++;
+    else if (t.includes('AI') || t.includes('JOULE')) modulesTally['AI']++;
+    else modulesTally['General']++;
+  }
+
+  return {
+    totalConversations: totalConvs,
+    totalMessages: totalMsgs,
+    totalTokensUsed: totalTokens,
+    bookmarkCount,
+    moduleDistribution: modulesTally,
+    quizStats,
+    preferences
+  };
+}
+
+

@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../api.js";
 import UserSettingsModal from "./UserSettingsModal.jsx";
+import GenAiPreferencesModal from "./GenAiPreferencesModal.jsx";
+import GenAiBookmarksModal from "./GenAiBookmarksModal.jsx";
+import GenAiPromptTemplatesModal from "./GenAiPromptTemplatesModal.jsx";
+import GenAiQuizModal from "./GenAiQuizModal.jsx";
+import GenAiAnalyticsModal from "./GenAiAnalyticsModal.jsx";
+import GenAiDocsModal from "./GenAiDocsModal.jsx";
+
 
 const SECTIONS = [
   { id: "all", label: "📄 Complete Investigation" },
@@ -28,11 +35,22 @@ export default function ClaudeSidebar({
   onWallpaperChange,
   onStartTour,
   darkMode,
-  onToggleDarkMode
+  onToggleDarkMode,
+  collapsed,
+  onToggleCollapse,
+  onOpenSearchModal
 }) {
   const [conversations, setConversations] = useState([]);
   const [copiedSession, setCopiedSession] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+  const [showBookmarksModal, setShowBookmarksModal] = useState(false);
+  const [showPromptTemplatesModal, setShowPromptTemplatesModal] = useState(false);
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
+  const [autoCollapsed, setAutoCollapsed] = useState(false);
 
   const loadConversations = () => {
     api.getConversations()
@@ -45,8 +63,45 @@ export default function ClaudeSidebar({
   useEffect(() => {
     loadConversations();
     const interval = setInterval(loadConversations, 8000);
-    return () => clearInterval(interval);
+
+    const handleConvUpdate = (e) => {
+      const updated = e.detail;
+      if (!updated) {
+        loadConversations();
+        return;
+      }
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.id === updated.id);
+        if (exists) {
+          return prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
+        }
+        return [updated, ...prev];
+      });
+      loadConversations();
+    };
+
+    window.addEventListener('nexus-conversation-updated', handleConvUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('nexus-conversation-updated', handleConvUpdate);
+    };
   }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setAutoCollapsed(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isCollapsed = collapsed !== undefined ? (collapsed || autoCollapsed) : autoCollapsed;
+
+  const handleToggleCollapse = () => {
+    if (onToggleCollapse) onToggleCollapse(!isCollapsed);
+    else setAutoCollapsed(prev => !prev);
+  };
 
   const copySessionId = (sid) => {
     if (!sid) return;
@@ -65,10 +120,76 @@ export default function ClaudeSidebar({
     downloadAnchor.remove();
   };
 
-  const userName = user?.display_name || user?.email?.split("@")[0] || "Raghav";
+  const userName = user?.display_name || user?.displayName || user?.name || user?.email?.split("@")[0] || "Raghav";
   const userInitial = userName.charAt(0).toUpperCase();
   const currentCaseId = activeCaseDoc?.caseId || (activeSessionId ? "NEW INQUIRY" : "READY");
   const displaySessionId = activeSessionId || "conv-init-session";
+
+  const filteredConvs = conversations.filter(c => !searchFilter || c.title?.toLowerCase().includes(searchFilter.toLowerCase()));
+
+  const getGroup = (c) => {
+    const dStr = c.updated_at || c.created_at;
+    if (!dStr) return "Older";
+    const d = new Date(dStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    if (d >= today) return "Today";
+    if (d >= yesterday) return "Yesterday";
+    if (d >= lastWeek) return "Previous 7 Days";
+    return "Older";
+  };
+
+  const groupedConvs = {
+    "Today": [],
+    "Yesterday": [],
+    "Previous 7 Days": [],
+    "Older": []
+  };
+
+  filteredConvs.forEach(c => {
+    groupedConvs[getGroup(c)].push(c);
+  });
+
+  if (isCollapsed) {
+    return (
+      <aside
+        style={{
+          width: 48,
+          height: "100vh",
+          background: "var(--bg-surface, #EDE8E0)",
+          borderRight: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          flexShrink: 0,
+          userSelect: "none",
+          paddingTop: 14
+        }}
+      >
+        <img 
+          src="/nexus-logo.jpg" 
+          alt="Nexus" 
+          onClick={handleToggleCollapse}
+          style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", cursor: "pointer", marginBottom: 14, boxShadow: "0 2px 6px rgba(0,0,0,0.18)" }}
+          title="Expand Nexus Sidebar"
+        />
+        <button onClick={handleToggleCollapse} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }}>☰</button>
+        <button onClick={() => { if (onNewChat) onNewChat(); else if (onNavigate) onNavigate("workspace", null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="New Chat">＋</button>
+        <button onClick={() => { if (onOpenSearchModal) onOpenSearchModal(); else window.dispatchEvent(new CustomEvent('nexus-open-search-modal')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Search (Ctrl+K)">🔍</button>
+        <button onClick={() => onNavigate && onNavigate("projects")} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Projects">📁</button>
+        <button onClick={() => onNavigate && onNavigate("home")} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Home">🏠</button>
+        <button onClick={() => onNavigate && onNavigate("workspace")} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Workspace">💼</button>
+        <button onClick={() => onNavigate && onNavigate("screen-designer")} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: 20, fontSize: 18 }} title="SAP Screen Designer">🖥️</button>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setShowSettingsModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Settings">⚙️</button>
+      </aside>
+    );
+  }
 
   return (
     <>
@@ -98,21 +219,30 @@ export default function ClaudeSidebar({
             flexShrink: 0
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              onClick={() => onNavigate && onNavigate("home")}
-              style={{
-                fontFamily: "Georgia, serif",
-                fontSize: 22,
-                fontWeight: 700,
-                color: "var(--text-primary, #1C1917)",
-                letterSpacing: "-0.02em",
-                cursor: "pointer"
-              }}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={handleToggleCollapse} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: "var(--text-muted, #78716C)" }}>☰</button>
+            <div 
+              onClick={() => onNavigate && onNavigate("home")} 
+              style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
               title="Nexus Studio - Home"
             >
-              Nexus
-            </span>
+              <img 
+                src="/nexus-logo.jpg" 
+                alt="Nexus Logo" 
+                style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", boxShadow: "0 2px 6px rgba(0,0,0,0.18)" }} 
+              />
+              <span
+                style={{
+                  fontFamily: "var(--font-sans, system-ui)",
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: "var(--text-primary, #1C1917)",
+                  letterSpacing: "-0.03em"
+                }}
+              >
+                Nexus
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -131,125 +261,146 @@ export default function ClaudeSidebar({
           </button>
         </div>
 
-        {/* Nexus 2.0 Simulator Launcher */}
-        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))" }}>
+        {/* Clean Claude.ai Primary Navigation Grounded in Claude Reference */}
+        <div style={{ padding: "10px 14px 8px", display: "flex", flexDirection: "column", gap: 3, borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))" }}>
+          {/* + New Button */}
           <button
             type="button"
             onClick={() => {
-              window.open("/?view=simulator", "_blank");
+              if (onNewChat) onNewChat();
+              else if (onNavigate) onNavigate("workspace", null);
             }}
             style={{
-              width: "100%",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              padding: "7px 10px",
+              gap: 8,
+              padding: "8px 12px",
               background: "var(--bg-card, #FAF8F5)",
+              border: "1px solid var(--border-subtle, rgba(0,0,0,0.12))",
+              borderRadius: 8,
+              fontSize: 13.5,
+              fontWeight: 600,
               color: "var(--text-primary)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 700,
               cursor: "pointer",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              transition: "all 0.15s ease"
+              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+              transition: "all 0.12s ease",
+              marginBottom: 4
             }}
-            title="Open Nexus 2.0 GTS Execution Simulator in a new tab"
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--orange, #6E1A2D)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle, rgba(0,0,0,0.12))"; }}
+          >
+            <span style={{ fontSize: 16 }}>+</span>
+            <span>New</span>
+          </button>
+
+          {/* Search Item */}
+          <div
+            onClick={() => {
+              if (onOpenSearchModal) {
+                onOpenSearchModal();
+              } else {
+                window.dispatchEvent(new CustomEvent('nexus-open-search-modal'));
+              }
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "7px 10px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              transition: "all 0.12s ease"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-card-hover, rgba(0,0,0,0.04))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <span style={{ fontSize: 14 }}>🔍</span>
+            <span>Search</span>
+            <span style={{ marginLeft: "auto", fontSize: 10.5, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>Ctrl+K</span>
+          </div>
+
+          {/* Projects Gallery Item */}
+          <div
+            onClick={() => onNavigate && onNavigate("projects")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "7px 10px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: activeView === "projects" || activeView === "project-detail" ? 700 : 500,
+              color: activeView === "projects" || activeView === "project-detail" ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)",
+              background: activeView === "projects" || activeView === "project-detail" ? "var(--burgundy-light, rgba(110,26,45,0.08))" : "transparent",
+              cursor: "pointer",
+              transition: "all 0.12s ease"
+            }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--orange, #6E1A2D)";
-              e.currentTarget.style.background = "rgba(110,26,45,0.04)";
+              if (activeView !== "projects" && activeView !== "project-detail") {
+                e.currentTarget.style.background = "var(--bg-card-hover, rgba(0,0,0,0.04))";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-subtle)";
-              e.currentTarget.style.background = "var(--bg-card, #FAF8F5)";
+              if (activeView !== "projects" && activeView !== "project-detail") {
+                e.currentTarget.style.background = "transparent";
+              }
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>⚡</span>
-              <span>Nexus 2.0 (GTS Simulator)</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9.5, padding: "1px 5px", borderRadius: 3, background: "rgba(110,26,45,0.12)", color: "var(--orange, #6E1A2D)", fontFamily: "var(--font-mono)" }}>
-                FIORI
-              </span>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>↗</span>
-            </div>
-          </button>
-        </div>
+            <span style={{ fontSize: 14 }}>📁</span>
+            <span>Projects</span>
+          </div>
 
-        {/* 1. Active Case Block (Image 2 Top) */}
-        <div
-          style={{
-            padding: "12px 16px",
-            borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            flexShrink: 0,
-            background: "rgba(0,0,0,0.015)"
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: "var(--text-muted, #78716C)",
-                fontFamily: "var(--font-mono, monospace)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                marginBottom: 3
-              }}
-            >
-              ACTIVE CASE
-            </div>
-            <div
-              style={{
-                fontSize: 13.5,
-                fontWeight: 800,
-                color: "var(--orange, #6E1A2D)",
-                fontFamily: "var(--font-mono, monospace)",
-                marginBottom: 6
-              }}
-            >
-              {currentCaseId}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--text-muted, #78716C)", fontFamily: "var(--font-mono, monospace)" }}>
-                SES:
-              </span>
-              <button
-                type="button"
-                onClick={() => copySessionId(displaySessionId)}
-                title="Click to copy Unique Session ID"
-                style={{
-                  background: "rgba(255,255,255,0.7)",
-                  border: "1px solid var(--border-subtle, rgba(0,0,0,0.12))",
-                  borderRadius: 4,
-                  padding: "1px 6px",
-                  fontSize: 10,
-                  fontFamily: "var(--font-mono, monospace)",
-                  color: "var(--text-primary, #1C1917)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4
-                }}
-              >
-                <span style={{ maxWidth: 105, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {displaySessionId}
-                </span>
-                <span style={{ fontSize: 8.5, color: copiedSession ? "var(--green, #10B981)" : "var(--text-muted, #78716C)" }}>
-                  {copiedSession ? "✓" : "📋"}
-                </span>
-              </button>
-            </div>
+          {/* Code / Screen Designer Item */}
+          <div
+            onClick={() => onNavigate && onNavigate("screen-designer")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "7px 10px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              transition: "all 0.12s ease"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-card-hover, rgba(0,0,0,0.04))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <span style={{ fontSize: 13, fontFamily: "var(--font-mono)", fontWeight: 700 }}>&lt;/&gt;</span>
+            <span>Code</span>
+          </div>
+
+          {/* Customize / Settings Item */}
+          <div
+            onClick={() => setShowSettingsModal(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "7px 10px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              transition: "all 0.12s ease"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-card-hover, rgba(0,0,0,0.04))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >
+            <span style={{ fontSize: 14 }}>⚙️</span>
+            <span>Customize</span>
           </div>
         </div>
 
         {/* 2. Chats and Tasks Section (Full Height Sidebar List) */}
         <div style={{ padding: "14px 14px 10px 14px", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexShrink: 0 }}>
             <span
               style={{
                 fontSize: 12,
@@ -287,6 +438,44 @@ export default function ClaudeSidebar({
             </button>
           </div>
 
+          <div style={{ marginBottom: 12, position: 'relative' }}>
+            <input
+              type="text"
+              id="nexus-sidebar-search-input"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search conversations..."
+              style={{
+                width: '100%',
+                padding: '6px 24px 6px 8px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+                boxSizing: 'border-box'
+              }}
+            />
+            {searchFilter && (
+              <button
+                onClick={() => setSearchFilter('')}
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
           <div
             className="smooth-scroll-container"
             style={{
@@ -302,60 +491,103 @@ export default function ClaudeSidebar({
               <div style={{ fontSize: 12, color: "var(--text-muted, #78716C)", padding: "12px 6px" }}>
                 No active sessions yet. Click + New to begin.
               </div>
+            ) : filteredConvs.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--text-muted, #78716C)", padding: "12px 6px" }}>
+                No conversations match your search.
+              </div>
             ) : (
-              conversations.map((c) => {
-                const isSelected = activeSessionId === c.session_id || activeSessionId === c.id;
-                const sid = c.session_id || c.id;
-                const title = c.title || sid;
-
+              ["Today", "Yesterday", "Previous 7 Days", "Older"].map(group => {
+                const groupConvs = groupedConvs[group];
+                if (groupConvs.length === 0) return null;
                 return (
-                  <div
-                    key={sid}
-                    onClick={() => {
-                      if (onSelectSession) onSelectSession(sid);
-                      if (onNavigate) onNavigate("workspace", null);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "7px 10px",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      background: isSelected ? "rgba(0, 0, 0, 0.07)" : "transparent",
-                      color: isSelected ? "var(--text-primary, #1C1917)" : "var(--text-body, #44403C)",
-                      fontWeight: isSelected ? 700 : 400,
-                      transition: "all 0.12s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = "rgba(0,0,0,0.035)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    {/* Small clean bullet dot like Image 1 */}
-                    <span
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: "50%",
-                        background: isSelected ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-muted, #78716C)",
-                        flexShrink: 0
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: 12.5,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1.35
-                      }}
-                    >
-                      {title}
-                    </span>
-                  </div>
+                  <React.Fragment key={group}>
+                    <div style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: 'rgba(255,255,255,0.35)',
+                      padding: '12px 16px 4px'
+                    }}>
+                      {group}
+                    </div>
+                    {groupConvs.map((c) => {
+                      const isSelected = activeSessionId === c.session_id || activeSessionId === c.id;
+                      const sid = c.session_id || c.id;
+                      const title = c.title || sid;
+
+                      return (
+                        <div
+                          key={sid}
+                          onClick={() => {
+                            if (onSelectSession) onSelectSession(sid);
+                            if (onNavigate) onNavigate("workspace", null);
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "7px 10px",
+                            borderRadius: 6,
+                            cursor: "pointer",
+                            background: isSelected ? "rgba(0, 0, 0, 0.07)" : "transparent",
+                            color: isSelected ? "var(--text-primary, #1C1917)" : "var(--text-body, #44403C)",
+                            fontWeight: isSelected ? 700 : 400,
+                            transition: "all 0.12s ease"
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) e.currentTarget.style.background = "rgba(0,0,0,0.035)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) e.currentTarget.style.background = "transparent";
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 5,
+                              height: 5,
+                              borderRadius: "50%",
+                              background: isSelected ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-muted, #78716C)",
+                              flexShrink: 0
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 13.5,
+                              fontFamily: "var(--font-sans)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              lineHeight: 1.4,
+                              flex: 1
+                            }}
+                          >
+                            {title}
+                          </span>
+                          {(c.project_name || c.projectName || c.project_id || c.projectId) && (
+                            <span
+                              title={`Project: ${c.project_name || c.projectName || "Attached"}`}
+                              style={{
+                                fontSize: 10,
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                                background: "var(--burgundy-light, rgba(110,26,45,0.08))",
+                                color: "var(--burgundy, #6E1A2D)",
+                                border: "1px solid var(--burgundy-border, rgba(110,26,45,0.18))",
+                                fontWeight: 600,
+                                flexShrink: 0,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 2
+                              }}
+                            >
+                              📁 {c.project_name || c.projectName || "Project"}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })
             )}
@@ -480,6 +712,54 @@ export default function ClaudeSidebar({
           onWallpaperChange={onWallpaperChange}
         />
       )}
+
+      {/* GenAI Preferences Modal */}
+      <GenAiPreferencesModal
+        isOpen={showPreferencesModal}
+        onClose={() => setShowPreferencesModal(false)}
+      />
+
+      {/* GenAI Bookmarks Modal */}
+      <GenAiBookmarksModal
+        isOpen={showBookmarksModal}
+        onClose={() => setShowBookmarksModal(false)}
+      />
+
+      {/* GenAI Prompt Templates Modal */}
+      <GenAiPromptTemplatesModal
+        isOpen={showPromptTemplatesModal}
+        onClose={() => setShowPromptTemplatesModal(false)}
+        onSelectTemplate={(templateText) => {
+          if (window.nexusInsertPrompt) {
+            window.nexusInsertPrompt(templateText);
+          } else {
+            navigator.clipboard?.writeText(templateText);
+            alert("Template copied to clipboard!");
+          }
+        }}
+      />
+
+      {/* GenAI SAP Quiz Modal */}
+      <GenAiQuizModal
+        isOpen={showQuizModal}
+        onClose={() => setShowQuizModal(false)}
+      />
+
+      {/* GenAI Docs Library Modal */}
+      <GenAiDocsModal
+        isOpen={showDocsModal}
+        onClose={() => setShowDocsModal(false)}
+        onOpenDoc={(doc) => {
+          window.dispatchEvent(new CustomEvent('nexus-open-doc', { detail: doc }));
+          if (onNavigate) onNavigate('workspace');
+        }}
+      />
+
+      {/* GenAI Analytics & Digest Modal */}
+      <GenAiAnalyticsModal
+        isOpen={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+      />
     </>
   );
 }

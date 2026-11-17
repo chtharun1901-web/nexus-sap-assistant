@@ -4,7 +4,7 @@ export const InterviewExportService = {
   exportWord: (sessionTitle, items, profile = {}) => {
     let html = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
     html += "<head><meta charset='utf-8'><title>" + (sessionTitle || "Infosys SAP Interview Preparation Pack") + "</title>";
-    html += "<style>body{font-family:'Calibri',sans-serif;font-size:11pt;line-height:1.5;color:#1F2937;margin:30px;}";
+    html += "<style>body{font-family:'Aptos',sans-serif;font-size:11pt;line-height:1.5;color:#1F2937;margin:30px;}";
     html += "h1{color:#D97706;font-size:20pt;border-bottom:2px solid #D97706;padding-bottom:6px;margin-bottom:15px;}";
     html += "h2{color:#0F172A;font-size:14pt;margin-top:20px;border-bottom:1px solid #E2E8F0;padding-bottom:4px;}";
     html += ".meta-box{background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;padding:12px;margin-bottom:20px;}";

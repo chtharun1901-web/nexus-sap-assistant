@@ -122,27 +122,18 @@ export default function DrillingReasoningHUD({
         onMouseLeave={(e) => { if (!expanded) e.currentTarget.style.background = "transparent"; }}
         title="Click to view reasoning breakdown"
       >
-        {/* Animated Terracotta Thinking Dots (Claude style) */}
+        {/* Animated Claude Thinking Flower Spinner */}
         {isStreaming ? (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 3.5, padding: "0 2px" }}>
-            <span
-              style={{
-                width: 4.5,
-                height: 4.5,
-                borderRadius: "50%",
-                background: "#CC5500",
-                animation: "claudeDot1 1.2s infinite ease-in-out"
-              }}
-            />
-            <span
-              style={{
-                width: 4.5,
-                height: 4.5,
-                borderRadius: "50%",
-                background: "#CC5500",
-                animation: "claudeDot2 1.2s infinite ease-in-out 0.35s"
-              }}
-            />
+          <div className="claude-thinking-flower" style={{ width: 15, height: 15, minWidth: 15, minHeight: 15, position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, i) => {
+                const rad = (deg * Math.PI) / 180;
+                const cx = 12 + 8.2 * Math.cos(rad);
+                const cy = 12 + 8.2 * Math.sin(rad);
+                const opacity = 0.2 + 0.8 * ((i + 1) / 12);
+                return <circle key={deg} cx={cx.toFixed(2)} cy={cy.toFixed(2)} r="1.5" fill="#CC5500" opacity={opacity} />;
+              })}
+            </svg>
           </div>
         ) : (
           <span style={{ fontSize: 13, color: "#8E8E87" }}>⚡</span>

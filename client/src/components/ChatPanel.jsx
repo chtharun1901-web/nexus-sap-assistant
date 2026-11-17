@@ -9,6 +9,7 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState("chat");
   const [mentorMode, setMentorMode] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gemini-3.5-flash-lite");
   const [docs, setDocs] = useState([]);
   const [citations, setCitations] = useState([]);
   const bottomRef = useRef(null);
@@ -59,7 +60,8 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
           conversationId: convId,
           contents,
           mentorMode,
-          uploadedDocs: docs
+          uploadedDocs: docs,
+          preferredModel: selectedModel
         },
         (chunk, full) => {
           accumulatedText = full;
@@ -190,6 +192,25 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
           <span style={{ fontWeight: 700, fontSize: 13, color: "#EDEDED" }}>Sanjaya AI Reasoning</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "#A1A1AA",
+              fontSize: 10.5,
+              fontWeight: 600,
+              padding: "3px 7px",
+              borderRadius: 4,
+              cursor: "pointer",
+              outline: "none"
+            }}
+          >
+            <option value="gemini-3.5-flash-lite">Flash Lite</option>
+            <option value="gemini-3.6-flash">Flash 3.6</option>
+            <option value="gemini-2.5-pro">Pro 2.5</option>
+          </select>
           <button
             onClick={() => setMentorMode((m) => !m)}
             style={{

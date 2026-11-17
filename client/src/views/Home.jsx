@@ -136,9 +136,16 @@ export default function Home({ onNavigate }) {
                 S/4HANA 2023 FPS02 · Plant 1000
               </span>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
-              {greeting()}, {user?.display_name?.split(" ")[0] || "SAP Specialist"}
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <img 
+                src="/nexus-logo.jpg" 
+                alt="Nexus Logo" 
+                style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }} 
+              />
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0 }}>
+                {greeting()}, {user?.display_name?.split(" ")[0] || "SAP Specialist"}
+              </h1>
+            </div>
             <p style={{ fontSize: 13, color: "#A1A1AA", lineHeight: 1.5, maxWidth: 620 }}>
               Personalized enterprise workspace for root-cause diagnostics, queue monitoring, verified knowledge curation, and grounded reasoning.
             </p>

@@ -1,4 +1,4 @@
-import { sanitizeMermaid } from "./client/src/components/MermaidDiagram.jsx";
+import { sanitizeMermaid } from "./client/src/utils/sanitizeMermaid.js";
 
 const rawChart = `flowchart TD
     PO["Production Order Released"] --> StagingReq["WM Staging Triggered (/SCWM/STAGE)"]

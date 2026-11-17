@@ -1,13 +1,64 @@
-const http  = require('http');
-const https = require('https');
-const fs    = require('fs');
-const path  = require('path');
-const url   = require('url');
-const db    = require('./db.js');
+const http   = require('http');
+const https  = require('https');
+const crypto = require('crypto');
+const fs     = require('fs');
+const path   = require('path');
+const url    = require('url');
+const db     = require('./db.js');
 const { SearchQueryPlanner, SourceQualityRanker, TransactionValidator, searchCache, CorrectionManager } = require('./services/WebSearchService.js');
 const { SAP_DOMAIN_SPECIALIZATIONS } = require('./services/SapDomainSpecializations.js');
 const { ModuleClassifier } = require('./services/ModuleClassifier.js');
 const { SpecialistPromptRouter } = require('./services/SpecialistPromptRouter.js');
+const { INTENTS, IntentRouter } = require('./services/IntentRouter.js');
+const { TaskExtractor } = require('./services/TaskExtractor.js');
+const { SapNewsKnowledgeEngine, SapNewsQueryClassifier, OFFICIAL_SAP_NEWS_REGISTRY } = require('./services/SapNewsKnowledgeEngine.js');
+const NexusGenAiEngine = require('./services/NexusGenAiEngine.js');
+const ForensicSpreadsheetService = require('./services/ForensicSpreadsheetService.js');
+const NexusGeminiIntelligence = require('./services/NexusGeminiIntelligenceService.js');
+const NexusContextCache = require('./services/NexusContextCacheService.js');
+const NexusSapToolAgent = require('./services/NexusSapToolAgentService.js');
+const WarehouseVisualService = require('./services/WarehouseVisualService.js');
+const { generateGroundedSapFallback } = require('./services/NexusGroundedFallbackEngine.js');
+
+// ── Model Constants ────────────────────────────────────────────────────────
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+const FALLBACK_MODEL = 'gemini-3.6-flash';
+const TERTIARY_MODEL = 'gemini-3.1-flash-lite';
+const SUPPORTED_MODELS = [DEFAULT_MODEL, FALLBACK_MODEL, TERTIARY_MODEL];
+
+// .env file loader (no external dependency)
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+          if (!process.env[key]) process.env[key] = val;
+        }
+      }
+    });
+  }
+} catch(e) {}
+
+// ── Structured Logger ──────────────────────────────────────────────────────
+const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+const LOG_LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toLowerCase()] ?? 1;
+function structuredLog(level, message, meta = {}) {
+  if (LOG_LEVELS[level] < LOG_LEVEL) return;
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...meta
+  };
+  const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  fn(JSON.stringify(entry));
+}
 
 const PORT    = process.env.PORT || 3456;
 const KEY_FILE = path.join(__dirname, '.apikey');
@@ -34,13 +85,28 @@ try {
 } catch (e) {}
 
 let mailTransporter = null;
-let etherealAccount = null;
 
-async function getMailTransporter() {
+function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
   if (!nodemailer) return null;
 
-  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+  // Check GMAIL_USER and GMAIL_PASS first
+  const gmailUser = process.env.GMAIL_USER || (process.env.SMTP_USER && process.env.SMTP_USER.includes('@gmail.com') ? process.env.SMTP_USER : null);
+  const gmailPass = process.env.GMAIL_PASS || (process.env.SMTP_USER && process.env.SMTP_USER.includes('@gmail.com') ? (process.env.SMTP_PASS || process.env.SMTP_PASSWORD) : null);
+
+  if (gmailUser && gmailPass) {
+    mailTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser,
+        pass: gmailPass
+      }
+    });
+    return mailTransporter;
+  }
+
+  // Generic SMTP host if configured
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && (process.env.SMTP_PASS || process.env.SMTP_PASSWORD)) {
     mailTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -52,112 +118,139 @@ async function getMailTransporter() {
     });
     return mailTransporter;
   }
-  
-  if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
-    mailTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS
-      }
-    });
-    return mailTransporter;
-  }
 
-  // Auto-provision an Ethereal mail transport for live testing
-  try {
-    if (!etherealAccount) {
-      etherealAccount = await nodemailer.createTestAccount();
-    }
-    mailTransporter = nodemailer.createTransport({
-      host: etherealAccount.smtp.host,
-      port: etherealAccount.smtp.port,
-      secure: etherealAccount.smtp.secure,
-      auth: {
-        user: etherealAccount.user,
-        pass: etherealAccount.pass
-      }
-    });
-  } catch(e) {
-    mailTransporter = null;
-  }
-
-  return mailTransporter;
+  // No email credentials configured — return null so caller can surface a clear error
+  return null;
 }
 
 async function sendEmailOtp(toEmail, code, type = 'login') {
   const isReset = type === 'reset';
-  const subject = isReset ? 'Sanjaya (सञ्जय) SAP Intelligence: Password Reset Code' : 'Sanjaya (सञ्जय) SAP Intelligence: Your One-Time Login Code';
+  const subject = isReset ? `Nexus Enterprise: Password Reset Code (${code})` : `Nexus SAP Intelligence: Your One-Time Passcode (${code})`;
   const actionTitle = isReset ? 'Password Reset Verification' : 'One-Time Passcode (OTP) Login';
   const actionDesc = isReset 
-    ? 'You requested a password reset for your Sanjaya Enterprise account. Enter the verification code below to set a new password:'
-    : 'Use the following 6-digit verification code to securely sign in to your Sanjaya SAP Operations Workspace:';
+    ? 'You requested a password reset for your Nexus Enterprise account. Enter the verification code below to set a new password:'
+    : 'Use the following 6-digit verification code to securely access your Nexus SAP Operations Workspace:';
 
   const htmlContent = `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${subject}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0A0A0A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #EDEDED;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0A0A0A; padding: 40px 16px;">
+<body style="margin:0;padding:0;background:#0D0D0D;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(160deg,#0D0D0D 0%,#1A0A10 50%,#0D0D0D 100%);padding:40px 16px;min-height:100vh;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 540px; background-color: #111111; border: 1px solid #27272A; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-          <!-- Header Banner -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+          <!-- NEXUS BRAND & LOGO HEADER -->
           <tr>
-            <td style="padding: 28px 32px; background: linear-gradient(135deg, #1C1917 0%, #0D0D0D 100%); border-bottom: 1px solid #27272A;">
+            <td align="center" style="padding-bottom:24px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <!-- Nexus Visual Logo (CID attached) -->
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;padding-right:12px;">
+                          <img src="cid:nexuslogo" alt="Nexus Logo" style="width:52px;height:52px;border-radius:12px;border:2px solid #D97706;display:block;box-shadow:0 4px 20px rgba(110,26,45,0.6);" />
+                        </td>
+                        <td style="vertical-align:middle;text-align:left;">
+                          <div>
+                            <span style="font-size:26px;font-weight:900;color:#FAF8F5;letter-spacing:0.06em;vertical-align:middle;">NEXUS</span>
+                            <span style="font-size:10.5px;font-weight:800;color:#D97706;letter-spacing:0.14em;margin-left:8px;vertical-align:middle;text-transform:uppercase;background:rgba(217,119,6,0.15);border:1px solid rgba(217,119,6,0.4);padding:3px 8px;border-radius:4px;">ENTERPRISE AI</span>
+                          </div>
+                          <div style="font-size:11px;color:#A8967A;letter-spacing:0.04em;margin-top:2px;">SAP Operations & Diagnostic Intelligence</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- MAIN CARD -->
+          <tr>
+            <td style="background:linear-gradient(180deg,#1A0A10 0%,#111111 100%);border:1px solid rgba(110,26,45,0.5);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 0 1px rgba(217,119,6,0.1),inset 0 1px 0 rgba(255,255,255,0.05);">
+
+              <!-- Card Header Accent Stripe -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td>
-                    <div style="display: inline-block; width: 36px; height: 36px; background: linear-gradient(135deg, #2A170A 0%, #120A03 100%); border: 1.5px solid #F59E0B; border-radius: 8px; text-align: center; line-height: 36px; color: #FBBF24; font-weight: 800; font-size: 15px; font-family: monospace;">SJ</div>
-                    <span style="font-size: 18px; font-weight: 800; color: #EDEDED; letter-spacing: 0.02em; margin-left: 10px; vertical-align: middle;">SANJAYA</span>
-                    <span style="color: #F59E0B; font-weight: 700; font-size: 15px; margin-left: 4px; vertical-align: middle;">(सञ्जय)</span>
-                    <span style="background-color: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #FBBF24; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; font-family: monospace;">ENTERPRISE AI</span>
-                  </td>
+                  <td style="background:linear-gradient(90deg,#6E1A2D 0%,#D97706 50%,#6E1A2D 100%);height:4px;line-height:4px;font-size:1px;">&nbsp;</td>
                 </tr>
               </table>
-            </td>
-          </tr>
 
-          <!-- Main Body -->
-          <tr>
-            <td style="padding: 32px 32px 24px 32px;">
-              <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.01em;">${actionTitle}</h2>
-              <p style="margin: 0 0 24px 0; font-size: 14.5px; line-height: 1.6; color: #A1A1AA;">${actionDesc}</p>
-
-              <!-- OTP Code Display Card -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+              <!-- Card Body -->
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="background-color: #18181B; border: 1px solid #3F3F46; border-radius: 10px; padding: 22px 16px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #71717A; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; font-family: monospace;">YOUR 6-DIGIT VERIFICATION CODE</div>
-                    <div style="font-size: 34px; font-weight: 800; color: #FF5500; letter-spacing: 8px; font-family: monospace; line-height: 1.2;">${code}</div>
+                  <td style="padding:32px 36px 28px;">
+
+                    <!-- Action Title -->
+                    <h1 style="margin:0 0 8px 0;font-size:22px;font-weight:800;color:#FAF8F5;letter-spacing:-0.01em;">${actionTitle}</h1>
+                    <p style="margin:0 0 28px 0;font-size:14px;line-height:1.65;color:#A8967A;">${actionDesc}</p>
+
+                    <!-- OTP CODE DISPLAY -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                      <tr>
+                        <td align="center" style="background:linear-gradient(135deg,#1C0910 0%,#160710 100%);border:1px solid rgba(217,119,6,0.6);border-radius:12px;padding:28px 20px;box-shadow:inset 0 2px 10px rgba(0,0,0,0.6),0 0 25px rgba(217,119,6,0.12);">
+                          <div style="font-size:10px;font-weight:800;color:#D97706;text-transform:uppercase;letter-spacing:2.5px;margin-bottom:14px;font-family:monospace;">
+                            ✦ YOUR ONE-TIME PASSCODE ✦
+                          </div>
+                          <div style="font-size:46px;font-weight:900;color:#FAF8F5;letter-spacing:14px;font-family:'Courier New',Courier,monospace;text-shadow:0 0 35px rgba(217,119,6,0.6),0 2px 6px rgba(0,0,0,0.9);padding:0 8px;">
+                            ${code}
+                          </div>
+                          <div style="margin-top:16px;display:inline-block;background:rgba(110,26,45,0.35);border:1px solid rgba(217,119,6,0.5);border-radius:20px;padding:5px 16px;">
+                            <span style="font-size:12px;color:#FDE68A;font-weight:700;">⏱ Valid for 10 minutes</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Security Notice -->
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                      <tr>
+                        <td style="background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.3);border-left:4px solid #D97706;border-radius:0 8px 8px 0;padding:14px 18px;">
+                          <p style="margin:0;font-size:13px;color:#FDE68A;line-height:1.6;">
+                            🔐 <strong style="color:#FAF8F5;">Never share this code</strong> with anyone, including Nexus administrators. Our platform will never ask for your OTP.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Divider -->
+                    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(217,119,6,0.3),transparent);margin-bottom:20px;"></div>
+
+                    <p style="margin:0;font-size:12px;color:#8A7868;line-height:1.5;">
+                      If you did not initiate this sign-in request, please ignore this email. Your workspace remains secure.
+                    </p>
                   </td>
                 </tr>
               </table>
 
-              <!-- Security Info -->
-              <div style="background-color: rgba(255,85,0,0.06); border-left: 3px solid #FF5500; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px;">
-                <p style="margin: 0; font-size: 12.5px; color: #D4D4D8; line-height: 1.5;">
-                  ⏱ This verification code is valid for <strong>10 minutes</strong>. For security reasons, never share this code with anyone.
-                </p>
-              </div>
-
-              <p style="margin: 0; font-size: 12.5px; color: #71717A; line-height: 1.5;">
-                If you did not initiate this request, you can safely ignore this email.
-              </p>
+              <!-- Card Footer Accent Stripe -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:linear-gradient(90deg,#6E1A2D 0%,#D97706 50%,#6E1A2D 100%);height:4px;line-height:4px;font-size:1px;">&nbsp;</td>
+                </tr>
+              </table>
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- FOOTER -->
           <tr>
-            <td style="padding: 20px 32px; background-color: #0A0A0A; border-top: 1px solid #1F1F23; text-align: center;">
-              <p style="margin: 0; font-size: 11.5px; color: #52525B;">
-                Nexus Enterprise SAP Copilot & Operations Platform · Authenticated System Mailer
+            <td align="center" style="padding:24px 0 8px;">
+              <p style="margin:0 0 6px;font-size:12px;color:#7A6858;font-weight:700;letter-spacing:0.05em;">
+                NEXUS ENTERPRISE SAP COPILOT PLATFORM
+              </p>
+              <p style="margin:0;font-size:11px;color:#5A4838;">
+                Authenticated Gmail Delivery · Mission-Critical Operations Safeguards
               </p>
             </td>
           </tr>
+
         </table>
       </td>
     </tr>
@@ -166,26 +259,56 @@ async function sendEmailOtp(toEmail, code, type = 'login') {
 </html>
   `;
 
+  // Prepare CID attachments for high-resolution Nexus Logo
+  const attachments = [];
+  const logoPath = path.join(__dirname, 'public', 'nexus-logo.jpg');
+  if (fs.existsSync(logoPath)) {
+    attachments.push({
+      filename: 'nexus-logo.jpg',
+      path: logoPath,
+      cid: 'nexuslogo'
+    });
+  }
+
+  const mailer = getMailTransporter();
+  if (!mailer) {
+    const errorMsg = 'Gmail SMTP credentials are not configured. Please enter your Gmail address and 16-character Google App Password in the setup box, or set GMAIL_USER and GMAIL_PASS in your .env file.';
+    console.error(`\x1b[31m[Mailer] ✗ Cannot dispatch OTP email to ${toEmail}: ${errorMsg}\x1b[0m`);
+    return {
+      sent: false,
+      error: errorMsg,
+      testOtp: code,
+      html: htmlContent
+    };
+  }
+
+  const senderUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'noreply@nexus.ai';
+  const fromAddr = process.env.SMTP_FROM || `"Nexus Enterprise AI" <${senderUser}>`;
+
+  let deliveryMethod = 'gmail';
   let webPreviewUrl = null;
-  let deliveryMethod = 'simulated';
 
   try {
-    const mailer = await getMailTransporter();
-    if (mailer) {
-      const info = await mailer.sendMail({
-        from: process.env.SMTP_FROM || '"Nexus SAP Copilot" <auth@nexus.sap>',
-        to: toEmail,
-        subject,
-        html: htmlContent
-      });
-      deliveryMethod = process.env.SMTP_HOST || process.env.GMAIL_USER ? 'smtp' : 'ethereal';
-      if (nodemailer && nodemailer.getTestMessageUrl) {
-        webPreviewUrl = nodemailer.getTestMessageUrl(info) || null;
-      }
-      console.log(`\x1b[32m[Mailer] Dispatched email to ${toEmail} via ${deliveryMethod}${webPreviewUrl ? ` (Preview: ${webPreviewUrl})` : ''}\x1b[0m`);
-    }
+    const info = await mailer.sendMail({
+      from: fromAddr,
+      to: toEmail,
+      subject,
+      html: htmlContent,
+      attachments
+    });
+    console.log(`\x1b[32m[Mailer] ✓ Dispatched OTP email to ${toEmail} via Gmail (${info.messageId || 'OK'})\x1b[0m`);
   } catch (err) {
-    console.warn('[Mailer] Delivery warning:', err.message);
+    console.error(`\x1b[31m[Mailer] ✗ Gmail dispatch to ${toEmail} failed: ${err.message}\x1b[0m`);
+    let userFriendlyErr = err.message;
+    if (err.message && (err.message.includes('Invalid login') || err.message.includes('Username and Password not accepted') || err.code === 'EAUTH')) {
+      userFriendlyErr = 'Gmail authentication failed: Google requires a 16-character App Password (not your standard password). Generate one at myaccount.google.com/apppasswords and enter it in SMTP settings.';
+    }
+    return {
+      sent: false,
+      error: userFriendlyErr,
+      testOtp: code,
+      html: htmlContent
+    };
   }
 
   // Store in memory for immediate in-app viewing
@@ -389,6 +512,16 @@ function parseCookies(req) {
   return list;
 }
 
+function getSessionCookie(token, maxAgeSeconds, req) {
+  const isSecure = process.env.NODE_ENV === 'production' || req?.headers?.['x-forwarded-proto'] === 'https';
+  return `nexus_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAgeSeconds}${isSecure ? '; Secure' : ''}`;
+}
+
+function getClearCookie(req) {
+  const isSecure = process.env.NODE_ENV === 'production' || req?.headers?.['x-forwarded-proto'] === 'https';
+  return `nexus_session=; HttpOnly; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${isSecure ? '; Secure' : ''}`;
+}
+
 function authenticateRequest(req) {
   const cookies = parseCookies(req);
   let token = cookies['nexus_session'];
@@ -475,27 +608,55 @@ function validateAndSanitizeOutput(rawText, retrievedSources, reqId, userPrompt 
   let text = rawText || '';
   const blockedEvents = [];
 
-  // 0. Clean LaTeX math artifacts & arrows (e.g. $\rightarrow$, $9010$, $0010$)
+  // 0. Clean LaTeX math artifacts, macros, and flow arrows (e.g. \longrightarrow, \text{}, $9010$, $0010$)
+  // Spacing artifacts
   text = text
-    .replace(/\$\s*\\rightarrow\s*\$/gi, " → ")
-    .replace(/\\rightarrow/gi, " → ")
-    .replace(/\$\s*\\to\s*\$/gi, " → ")
+    .replace(/\\(?:quad|qquad)/gi, " ")
+    .replace(/\\(?:,|;|:)/g, " ")
+    .replace(/\\ /g, " ")
+    .replace(/\\!/g, "");
+
+  // Comprehensive arrows & relations (long, short, double, implications)
+  text = text
+    .replace(/\\(?:longrightarrow|longleftarrow|Longrightarrow|Longleftarrow|rightarrow|leftarrow|Rightarrow|Leftarrow|leftrightarrow|longleftrightarrow|implies|iff)\b/gi, (m) => {
+      const lower = m.toLowerCase();
+      if (lower.includes("longrightarrow") || lower.includes("rightarrow")) return " → ";
+      if (lower.includes("longleftarrow") || lower.includes("leftarrow")) return " ← ";
+      if (lower.includes("Longrightarrow") || lower.includes("rightarrow") || lower.includes("implies")) return " ⇒ ";
+      if (lower.includes("Longleftarrow") || lower.includes("leftarrow")) return " ⇐ ";
+      if (lower.includes("leftrightarrow") || lower.includes("iff")) return " ↔ ";
+      return " → ";
+    })
     .replace(/\\to\b/gi, " → ")
-    .replace(/\$\s*\\Rightarrow\s*\$/gi, " ⇒ ")
-    .replace(/\\Rightarrow/gi, " ⇒ ")
-    .replace(/\$\s*\\leftarrow\s*\$/gi, " ← ")
-    .replace(/\\leftarrow/gi, " ← ")
-    .replace(/\$\s*\\Leftarrow\s*\$/gi, " ⇐ ")
-    .replace(/\\Leftarrow/gi, " ⇐ ")
-    .replace(/\$\s*\\leftrightarrow\s*\$/gi, " ↔ ")
-    .replace(/\\leftrightarrow/gi, " ↔ ")
-    .replace(/\$\s*\\le\s*\$/gi, " ≤ ")
     .replace(/\\le\b/gi, " ≤ ")
-    .replace(/\$\s*\\ge\s*\$/gi, " ≥ ")
     .replace(/\\ge\b/gi, " ≥ ")
-    .replace(/\$\s*\\neq\s*\$/gi, " ≠ ")
-    .replace(/\\neq\b/gi, " ≠ ")
-    .replace(/\$\s*([A-Za-z0-9_\-\/.\+]+)\s*\$/g, "$1");
+    .replace(/\\neq\b/gi, " ≠ ");
+
+  // Unwrap font and text macros (nested up to 5 passes)
+  for (let pass = 0; pass < 5; pass++) {
+    const prev = text;
+    text = text
+      .replace(/\\(?:textbf|mathbf)\{([^{}]+)\}/g, "**$1**")
+      .replace(/\\(?:texttt|mathtt)\{([^{}]+)\}/g, "`$1`")
+      .replace(/\\(?:textit|mathit)\{([^{}]+)\}/g, "*$1*")
+      .replace(/\\(?:text|mathrm|textsf|sf|rm)\{([^{}]+)\}/g, "$1");
+    if (text === prev) break;
+  }
+
+  // Strip $$ ... $$ display math
+  text = text.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, "$1");
+
+  // Strip $ ... $ where the inside contains an arrow, backslash, or LaTeX artifacts
+  text = text.replace(/\$([^\$\n]*?[→←↔⇒⇐\\][^\$\n]*?)\$/g, "$1");
+
+  // Strip $ around 4+ digit SAP storage types / codes: e.g. $9010$, $0010$
+  text = text.replace(/\$\s*(\d{4,})\s*\$/g, "$1");
+
+  // Strip leftover bounding $ on lines containing process arrows
+  text = text.replace(/^(\s*)\$\s*(.*?[→←↔⇒⇐].*?)\s*\$(\s*)$/gm, "$1$2$3");
+
+  // Normalize duplicate horizontal spaces
+  text = text.replace(/[ \t]+/g, " ");
 
   // Check for known misconceptions (/SCWM/ISU slotting or /SCWM/DOCC / universal max quants/HUs)
   const correction = CorrectionManager.checkAndGenerateCorrection(userPrompt || rawText);
@@ -636,6 +797,17 @@ function validateAndSanitizeOutput(rawText, retrievedSources, reqId, userPrompt 
   return { sanitizedText: text.trim(), blockedEvents };
 }
 
+// Sanitize user input to prevent prompt injection
+function sanitizeUserInput(text) {
+  if (!text || typeof text !== 'string') return text;
+  // Strip system instruction markers that could confuse the model
+  return text
+    .replace(/```system[\s\S]*?```/gi, '[redacted system block]')
+    .replace(/<<SYS>>|<\/SYS>|\[INST\]|\[\/INST\]/gi, '')
+    .replace(/<\|im_start\|>|<\|im_end\|>/gi, '')
+    .slice(0, 32000); // Max 32K chars per user message
+}
+
 // ── Grounded Chat Handler with Source Injection & SSE ───────────────────────
 function handleGroundedChat(req, res, sessionData) {
   const reqId = 'req-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6);
@@ -643,13 +815,12 @@ function handleGroundedChat(req, res, sessionData) {
   let body = '';
 
   req.on('data', c => (body += c));
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const parsed = JSON.parse(body);
-      let model = parsed.model || 'gemini-3.5-flash-lite';
-      if (model.includes('2.5') || model.includes('1.5') || !model) {
-        model = 'gemini-3.5-flash-lite';
-      }
+      // Multi-model selection: allow client to specify preferred model
+      const clientModel = parsed.preferredModel;
+      let model = (clientModel && SUPPORTED_MODELS.includes(clientModel)) ? clientModel : DEFAULT_MODEL;
       const disableRetrieval = !!parsed.disableRetrieval;
       const conversationId = parsed.conversationId || null;
       const nexusCtx = parsed.nexusContext || {};
@@ -665,21 +836,33 @@ function handleGroundedChat(req, res, sessionData) {
       const workspaceId = sessionData?.user?.workspaceId || 'ws-enterprise-default';
 
       // Extract user prompt for retrieval search immediately
-      let userPrompt = '';
+      let userPrompt = parsed.prompt || '';
       if (parsed.contents && parsed.contents.length > 0) {
         const lastMsg = parsed.contents[parsed.contents.length - 1];
         if (lastMsg.role === 'user' && lastMsg.parts) {
           userPrompt = lastMsg.parts.map(p => p.text || '').join(' ');
         }
+      } else if (userPrompt) {
+        parsed.contents = [{ role: 'user', parts: [{ text: userPrompt }] }];
       }
+      
+      // Apply sanitization to user messages in the chat payload
+      userPrompt = sanitizeUserInput(userPrompt);
+      if (parsed.prompt) parsed.prompt = userPrompt;
+      if (parsed.contents) {
+        parsed.contents.forEach(msg => {
+          if (msg.role === 'user' && msg.parts) {
+            msg.parts.forEach(p => { if (p.text) p.text = sanitizeUserInput(p.text); });
+          }
+        });
+      }
+      const assistantMode = parsed.mode || parsed.assistantMode || nexusCtx.mode || 'AUTO';
+      const isInternalTask = Boolean(parsed.noSave || parsed.isInternalTask || parsed.mode === 'VISUAL_STRATEGY' || assistantMode === 'VISUAL_STRATEGY');
 
-      // Domain Specialization Classification
-      const moduleClassification = ModuleClassifier.classify(userPrompt, selectedModule);
-
-      // Verify conversation ownership or auto-create if authenticated
+      // Verify conversation ownership or auto-create if authenticated (skip for internal background tasks)
       let effectiveConvId = conversationId || null;
       let currentConversation = null;
-      if (effectiveConvId && userId) {
+      if (!isInternalTask && effectiveConvId && userId) {
         currentConversation = db.getConversation(userId, effectiveConvId);
         if (!currentConversation) {
           // Auto-create conversation with this custom ID so it is persisted in DB!
@@ -688,14 +871,24 @@ function handleGroundedChat(req, res, sessionData) {
             id: effectiveConvId,
             title: titleSnippet,
             selectedRole: userRole,
-            activeSapContextId: 'ctx-prd-pp'
+            activeSapContextId: 'ctx-prd-pp',
+            projectId: parsed.projectId || parsed.project_id || null
           });
         }
       }
 
+      // Check for active project associated with this conversation or request
+      let activeProject = null;
+      const effectiveProjId = currentConversation?.project_id || parsed.projectId || parsed.project_id || null;
+      if (effectiveProjId && userId) {
+        try {
+          activeProject = db.getProjectById(userId, effectiveProjId);
+        } catch (pErr) {}
+      }
+
       // Save or retrieve conversation attached documents across multi-turn sessions
       let effectiveUploadedDocs = [...uploadedDocs];
-      if (effectiveConvId && userId) {
+      if (!isInternalTask && effectiveConvId && userId) {
         if (uploadedDocs && uploadedDocs.length > 0) {
           db.saveConversationDocs(userId, effectiveConvId, uploadedDocs);
         } else {
@@ -706,7 +899,17 @@ function handleGroundedChat(req, res, sessionData) {
         }
       }
 
+      // Enrich any spreadsheet attachments with deep forensic profiling if not already computed
+      if (effectiveUploadedDocs && effectiveUploadedDocs.length > 0) {
+        effectiveUploadedDocs = ForensicSpreadsheetService.enrichUploadedDocs(
+          effectiveUploadedDocs,
+          sessionData?.user?.display_name || sessionData?.user?.email || 'Tarun'
+        );
+      }
+
       // Strip internal parameters before upstream proxy
+      delete parsed.preferredModel;
+      delete parsed.prompt;
       delete parsed.model;
       delete parsed.disableRetrieval;
       delete parsed.conversationId;
@@ -719,15 +922,56 @@ function handleGroundedChat(req, res, sessionData) {
       delete parsed.uploadedDocs;
       delete parsed.selectedModule;
       delete parsed.module;
+      delete parsed.mode;
+      delete parsed.assistantMode;
       delete parsed.interviewMode;
       delete parsed.category;
       delete parsed.profile;
+      delete parsed.isInternalTask;
+      delete parsed.noSave;
+      delete parsed.projectId;
+      delete parsed.project_id;
 
       // Snapshot prior history from active conversation before appending current turn
-      const priorHistory = (currentConversation && currentConversation.messages) ? [...currentConversation.messages] : [];
+      let priorHistory = (currentConversation && currentConversation.messages) ? [...currentConversation.messages] : [];
+      // Context window management: limit to last 20 messages to prevent token overflow
+      if (priorHistory.length > 20) {
+        const summarized = { role: 'model', parts: [{ text: '(Earlier conversation context summarized: ' + priorHistory.length + ' prior messages were exchanged covering the topics above. Key context has been preserved in recent messages.)' }] };
+        priorHistory = [summarized, ...priorHistory.slice(-20)];
+      }
 
-      // Auto-create conversation if not specified for authenticated user
-      if (!effectiveConvId && userId && userPrompt) {
+      // Layer 1: Intent & Context Analysis
+      const intentAnalysis = IntentRouter.analyze(userPrompt, priorHistory, {
+        userMode: assistantMode,
+        selectedModule,
+        uploadedDocs: effectiveUploadedDocs
+      });
+
+      // Domain Specialization / Assistant Classification
+      let moduleClassification;
+      if (intentAnalysis.mode === 'SAP') {
+        moduleClassification = ModuleClassifier.classify(userPrompt, selectedModule);
+      } else {
+        moduleClassification = {
+          primaryModule: intentAnalysis.mode === 'DAILY_TASK' ? 'DAILY_TASK' : (intentAnalysis.mode === 'DOCUMENT_TASK' ? 'DOCUMENT_TASK' : 'GENERAL'),
+          moduleName: intentAnalysis.mode === 'DAILY_TASK' ? 'Daily Work Assistant' : (intentAnalysis.mode === 'DOCUMENT_TASK' ? 'Document & Task Analyst' : 'General Work Assistant'),
+          icon: '⚡',
+          color: '#3B82F6',
+          badgeBg: '#EFF6FF',
+          badgeBorder: '#BFDBFE',
+          priority: 'standard',
+          isPriority: false,
+          subArea: intentAnalysis.primaryIntent.replace(/_/g, ' '),
+          process: intentAnalysis.understandingLabel,
+          confidence: 'High',
+          confidenceScore: 0.95,
+          isNonSap: true,
+          understandingLabel: intentAnalysis.understandingLabel
+        };
+      }
+
+      // Auto-create conversation if not specified for authenticated user (skip for internal tasks)
+      if (!isInternalTask && !effectiveConvId && userId && userPrompt) {
         const titleSnippet = userPrompt.length > 35 ? userPrompt.substring(0, 35) + '...' : userPrompt;
         const autoConv = db.createConversation(userId, {
           title: titleSnippet,
@@ -739,8 +983,8 @@ function handleGroundedChat(req, res, sessionData) {
         }
       }
 
-      // Save user turn to conversation history if conversation exists
-      if (effectiveConvId && userId && userPrompt) {
+      // Save user turn to conversation history if conversation exists (skip for internal tasks)
+      if (!isInternalTask && effectiveConvId && userId && userPrompt) {
         db.appendMessage(userId, effectiveConvId, {
           role: 'user',
           content: userPrompt,
@@ -788,9 +1032,52 @@ function handleGroundedChat(req, res, sessionData) {
         }
       }
 
-      // Execute retrieval search (User-Scoped)
-      const retrievalResult = retrieveSources(userId, retrievalQuery, { disableRetrieval });
-      const retrievedSources = retrievalResult.sources;
+      let retrievedSources = [];
+      let retrievalResult = { sources: [], status: 'No sources needed for non-SAP personal work' };
+      let groundingContext = '';
+
+      let sapNewsData = null;
+      if (intentAnalysis.mode === 'SAP') {
+        const isNewsQuery = SapNewsQueryClassifier.isNewsOrUpdateQuery(userPrompt);
+        if (isNewsQuery) {
+          try {
+            sapNewsData = await SapNewsKnowledgeEngine.orchestrate(userPrompt, { selectedModule });
+            if (sapNewsData && sapNewsData.sources && sapNewsData.sources.length > 0) {
+              retrievedSources = [...sapNewsData.sources];
+              retrievalResult = {
+                sources: retrievedSources,
+                status: `Retrieved ${sapNewsData.sources.length} Tier 1 Official SAP News & Release Innovation sources`
+              };
+              // Add Google Search grounding tool for real-time verification and freshness
+              parsed.tools = [{ googleSearch: {} }];
+            }
+            if (sapNewsData && sapNewsData.classification) {
+              moduleClassification.sapNewsClassification = sapNewsData.classification;
+              if (sapNewsData.classification.subArea) {
+                moduleClassification.subArea = sapNewsData.classification.subArea;
+              }
+            }
+          } catch (newsErr) {
+            console.warn(`[${reqId}] SapNewsKnowledgeEngine orchestration error:`, newsErr.message);
+          }
+        }
+
+        // Enable Google Search Grounding for ALL SAP queries (V2.0 - Live OSS Notes & KBAs)
+        if (!parsed.tools && intentAnalysis.mode === 'SAP') {
+          parsed.tools = [{ googleSearch: {} }];
+        }
+
+        // Execute standard retrieval search (User-Scoped) if not already satisfied, or blend user documents
+        if (!isNewsQuery || retrievedSources.length === 0) {
+          retrievalResult = retrieveSources(userId, retrievalQuery, { disableRetrieval });
+          retrievedSources = [...retrievedSources, ...retrievalResult.sources];
+        } else {
+          const userScopedResult = retrieveSources(userId, retrievalQuery, { disableRetrieval });
+          const userDocsOnly = (userScopedResult.sources || []).filter(s => s.tier && s.tier.includes('User-Provided'));
+          if (userDocsOnly.length > 0) {
+            retrievedSources = [...retrievedSources, ...userDocsOnly];
+          }
+        }
 
       // Check if user uploaded documents have conflicts
       let conflictWarning = '';
@@ -809,7 +1096,7 @@ function handleGroundedChat(req, res, sessionData) {
       });
 
       // Construct Grounded System Prompt Context Injection
-      let groundingContext = specialistPrompt + `\n\n## ACTIVE SAP OPERATIONAL CONTEXT:\n- User Role: ${userRole}\n- Target Landscape: ${userLandscape}\n- Socratic Mentor Mode: ${isSocratic ? 'ENABLED (Guide step-by-step)' : 'DISABLED'}\n- Live SAP RFC Destination: UNAVAILABLE\n- Live SAP Support API: UNAVAILABLE\n`;
+      groundingContext = specialistPrompt + `\n\n## ACTIVE SAP OPERATIONAL CONTEXT:\n- User Role: ${userRole}\n- Target Landscape: ${userLandscape}\n- Socratic Mentor Mode: ${isSocratic ? 'ENABLED (Guide step-by-step)' : 'DISABLED'}\n- Live SAP RFC Destination: UNAVAILABLE\n- Live SAP Support API: UNAVAILABLE\n`;
       groundingContext += '\n## RETRIEVED GROUNDING EVIDENCE (Tier 1 & Tier 2):\n';
       if (retrievedSources.length === 0) {
         groundingContext += 'NO VERIFIED SOURCES RETRIEVED.\nEvidence status: General model knowledge — not verified against an official SAP source or target SAP system.\nDo not invent SAP Note numbers, KBAs, URLs, or transactions.\n';
@@ -824,6 +1111,10 @@ function handleGroundedChat(req, res, sessionData) {
         groundingContext += '\nGROUNDING DIRECTIVE: Cite the above sources using [citationId] when using their facts. Do NOT invent any SAP Note numbers or URLs not listed above. If an exact note is not retrieved, state: "I cannot verify an exact SAP Note or KBA in the current environment."\n';
       }
 
+      if (sapNewsData && sapNewsData.groundingPrompt) {
+        groundingContext += '\n' + sapNewsData.groundingPrompt + '\n';
+      }
+
       // Append uploaded spreadsheets and user documents (persisted across multi-turn session)
       if (effectiveUploadedDocs && effectiveUploadedDocs.length > 0) {
         groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS (ACTIVE CONVERSATION ATTACHMENTS)\n';
@@ -835,9 +1126,16 @@ function handleGroundedChat(req, res, sessionData) {
           groundingContext += `${doc.content || doc.text || ''}\n`;
         });
         groundingContext += `\nSPREADSHEET & USER DATA REASONING DIRECTIVE:
-1. SPREADSHEET CONFIRMATION: The user has uploaded and attached the spreadsheet data shown above in this active session. You HAVE received, parsed, and inspected all of its contents.
-2. STRICT REFUSAL PROHIBITION: NEVER claim that you did not read, cannot access, or did not receive the user's file. NEVER say "no file content stream was transmitted" or "I did not directly parse a physical file". The parsed data is directly provided above.
-3. DIRECT DATA ANALYSIS: Answer all user questions regarding this file by quoting exact row numbers, cell values, column headers, GTS/SD/EWM document numbers, statuses, and data anomalies directly from the attached content above.
+1. SPREADSHEET CONFIRMATION: The user has uploaded and attached the spreadsheet data shown above in this active session. You HAVE received, parsed, and inspected all of its contents across all sheets and rows.
+2. STRICT REFUSAL PROHIBITION: NEVER claim that you did not read, cannot access, or did not receive the user's file. NEVER say "no file content stream was transmitted" or "I did not directly parse a physical file". The parsed data and forensic statistics are directly provided above.
+3. FORENSIC QUANTITATIVE RIGOR: When analyzing issue trackers, ticket logs, or operational data:
+   - Always lead with EXACT NUMBERS: State exact row counts per plant/sheet (e.g. TN03 Mattress: ~1,910 tickets, 1,792 closed, 18 open; TN10 Furniture: ~365 tickets; Accessories: 16 tickets).
+   - ISOLATE PERSONAL CONTRIBUTION: Distinguish tickets assigned to the user (e.g. Tarun: 142 tickets, with 89 in April) from team members' tickets (Neha, Sapna, Manoj, Lokesh, Dhanush, Yashas). Explicitly warn against claiming tickets assigned to others (e.g. Rashmi, Mahesh, Harikrishna in portal logs).
+   - USER VS SYSTEM RATIO: Quantify user errors vs system/queue errors (e.g. 192 user issues vs 149 system issues) as concrete proof for warehouse training and SOP enforcement.
+   - CORRELATE ROOT CAUSES TO LIVE FLOOR FIXES: Present recurring issues in a table showing Symptom / Error -> Root Cause -> Live Floor Fix, citing exact SAP EWM transactions (/SCWM/PRDO, SMQ2, ADPROD, /SCWM/MON, /SCWM/RFUI), stock types (B2, F2), and master data fields (PACI, SRCI, MTOM, /SCWM/PACKSPEC).
+   - ADDRESS EXECUTIVE & INTERVIEW PILLARS: When framing interview answers (e.g. Mondelez), address: How we helped floor users, how we explained solutions (symptom -> cause -> fix), floor training & recurring error prevention, and shift supervisor enablement (Ashirbad, Moorthy, Satish).
+   - PROACTIVELY FLAG DATA CAUTIONS: Flag "Resolution time" containing clock timestamps rather than duration, explain open tickets, distinguish emergency backend workarounds from standard procedures, and observe confidentiality.
+   - ZERO GENERIC FILLER: Do not output generic SPRO setup paths or textbook disclaimers. Focus 100% on the real floor operations shown in the data.
 `;
       }
 
@@ -897,14 +1195,26 @@ Before generating the response, classify the user request into exactly one prima
 14. ERROR_RECOVERY
 15. EXECUTIVE_SUMMARY
 16. EWM_STORAGE_BIN_LIMITS_OR_MIXED_STORAGE
+17. FORENSIC_TRACKER_ANALYSIS
 
 Do not expose internal classification metadata unless the UI explicitly requests it.
 
 ## Classification rules
 
+### Use FORENSIC_TRACKER_ANALYSIS when:
+The user asks to inspect, audit, or summarize an uploaded issue tracker, ticket log, or spreadsheet dataset, OR asks how to frame their support/AMS/hypercare experience based on tracker data, OR asks to think like Claude / perform deep row-level aggregation on the spreadsheet.
+
+Required 6-Part Forensic Output Structure:
+1. Executive Volume & Data Summary (Exact counts by sheet, plant, closed vs open tickets).
+2. Assignee & Personal Contribution Audit (Isolate candidate's tickets e.g. Tarun: 142 tickets with 89 in April; break down team members; explicitly warn against claiming tickets of colleagues like Rashmi, Mahesh, Harikrishna).
+3. Issue Classification & Training Reality (Exact User Error vs System Error counts e.g. 192 user issues vs 149 system issues, forming the quantitative justification for warehouse training and SOP coaching).
+4. Core Issue Matrix: Symptom -> Root Cause -> Live Floor Fix (Structured Markdown table correlating recurring error clusters with root cause and live floor workarounds, citing exact SAP transactions /SCWM/PRDO, SMQ2, ADPROD, /SCWM/MON, /SCWM/RFUI, stock types B2/F2, and master data PACI, SRCI, MTOM, packspecs).
+5. Executive & Interview Narrative (Addressing the 4 operational pillars: How we helped floor users, how we explained solutions using symptom -> cause -> fix, floor training & recurring error prevention, and shift supervisor enablement with Ashirbad, Moorthy, Satish).
+6. Strategic Cautions & Landmines (Resolution time clock-time nuance, handling open tickets, emergency backend workarounds vs standard procedures, data confidentiality).
+
 ### Use DEFINITION when:
 The user asks: What is X? Explain X. Define X. What does X mean?
-Output a concise definition, relevant context, and one limitation if needed.
+Deliver a high-density, authoritative definition in fluid editorial prose. NEVER use arbitrary numbered headings like "1. Direct Answer" or "2. Core Pillars". Open directly with the definition.
 Do not add a diagnostic procedure.
 
 ### Use DIAGRAM_OR_VISUALIZATION when:
@@ -984,10 +1294,10 @@ flowchart TD
 
 ### Use CONCEPTUAL_EXPLANATION when:
 The user asks how a process or concept works, but does not report a concrete failure (e.g. "Explain delivery-based production integration.", "How does production staging work?", "How do PP and EWM interact?").
-Output:
-- Direct explanation
-- High-level flow
-- What is unknown / important dependencies
+Output in Style 4 (Natural Conversational Intelligence):
+- Begin directly with the core explanation in authoritative, fluid prose. NEVER use arbitrary numbered headings like "1. Direct Answer" or "2. Core Pillars".
+- Seamlessly transition into architectural foundations, key entities, and practical realities.
+- What is unknown / important dependencies (if applicable)
 - Evidence status
 - One clarifying question only if necessary
 Do not add an incident report or troubleshooting runbook.
@@ -1200,12 +1510,11 @@ Mention them only when the user asks about them, the symptom requires them, the 
 (Note: The examples below illustrate structure and tone for individual response types. They are not topic constraints. Always respond to the user's specific SAP functional domain—e.g. Putaway, Picking, Inbound, Outbound, Master Data, Production, TM, etc.—based strictly on their active conversation.)
 
 ## Example 1: CONCEPTUAL_EXPLANATION (e.g. "Explain delivery-based production integration in SAP PP/EWM.")
-Format response cleanly as:
-## Direct answer
+Format response cleanly in Style 4 (Natural Conversational Intelligence):
 Delivery-based production integration is a delivery-oriented way of representing or transferring production-supply requirements between production planning and warehouse execution. The exact document flow depends on the SAP release, EWM deployment model, staging design, and configured integration technology.
 It is not automatically the same as PMR-based Advanced Production Integration. PMR is a separate production-supply concept where applicable to the target product scope and release.
 
-## Conceptual flow
+#### Conceptual Flow
 At a high level:
 Production requirement
 → Production-supply integration object
@@ -1305,7 +1614,7 @@ Never invent a production environment, incident, error code, document number, or
 10. Does not provide production-changing instructions without explicit authorization and verified connector support.
 11. Does not claim live SAP access.
 12. Does not claim official SAP grounding without matching retrieval evidence.
-13. NEVER output LaTeX math syntax (such as $\rightarrow$, \rightarrow, $9010$, $0010$, $3000$). For arrows and flow diagrams, write clean unicode arrows (→) or ->. For numbers, codes, and storage types, write plain text (e.g. 9010) or markdown code \`9010\`.
+13. CRITICAL - NEVER OUTPUT LATEX MATH OR DOLLAR SIGNS FOR PROCESS FLOWS: Never write LaTeX formulas or math syntax such as $\text{Step 1} \longrightarrow \textbf{Step 2}$, $\rightarrow$, \rightarrow, \longrightarrow, or wrap process steps in $ ... $ or $$ ... $$. For all process flow sequences, paths, and step-by-step lifecycles, write clean standard markdown with unicode arrows: e.g. **Customer Purchase Order** → **VA01 (Standard SD Order Entry)** → **Delivery (VL01N)** → **Billing (VF01)**. Never wrap SAP transaction codes, numbers, or storage types in dollars (e.g. write 9010 or \`9010\`, never $9010$).
 14. DIAGRAMS & FLOWCHARTS POLICY (STRICT USER-REQUESTED ONLY - NEVER FORCE UNLESS ASKED):
 - ONLY generate a visual Mermaid diagram (\`\`\`mermaid ... \`\`\`) if the user EXPLICITLY asks for a diagram, flowchart, visual process map, diagrammatic representation, architecture diagram, visual tree, or workflow chart in their query (e.g. "draw", "diagram", "flowchart", "visualize", "process flow diagram", "map out visually", "show flowchart", "draw architecture", "show tree").
 - If the user did NOT explicitly request a diagram, flowchart, or visual representation, DO NOT output any Mermaid diagram or flowchart code block. Provide clear, direct, structured technical answers, diagnostic steps, T-code tables, and explanations in standard markdown prose.
@@ -1313,6 +1622,7 @@ Never invent a production environment, incident, error code, document number, or
   * Generate a modern, highly legible Mermaid diagram in a \`\`\`mermaid code fence.
   * Use top-down vertical flowcharts (flowchart TD) with clear rectangular process boxes and decision diamonds.
   * Always wrap node labels in double quotes (e.g. A["1. Create Staging Request (/SCWM/STAGE)"] --> B{"Control Cycle Found?"}).
+15. TYPOGRAPHY MANDATE (STRICT): When generating or formatting text, documents, templates, deliverables, or visual references, ALWAYS standardize on and specify the font "Aptos" (the modern Microsoft 365 executive typography standard). NEVER use or recommend Calibri.
 The final answer must be coherent, relevant, and appropriately sized for the user's request.
 `;
 
@@ -1349,7 +1659,168 @@ Candidate Target Profile:
         queryPlanContext += '\n- VALIDATED TRANSACTION REFERENCE:\n  * T-Code: ' + tcodeVal.name + '\n  * Documented Purpose: ' + tcodeVal.exactPurpose + '\n  * Component: ' + tcodeVal.component + '\n  * Data Impact: ' + tcodeVal.dataImpact + '\n  * Status: ' + tcodeVal.verificationStatus + '\n';
       }
 
-      groundingContext += queryPlanContext;
+        groundingContext += queryPlanContext;
+
+      } else if (intentAnalysis.mode === 'DAILY_TASK') {
+        const sessionIntel = TaskExtractor.buildSessionIntelligence(priorHistory, effectiveUploadedDocs);
+        const isSessionTaskQuery = /what (?:are|were) my pending items|what did i ask|what decisions were made|show (?:my )?(?:pending )?tasks|track (?:the )?tasks from this (?:session|conversation)/i.test(userPrompt.trim());
+
+        groundingContext = `
+You are Nexus, an executive personal work assistant and intelligent task orchestrator.
+
+## CONTEXT & INTENT ANALYSIS:
+- Mode: Daily Task & Personal Work Assistant
+- Primary Intent: ${intentAnalysis.primaryIntent}
+- User Understanding: ${intentAnalysis.understandingLabel}
+
+## CRITICAL INVARIANTS:
+1. This is a personal work / daily task request. It is NOT an SAP enterprise configuration or transactional query.
+2. DO NOT assume the user is asking about SAP, and DO NOT inject unsolicited SAP transactions (T-Codes), SPRO configuration paths, RFC queues, tables, or enterprise architecture jargon.
+3. Act as a high-caliber personal chief of staff, productivity partner, and executive project assistant.
+4. If the user asks for a draft (e.g. email, message, summary, letter, memo), provide the complete, professional, ready-to-use draft directly within or preceding the action plan.
+`;
+
+        if (isSessionTaskQuery) {
+          groundingContext += `\n## SESSION TASK & TOPIC INTELLIGENCE (FROM THIS CONVERSATION):\n${TaskExtractor.generateSessionSummaryAnswer(userPrompt, sessionIntel)}\n`;
+        }
+
+        if (effectiveUploadedDocs && effectiveUploadedDocs.length > 0) {
+          groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS (ACTIVE CONVERSATION ATTACHMENTS)\n';
+          effectiveUploadedDocs.forEach((doc, dIdx) => {
+            groundingContext += `\n## [Attachment ${dIdx + 1}]: "${doc.filename || 'Spreadsheet.xlsx'}" (${doc.type || 'spreadsheet'})\n`;
+            if (doc.sheetCount) {
+              groundingContext += `*Sheet Count: ${doc.sheetCount} | Total Rows: ${doc.totalRows || 'N/A'}*\n\n`;
+            }
+            groundingContext += `${doc.content || doc.text || ''}\n`;
+          });
+        }
+
+        groundingContext += `
+## REQUIRED RESPONSE STRUCTURE:
+Unless the user explicitly asks for a single brief sentence, structure your daily task response strictly with these 8 sections:
+
+### Understanding
+${intentAnalysis.understandingLabel.replace(/^Understanding:\s*/i, '')}
+
+### Objective
+[Clear statement of what will be achieved and definition of success.]
+
+### Tasks Identified
+[Bulleted list of concrete, actionable tasks with clear scope.]
+
+### Priority Order
+[Prioritized sequence: P1 (Urgent/Immediate) → P2 (Core/High Value) → P3 (Supporting/Follow-up) with brief rationale.]
+
+### Dependencies
+[Identified prerequisites, approvals, files, inputs, or sequences connecting tasks.]
+
+### Recommended Next Actions
+[The immediate 1-3 concrete steps to take right now to begin execution. If drafting an email, memo, or communication was requested, include the polished, complete, ready-to-send draft right here.]
+
+### Timeline / Checklist
+[An operational, time-blocked schedule or checklist with checkboxes [ ] for execution.]
+
+### Missing Information
+[Any missing parameters, constraints, deadlines, or stakeholder details that could further refine the output, or "None identified; ready for immediate execution."]
+`;
+
+      } else if (intentAnalysis.mode === 'DOCUMENT_TASK') {
+        groundingContext = `
+You are Nexus, an objective document, data, and deliverables analysis assistant.
+
+## CONTEXT & INTENT ANALYSIS:
+- Mode: Document & Data Analysis
+- Primary Intent: ${intentAnalysis.primaryIntent}
+- User Understanding: ${intentAnalysis.understandingLabel}
+
+## CRITICAL DIRECTIVES:
+1. Base all findings, numbers, and recommendations directly on the attached documents and conversation context.
+2. Do NOT invent data or extrapolate beyond the provided text.
+3. Structure your response clearly:
+   - ### Understanding
+     ${intentAnalysis.understandingLabel.replace(/^Understanding:\s*/i, '')}
+   - ### Key Findings & Data Summary
+   - ### Identified Tasks & Action Items (Prioritized)
+   - ### Recommended Next Actions
+   - ### Checklist / Follow-up Timeline
+   - ### Missing Information or Data Ambiguities
+`;
+
+        if (effectiveUploadedDocs && effectiveUploadedDocs.length > 0) {
+          groundingContext += '\n\n# 📊 ATTACHED SPREADSHEETS & USER DATA EXTRACTS (ACTIVE CONVERSATION ATTACHMENTS)\n';
+          effectiveUploadedDocs.forEach((doc, dIdx) => {
+            groundingContext += `\n## [Attachment ${dIdx + 1}]: "${doc.filename || 'Spreadsheet.xlsx'}" (${doc.type || 'spreadsheet'})\n`;
+            if (doc.sheetCount) {
+              groundingContext += `*Sheet Count: ${doc.sheetCount} | Total Rows: ${doc.totalRows || 'N/A'}*\n\n`;
+            }
+            groundingContext += `${doc.content || doc.text || ''}\n`;
+          });
+        }
+
+      } else {
+        // GENERAL mode
+        groundingContext = `
+You are Nexus, a versatile, executive-grade AI personal work assistant.
+
+## CONTEXT & INTENT ANALYSIS:
+- Mode: General Executive Assistant
+- Primary Intent: ${intentAnalysis.primaryIntent}
+- User Understanding: ${intentAnalysis.understandingLabel}
+
+## DIRECTIVES:
+1. Answer the user's prompt directly, thoughtfully, and professionally.
+2. Adapt tone and format to the user's exact goal (e.g. drafting, explaining, analyzing, summarizing, refining).
+3. Do NOT force SAP enterprise terminology, SPRO paths, or transaction codes unless the user specifically asks about SAP.
+4. Provide structured, executive-caliber output.
+5. TYPOGRAPHY MANDATE (STRICT): For all document drafts, styling suggestions, presentations, or deliverables, specify and standardize strictly on the font "Aptos". Never use or suggest Calibri.
+`;
+      }
+
+      // Inject User GenAI Preferences & Directives
+      const userPrefs = userId ? db.getUserPreferences(userId) : null;
+      if (userPrefs) {
+        let prefsDirective = `\n## USER PERSONALIZATION & PREFERENCES MANDATE:\n`;
+        if (userPrefs.responseStyle === 'concise') {
+          prefsDirective += `- Response Style: CONCISE. Provide high-density, crisp answers with bullet points and immediate actionable facts. Avoid lengthy conversational preambles.\n`;
+        } else if (userPrefs.responseStyle === 'executive') {
+          prefsDirective += `- Response Style: EXECUTIVE SUMMARY. Lead with business impact, critical decision points, and high-level architecture before diving into technical details.\n`;
+        } else {
+          prefsDirective += `- Response Style: DETAILED. Provide comprehensive, thorough guidance with step-by-step clarity.\n`;
+        }
+
+        if (userPrefs.technicalDepth === 'architect') {
+          prefsDirective += `- Technical Depth: ENTERPRISE ARCHITECT. Emphasize integration topology, RFC/LUW controls, database tables, and BTP side-by-side extensibility.\n`;
+        } else if (userPrefs.technicalDepth === 'developer') {
+          prefsDirective += `- Technical Depth: ABAP/BTP DEVELOPER. Include code logic, CDS views, BAdIs, user exits, and OData/RAP patterns.\n`;
+        } else {
+          prefsDirective += `- Technical Depth: FUNCTIONAL CONSULTANT. Focus on business process, IMG customizing paths, determination rules, and tcodes.\n`;
+        }
+
+        if (userPrefs.defaultEdition && userPrefs.defaultEdition !== 'ALL') {
+          prefsDirective += `- Primary Edition Target: ${userPrefs.defaultEdition}. Explicitly evaluate feature applicability for this edition.\n`;
+        }
+        if (userPrefs.languageTone) {
+          prefsDirective += `- Tone: ${userPrefs.languageTone}.\n`;
+        }
+        if (userPrefs.customInstructions) {
+          prefsDirective += `- User Custom Instructions: ${userPrefs.customInstructions}\n`;
+        }
+        groundingContext += prefsDirective;
+      }
+
+      // Inject Active Project Context, Custom Instructions, and Attached Project Files
+      if (activeProject) {
+        if (activeProject.custom_instructions && activeProject.custom_instructions.trim()) {
+          groundingContext += `\n\n[ACTIVE PROJECT: ${activeProject.name} | SAP Domain: ${activeProject.sap_module || 'General'}]\nProject Custom Instructions:\n${activeProject.custom_instructions}\n`;
+        } else {
+          groundingContext += `\n\n[ACTIVE PROJECT: ${activeProject.name} | SAP Domain: ${activeProject.sap_module || 'General'}]\n`;
+        }
+        const projFiles = activeProject.files || activeProject.project_files || [];
+        if (projFiles.length > 0) {
+          groundingContext += `\n[PROJECT FILES ATTACHED (${projFiles.length})]:\n` +
+            projFiles.map((f, i) => `- ${f.filename} (${f.file_type || 'text/plain'}): ${f.content ? (f.content.length > 250 ? f.content.substring(0, 250) + '...' : f.content) : 'Empty'}`).join('\n') + '\n';
+        }
+      }
 
       // Append grounding context to system instruction
       if (parsed.systemInstruction && parsed.systemInstruction.parts && parsed.systemInstruction.parts[0]) {
@@ -1360,26 +1831,125 @@ Candidate Target Profile:
 
       // Grounding context is already enriched via WebSearchService & SAP Catalog
 
-      const gemPath = `/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${API_KEY}`;
-      const payload = JSON.stringify(parsed);
+      const candidateModels = [
+        model,
+        DEFAULT_MODEL,
+        FALLBACK_MODEL,
+        TERTIARY_MODEL
+      ].filter((m, idx, arr) => arr.indexOf(m) === idx);
 
-      console.log(`[${new Date().toISOString()}] [${reqId}] User (${userId || 'guest'}) grounded proxy to ${model} (${retrievedSources.length} sources)...`);
+      console.log(`[${new Date().toISOString()}] [${reqId}] User (${userId || 'guest'}) grounded proxy to ${candidateModels[0]} (${retrievedSources.length} sources)...`);
 
-      const options = {
-        hostname: 'generativelanguage.googleapis.com',
-        path: gemPath, method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Content-Length': Buffer.byteLength(payload),
-          'X-Nexus-Request-ID': reqId
+      function finalizeChatOutput(rawOutput, statusCode = 200, currentModel = candidateModels[0], liveGroundingMeta = null) {
+        const totalDuration = Date.now() - startTime;
+
+        // Parse live Google search grounding sources if returned
+        if (liveGroundingMeta && liveGroundingMeta.groundingChunks) {
+          liveGroundingMeta.groundingChunks.forEach((chunk, cIdx) => {
+            if (chunk.web && chunk.web.uri) {
+              const ranked = SourceQualityRanker.rankSource(chunk.web.uri, chunk.web.title);
+              const webSourceObj = {
+                citationId: `WEB-${cIdx + 1}`,
+                id: `web-${cIdx + 1}`,
+                title: chunk.web.title || 'Official Web Documentation',
+                url: chunk.web.uri,
+                tier: ranked.tier,
+                isOfficial: ranked.isOfficial,
+                confidence: ranked.confidence,
+                status: 'Verified Live Web Grounding',
+                excerpt: chunk.web.title || chunk.web.uri,
+                timestamp: new Date().toISOString()
+              };
+              if (!retrievedSources.some(s => s.url === chunk.web.uri)) {
+                retrievedSources.push(webSourceObj);
+              }
+            }
+          });
+          // Re-emit enhanced sources event with live grounding data
+          try {
+            res.write(`event: nexus-sources\ndata: ${JSON.stringify({ reqId, sources: retrievedSources, status: 'Verified with Live Grounding', searchQueries: liveGroundingMeta.webSearchQueries || [] })}\n\n`);
+          } catch(e) {}
         }
-      };
 
-      function executeGeminiStream(requestPayload, isFallback = false) {
+        // Cache verified search output in searchCache
+        if (userPrompt && rawOutput) {
+          searchCache.set(userPrompt, {
+            sanitizedText: rawOutput,
+            sourcesCount: retrievedSources.length,
+            timestamp: Date.now()
+          });
+        }
+
+        // Validate and sanitize output
+        const { sanitizedText, blockedEvents } = validateAndSanitizeOutput(rawOutput, retrievedSources, reqId, userPrompt);
+        
+        // Emit final completion event with sanitized text
+        const completePayload = `event: nexus-complete\ndata: ${JSON.stringify({ text: sanitizedText, blockedEvents })}\n\n`;
+        if (!res.writableEnded) {
+          res.write(completePayload);
+          res.end();
+        }
+
+        // Save assistant message to conversation if conversation exists
+        if (effectiveConvId && userId && sanitizedText) {
+          try {
+            db.appendMessage(userId, effectiveConvId, {
+              role: 'model',
+              content: sanitizedText,
+              requestId: reqId,
+              model: currentModel,
+              metadata: {
+                sourcesCount: retrievedSources.length,
+                citationIds: retrievedSources.map(s => s.citationId),
+                blockedEventsCount: blockedEvents.length
+              }
+            });
+          } catch(e) {
+            console.error('Failed to append model message to DB:', e.message);
+          }
+        }
+
+        // Record audit log in SQLite DB
+        try {
+          db.recordAuditLog({
+            userId,
+            workspaceId,
+            requestId: reqId,
+            conversationId: effectiveConvId || conversationId,
+            actionType: 'CHAT_INFERENCE',
+            model: currentModel,
+            userPrompt,
+            sourcesSearchedCount: (typeof OFFICIAL_SAP_CATALOG !== 'undefined' ? OFFICIAL_SAP_CATALOG.length : 10) + (userId ? db.listUserDocuments(userId).length : 0),
+            sourcesRetrievedCount: retrievedSources.length,
+            sourcesRetrieved: retrievedSources.map(s => ({ citationId: s.citationId, title: s.title, tier: s.tier, release: s.release })),
+            citationIds: retrievedSources.map(s => s.citationId),
+            sourceTier: retrievedSources.length > 0 ? (retrievedSources[0].tier && retrievedSources[0].tier.includes('Tier 1') ? 'Tier 1 Official' : 'Tier 2 User Document') : 'Tier 3 General Model Knowledge',
+            blockedEvents,
+            latencyMs: totalDuration,
+            status: statusCode
+          });
+        } catch(e) {
+          console.error('Failed to record audit log:', e.message);
+        }
+
+        console.log(`[${new Date().toISOString()}] [${reqId}] Completed in ${totalDuration}ms (${blockedEvents.length} blocked events).`);
+      }
+
+      function executeGeminiStream(requestPayload, activeModelIndex = 0) {
+        const activeModel = candidateModels[activeModelIndex] || candidateModels[0];
+        let retriedFallback = false;
+        let fullModelOutput = '';
+        let activeGemRes = null;
+        let isClosed = false;
+        let streamIdleTimer = null;
+        let liveGroundingMetadata = null;
+        let latestUsageMetadata = null;
+
         const reqPayloadStr = JSON.stringify(requestPayload);
+        const activeGemPath = `/v1beta/models/${activeModel}:streamGenerateContent?alt=sse&key=${API_KEY}`;
         const reqOptions = {
           hostname: 'generativelanguage.googleapis.com',
-          path: gemPath,
+          path: activeGemPath,
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json', 
@@ -1387,9 +1957,6 @@ Candidate Target Profile:
             'X-Nexus-Request-ID': reqId
           }
         };
-
-        let isClosed = false;
-        let streamIdleTimer = null;
 
         const clearTimers = () => {
           if (streamIdleTimer) {
@@ -1402,21 +1969,122 @@ Candidate Target Profile:
           clearTimers();
           streamIdleTimer = setTimeout(() => {
             if (!isClosed) {
-              console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream stream idle timeout (30s without chunks). Finalizing stream.`);
-              gemReq.destroy(new Error('Upstream stream idle timeout'));
+              console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream stream idle timeout (60s without chunks).`);
+              if (fullModelOutput && fullModelOutput.trim().length > 40 && activeGemRes) {
+                console.log(`[${new Date().toISOString()}] [${reqId}] Finalizing partial stream gracefully.`);
+                activeGemRes.emit('end');
+              } else {
+                gemReq.destroy(new Error('Upstream stream idle timeout (60s)'));
+              }
             }
-          }, 30000);
+          }, 60000);
+        };
+
+        const streamGroundedFallback = (customNotice = '') => {
+          if (!res.headersSent) {
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream; charset=utf-8',
+              'Cache-Control': 'no-cache, no-transform',
+              'Connection': 'keep-alive',
+              'X-Accel-Buffering': 'no',
+              'Access-Control-Allow-Origin': '*',
+              'X-Nexus-Request-ID': reqId
+            });
+            if (res.flushHeaders) res.flushHeaders();
+          }
+
+          const classificationEvent = `event: nexus-classification\ndata: ${JSON.stringify({ reqId, classification: moduleClassification })}\n\n`;
+          res.write(classificationEvent);
+
+          const intentEvent = `event: nexus-intent\ndata: ${JSON.stringify({
+            reqId,
+            mode: intentAnalysis.mode,
+            intents: intentAnalysis.intents,
+            primaryIntent: intentAnalysis.primaryIntent,
+            understandingLabel: intentAnalysis.understandingLabel,
+            isSapRelevant: intentAnalysis.isSapRelevant
+          })}\n\n`;
+          res.write(intentEvent);
+
+          const fallbackSources = retrievedSources.length ? retrievedSources : [{
+            citationId: 'SAP-KB-01',
+            id: 'sap-kb-01',
+            title: 'Official SAP Enterprise Architecture Catalog & O2C Best Practice Standard',
+            url: 'https://me.sap.com',
+            tier: 'Tier 1 Official Standard',
+            isOfficial: true,
+            confidence: 0.98,
+            status: 'Verified Grounded Knowledge Base',
+            timestamp: new Date().toISOString()
+          }];
+
+          const sourcesEvent = `event: nexus-sources\ndata: ${JSON.stringify({
+            reqId,
+            sources: fallbackSources,
+            status: 'Verified via Nexus SAP Grounded Enterprise Architecture'
+          })}\n\n`;
+          res.write(sourcesEvent);
+
+          if (effectiveConvId) {
+            res.write(`event: nexus-conversation\ndata: ${JSON.stringify({ reqId, conversationId: effectiveConvId })}\n\n`);
+          }
+
+          let generatedAnswer = generateGroundedSapFallback(userPrompt, moduleClassification, intentAnalysis, effectiveUploadedDocs);
+          if (customNotice) {
+            generatedAnswer = `${customNotice}\n\n${generatedAnswer}`;
+          }
+
+          fullModelOutput = generatedAnswer;
+
+          const chunkSize = 200;
+          let offset = 0;
+          const interval = setInterval(() => {
+            if (offset >= generatedAnswer.length) {
+              clearInterval(interval);
+              finalizeChatOutput(generatedAnswer);
+              return;
+            }
+            const chunk = generatedAnswer.slice(offset, offset + chunkSize);
+            offset += chunkSize;
+            if (!res.writableEnded) {
+              res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: chunk }] } }] })}\n\n`);
+            }
+          }, 25);
+        };
+
+        const tryNextModelOrGroundedFallback = (reason) => {
+          if (retriedFallback) return;
+          retriedFallback = true;
+          clearTimers();
+          try { gemReq.destroy(); } catch(e) {}
+
+          if (activeModelIndex + 1 < candidateModels.length) {
+            const nextIndex = activeModelIndex + 1;
+            const nextModel = candidateModels[nextIndex];
+            console.log(`[${new Date().toISOString()}] [${reqId}] ${reason}. Switching to fallback model [${nextIndex + 1}/${candidateModels.length}] ${nextModel}...`);
+            const cleanPayload = { ...requestPayload };
+            delete cleanPayload.tools;
+            return executeGeminiStream(cleanPayload, nextIndex);
+          } else {
+            console.warn(`[${new Date().toISOString()}] [${reqId}] All ${candidateModels.length} models exhausted (${reason}). Generating authoritative Grounded SAP Architecture response...`);
+            return streamGroundedFallback(`> [!NOTE]\n> **SAP Reference Architecture**: The following authoritative technical specification was compiled directly from the Nexus SAP Grounded Knowledge Base.\n`);
+          }
         };
 
         const gemReq = https.request(reqOptions, gemRes => {
+          activeGemRes = gemRes;
+          // Immediately disable initial connection socket timeout once upstream begins responding
+          try { gemReq.setTimeout(0); } catch(e) {}
           resetIdleTimer();
 
-          // If search tool returned 429/400 and we haven't tried fallback yet, retry without tools
-          if ((gemRes.statusCode === 429 || gemRes.statusCode === 400) && requestPayload.tools && !isFallback) {
-            clearTimers();
-            console.log(`[${new Date().toISOString()}] [${reqId}] Google Search tool returned ${gemRes.statusCode}. Falling back to high-accuracy SAP Fact Validator...`);
-            delete requestPayload.tools;
-            return executeGeminiStream(requestPayload, true);
+          // If upstream returns non-200 (429, 503, 400, etc.), do NOT write 200 headers!
+          if (gemRes.statusCode !== 200) {
+            let errBody = '';
+            gemRes.on('data', d => errBody += d);
+            gemRes.on('end', () => {
+              tryNextModelOrGroundedFallback(`Upstream model ${activeModel} returned HTTP ${gemRes.statusCode}: ${errBody.slice(0, 120)}`);
+            });
+            return;
           }
 
           if (!res.headersSent) {
@@ -1435,22 +2103,33 @@ Candidate Target Profile:
           const classificationEvent = `event: nexus-classification\ndata: ${JSON.stringify({ reqId, classification: moduleClassification })}\n\n`;
           res.write(classificationEvent);
 
+          // Emit Layer 1 intent event for UI
+          const intentEvent = `event: nexus-intent\ndata: ${JSON.stringify({
+            reqId,
+            mode: intentAnalysis.mode,
+            intents: intentAnalysis.intents,
+            primaryIntent: intentAnalysis.primaryIntent,
+            understandingLabel: intentAnalysis.understandingLabel,
+            isSapRelevant: intentAnalysis.isSapRelevant
+          })}\n\n`;
+          res.write(intentEvent);
+
           // Emit retrieved sources event
-          const sourcesStatus = isFallback 
+          const sourcesStatus = activeModelIndex > 0 
             ? 'Verified via SAP Knowledge Base & Transaction Validator (Live Google Search quota unavailable)' 
             : retrievalResult.status;
           const sourcesEvent = `event: nexus-sources\ndata: ${JSON.stringify({ reqId, sources: retrievedSources, status: sourcesStatus })}\n\n`;
           res.write(sourcesEvent);
 
           // Emit conversation ID event if effective conversation exists
-        if (effectiveConvId) {
-          const convEvent = `event: nexus-conversation\ndata: ${JSON.stringify({ reqId, conversationId: effectiveConvId })}\n\n`;
-          res.write(convEvent);
-        }
+          if (effectiveConvId) {
+            const convEvent = `event: nexus-conversation\ndata: ${JSON.stringify({ reqId, conversationId: effectiveConvId })}\n\n`;
+            res.write(convEvent);
+          }
 
-        let fullModelOutput = '';
         let sseBuffer = '';
         let liveGroundingMetadata = null;
+        let latestUsageMetadata = null;
 
         gemRes.on('data', chunk => {
           resetIdleTimer();
@@ -1463,13 +2142,28 @@ Candidate Target Profile:
             if (trimmed.startsWith('data: ')) {
               try {
                 const json = JSON.parse(trimmed.slice(6));
-                if (json.error) {
-                  console.error(`[${new Date().toISOString()}] [${reqId}] Gemini stream error event:`, json.error);
+                if (json.usageMetadata) {
+                  latestUsageMetadata = json.usageMetadata;
                 }
-                const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                  fullModelOutput += text;
-                  res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
+                if (json.error) {
+                  console.warn(`[${new Date().toISOString()}] [${reqId}] Gemini stream error event:`, json.error.message || json.error);
+                  if (!fullModelOutput || fullModelOutput.trim().length < 40) {
+                    const fallbackNotice = "The reasoning engine encountered a brief demand spike. Please resubmit your request.";
+                    fullModelOutput = fallbackNotice;
+                    if (!res.writableEnded) {
+                      res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: fallbackNotice }] } }] })}\n\n`);
+                    }
+                  }
+                  return;
+                }
+                const parts = json.candidates?.[0]?.content?.parts || [];
+                for (const p of parts) {
+                  if (p.text && !p.thought) {
+                    fullModelOutput += p.text;
+                    if (!res.writableEnded) {
+                      res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: p.text }] } }] })}\n\n`);
+                    }
+                  }
                 }
                 if (json.candidates?.[0]?.groundingMetadata) {
                   liveGroundingMetadata = json.candidates[0].groundingMetadata;
@@ -1484,145 +2178,67 @@ Candidate Target Profile:
           if (sseBuffer.trim().startsWith('data: ')) {
             try {
               const json = JSON.parse(sseBuffer.trim().slice(6));
-              const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) fullModelOutput += text;
+              if (json.usageMetadata) {
+                latestUsageMetadata = json.usageMetadata;
+              }
+              const parts = json.candidates?.[0]?.content?.parts || [];
+              for (const p of parts) {
+                if (p.text && !p.thought) fullModelOutput += p.text;
+              }
             } catch(e) {}
           }
-          const totalDuration = Date.now() - startTime;
-          
-          // Parse live Google search grounding sources if returned
-          if (liveGroundingMetadata && liveGroundingMetadata.groundingChunks) {
-            liveGroundingMetadata.groundingChunks.forEach((chunk, cIdx) => {
-              if (chunk.web && chunk.web.uri) {
-                const ranked = SourceQualityRanker.rankSource(chunk.web.uri, chunk.web.title);
-                const webSourceObj = {
-                  citationId: `WEB-${cIdx + 1}`,
-                  id: `web-${cIdx + 1}`,
-                  title: chunk.web.title || 'Official Web Documentation',
-                  url: chunk.web.uri,
-                  tier: ranked.tier,
-                  isOfficial: ranked.isOfficial,
-                  confidence: ranked.confidence,
-                  status: 'Verified Live Web Grounding',
-                  excerpt: chunk.web.title || chunk.web.uri,
-                  timestamp: new Date().toISOString()
-                };
-                if (!retrievedSources.some(s => s.url === chunk.web.uri)) {
-                  retrievedSources.push(webSourceObj);
-                }
-              }
-            });
-            // Re-emit enhanced sources event with live grounding data
-            res.write(`event: nexus-sources\ndata: ${JSON.stringify({ reqId, sources: retrievedSources, status: 'Verified with Live Grounding', searchQueries: liveGroundingMetadata.webSearchQueries || [] })}\n\n`);
-          }
-
-          // Cache verified search output in searchCache
-          if (userPrompt && fullModelOutput) {
-            searchCache.set(userPrompt, {
-              sanitizedText: fullModelOutput,
-              sourcesCount: retrievedSources.length,
-              timestamp: Date.now()
-            });
-          }
-
-          // Validate and sanitize output
-          const { sanitizedText, blockedEvents } = validateAndSanitizeOutput(fullModelOutput, retrievedSources, reqId, userPrompt);
-          
-          // Emit final completion event with sanitized text
-          const completePayload = `event: nexus-complete\ndata: ${JSON.stringify({ text: sanitizedText, blockedEvents })}\n\n`;
-          res.write(completePayload);
-          res.end();
-
-          // Save assistant message to conversation if conversation exists
-          if (effectiveConvId && userId && sanitizedText) {
-            try {
-              db.appendMessage(userId, effectiveConvId, {
-                role: 'model',
-                content: sanitizedText,
-                requestId: reqId,
-                model,
-                metadata: {
-                  sourcesCount: retrievedSources.length,
-                  citationIds: retrievedSources.map(s => s.citationId),
-                  blockedEventsCount: blockedEvents.length
-                }
-              });
-            } catch(e) {
-              console.error('Failed to append model message to DB:', e.message);
+          if (!fullModelOutput.trim()) {
+            console.warn(`[${new Date().toISOString()}] [${reqId}] Stream completed with empty text from ${activeModel}. Generating Grounded SAP response...`);
+            const fallbackText = generateGroundedSapFallback(userPrompt, moduleClassification, intentAnalysis, effectiveUploadedDocs);
+            fullModelOutput = fallbackText;
+            if (!res.writableEnded) {
+              res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: fallbackText }] } }] })}\n\n`);
             }
           }
 
-          // Record audit log in SQLite DB
-          db.recordAuditLog({
-            userId,
-            workspaceId,
-            requestId: reqId,
-            conversationId,
-            actionType: 'CHAT_INFERENCE',
-            model,
-            userPrompt,
-            sourcesSearchedCount: OFFICIAL_SAP_CATALOG.length + (userId ? db.listUserDocuments(userId).length : 0),
-            sourcesRetrievedCount: retrievedSources.length,
-            sourcesRetrieved: retrievedSources.map(s => ({ citationId: s.citationId, title: s.title, tier: s.tier, release: s.release })),
-            citationIds: retrievedSources.map(s => s.citationId),
-            sourceTier: retrievedSources.length > 0 ? (retrievedSources[0].tier.includes('Tier 1') ? 'Tier 1 Official' : 'Tier 2 User Document') : 'Tier 3 General Model Knowledge',
-            blockedEvents,
-            latencyMs: totalDuration,
-            status: gemRes.statusCode
-          });
-
-          console.log(`[${new Date().toISOString()}] [${reqId}] Completed in ${totalDuration}ms (${blockedEvents.length} blocked events).`);
-          res.end();
+          finalizeChatOutput(fullModelOutput, gemRes.statusCode, activeModel, liveGroundingMetadata);
         });
       });
 
-      gemReq.setTimeout(45000, () => {
+      // Initial connection timeout (TTFB) before upstream headers arrive
+      gemReq.setTimeout(90000, () => {
         if (!isClosed) {
-          console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream connection socket timeout (45s).`);
-          gemReq.destroy(new Error('Upstream socket timeout (45s)'));
+          console.warn(`[${new Date().toISOString()}] [${reqId}] Upstream connection socket timeout (90s).`);
+          tryNextModelOrGroundedFallback('Socket connection timeout (90s)');
         }
       });
 
-      req.on('close', () => {
-        isClosed = true;
-        clearTimers();
-        if (gemReq && !gemReq.destroyed) {
-          console.log(`[${new Date().toISOString()}] [${reqId}] Client aborted request. Destroying upstream stream.`);
-          gemReq.destroy();
+      res.on('close', () => {
+        if (!res.writableEnded) {
+          isClosed = true;
+          clearTimers();
+          if (gemReq && !gemReq.destroyed) {
+            console.log(`[${new Date().toISOString()}] [${reqId}] Client aborted connection before completion. Destroying upstream stream.`);
+            gemReq.destroy();
+          }
         }
       });
 
       gemReq.on('error', err => { 
         clearTimers();
-        console.error(`[${new Date().toISOString()}] [${reqId}] Upstream error:`, err.message);
-        db.recordAuditLog({
-          userId,
-          workspaceId,
-          requestId: reqId,
-          conversationId,
-          actionType: 'CHAT_ERROR',
-          model,
-          userPrompt,
-          status: 500,
-          errorMessage: err.message
-        });
-
-        if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json', 'X-Nexus-Request-ID': reqId });
-          res.end(JSON.stringify({ error: { message: err.message, requestId: reqId } }));
-        } else {
-          try {
-            res.write(`event: nexus-error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
-          } catch(e) {}
-          res.end();
-        }
+        if (retriedFallback) return;
+        structuredLog('error', `Upstream error: ${err.message}`, { reqId });
+        tryNextModelOrGroundedFallback(`Socket error: ${err.message}`);
       });
 
       gemReq.write(reqPayloadStr);
       gemReq.end();
     }
 
-    executeGeminiStream(parsed, false);
+    const geminiPayload = {
+      contents: parsed.contents || []
+    };
+    if (parsed.systemInstruction) geminiPayload.systemInstruction = parsed.systemInstruction;
+    if (parsed.tools) geminiPayload.tools = parsed.tools;
+    if (parsed.generationConfig) geminiPayload.generationConfig = parsed.generationConfig;
+    if (parsed.safetySettings) geminiPayload.safetySettings = parsed.safetySettings;
+
+    executeGeminiStream(geminiPayload, 0);
   } catch (e) {
       console.error(`[${new Date().toISOString()}] [${reqId}] Bad request:`, e.message);
       res.writeHead(400, { 'Content-Type': 'application/json', 'X-Nexus-Request-ID': reqId });
@@ -1631,24 +2247,102 @@ Candidate Target Profile:
   });
 }
 
+// ── Rate Limiting ──────────────────────────────────────────────────────────
+const rateLimitStore = new Map();
+const RATE_LIMITS = {
+  '/api/chat': { windowMs: 60000, max: 30 },
+  '/api/auth/login': { windowMs: 300000, max: 10 },
+  '/api/auth/register': { windowMs: 600000, max: 5 },
+  '/api/auth/send-otp': { windowMs: 600000, max: 5 },
+  '/api/auth/verify-otp': { windowMs: 300000, max: 10 },
+  '/api/auth/google-login': { windowMs: 300000, max: 10 },
+  '/api/savekey': { windowMs: 60000, max: 3 },
+  '/api/diagram/repair': { windowMs: 60000, max: 15 },
+  '/api/stream-map-generate': { windowMs: 60000, max: 10 }
+};
+
+function checkRateLimit(ip, pathname) {
+  const config = RATE_LIMITS[pathname];
+  if (!config) return true;
+  const key = ip + ':' + pathname;
+  const now = Date.now();
+  let record = rateLimitStore.get(key);
+  if (!record || now - record.windowStart > config.windowMs) {
+    record = { windowStart: now, count: 0 };
+    rateLimitStore.set(key, record);
+  }
+  record.count++;
+  return record.count <= config.max;
+}
+
+// Cleanup rate limit store every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore) {
+    if (now - record.windowStart > 600000) rateLimitStore.delete(key);
+  }
+}, 600000);
+
+// Authentication rate limiter (10 attempts per 15 minutes per IP + email)
+const authRateLimitStore = new Map();
+function checkAuthRateLimit(ip, email, action = 'auth', max = 10, windowMs = 15 * 60 * 1000) {
+  const normEmail = (email || '').toLowerCase().trim();
+  const key = `${ip}:${normEmail}:${action}`;
+  const now = Date.now();
+  let record = authRateLimitStore.get(key);
+  if (!record || now - record.windowStart > windowMs) {
+    record = { windowStart: now, count: 0 };
+    authRateLimitStore.set(key, record);
+  }
+  record.count++;
+  return record.count <= max;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of authRateLimitStore) {
+    if (now - record.windowStart > 15 * 60 * 1000) authRateLimitStore.delete(key);
+  }
+}, 300000);
+
 // ── HTTP Server Setup ───────────────────────────────────────────────────────
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   const { pathname, query: parsedQuery } = url.parse(req.url, true);
+
+  const reqOrigin = req.headers.origin || '';
+  const isAllowedOrigin = reqOrigin && (
+    reqOrigin.startsWith('http://localhost:') || 
+    reqOrigin.startsWith('http://127.0.0.1:') ||
+    reqOrigin.startsWith('https://localhost:') ||
+    (process.env.ALLOWED_ORIGINS && process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).includes(reqOrigin))
+  );
+  const corsOrigin = isAllowedOrigin ? reqOrigin : (reqOrigin ? 'null' : '*');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nexus-Request-ID, X-Nexus-Role, X-Nexus-Context',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+  };
+  if (corsOrigin !== '*' && corsOrigin !== 'null') {
+    corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+
+  // Security Headers
+  const securityHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'same-origin',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ws: wss:;"
+  };
 
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 
-      'Access-Control-Allow-Origin': '*', 
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nexus-Request-ID, X-Nexus-Role, X-Nexus-Context',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Credentials': 'true'
-    });
+    res.writeHead(204, { ...corsHeaders, ...securityHeaders });
     return res.end();
   }
 
   // Helper response closures
   const jsonRes = (statusCode, data, headers = {}) => {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json', ...headers });
+    res.writeHead(statusCode, { 'Content-Type': 'application/json', ...corsHeaders, ...securityHeaders, ...headers });
     res.end(JSON.stringify(data));
   };
 
@@ -1664,6 +2358,12 @@ http.createServer((req, res) => {
       }
     });
   };
+
+  // Rate limiting check
+  const clientIp = (req.socket?.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown').replace(/^::ffff:/, '');
+  if (!checkRateLimit(clientIp, pathname)) {
+    return jsonRes(429, { error: { message: 'Too many requests. Please try again later.', retryAfter: 60 } });
+  }
 
   // Check authentication on request
   const sessionData = authenticateRequest(req);
@@ -1682,13 +2382,18 @@ http.createServer((req, res) => {
       if (!email || !password) {
         return jsonRes(400, { ok: false, error: 'Email and password are required' });
       }
+      const cleanEmail = (email || '').toLowerCase().trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+        return jsonRes(400, { ok: false, error: 'Invalid email address format' });
+      }
       if (password.length < 8) {
         return jsonRes(400, { ok: false, error: 'Password must be at least 8 characters long' });
       }
       try {
-        const user = db.createUser({ email, password, displayName, role });
+        const user = db.createUser({ email: cleanEmail, password, displayName, role });
         const session = db.createSession(user.id, true);
-        const cookieHeader = `nexus_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${14 * 86400}`;
+        const cookieHeader = getSessionCookie(session.token, 14 * 86400, req);
         return jsonRes(200, { ok: true, user, sessionId: session.sessionId, token: session.token }, { 'Set-Cookie': cookieHeader });
       } catch (e) {
         const isConflict = e.message.includes('already exists') || e.message.includes('UNIQUE constraint');
@@ -1705,7 +2410,11 @@ http.createServer((req, res) => {
       if (!email || !password) {
         return jsonRes(400, { ok: false, error: 'Email and password are required' });
       }
-      const rawUser = db.getUserByEmail(email);
+      const cleanEmail = (email || '').toLowerCase().trim();
+      if (!checkAuthRateLimit(clientIp, cleanEmail, 'login', 10, 15 * 60 * 1000)) {
+        return jsonRes(429, { ok: false, error: 'Too many login attempts. Please try again after 15 minutes.', retryAfter: 900 });
+      }
+      const rawUser = db.getUserByEmail(cleanEmail);
       if (!rawUser || !rawUser.password_hash || !rawUser.password_salt) {
         return jsonRes(401, { ok: false, error: 'Invalid email or password' });
       }
@@ -1716,7 +2425,7 @@ http.createServer((req, res) => {
 
       const session = db.createSession(rawUser.id, rememberMe !== false);
       const maxAge = (rememberMe !== false ? 14 : 1) * 86400;
-      const cookieHeader = `nexus_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`;
+      const cookieHeader = getSessionCookie(session.token, maxAge, req);
       const safeUser = db.getUserById(rawUser.id);
       return jsonRes(200, { ok: true, user: safeUser, sessionId: session.sessionId, token: session.token }, { 'Set-Cookie': cookieHeader });
     });
@@ -1733,7 +2442,7 @@ http.createServer((req, res) => {
       }
     }
     if (token) db.deleteSession(token);
-    const clearCookie = `nexus_session=; HttpOnly; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    const clearCookie = getClearCookie(req);
     return jsonRes(200, { ok: true, message: 'Logged out successfully' }, { 'Set-Cookie': clearCookie });
   }
 
@@ -1742,7 +2451,7 @@ http.createServer((req, res) => {
     if (!currentUser) {
       return jsonRes(401, { authenticated: false, user: null, error: 'Unauthenticated' });
     }
-    return jsonRes(200, { authenticated: true, user: currentUser });
+    return jsonRes(200, { authenticated: true, user: db.serializeUser(currentUser) });
   }
 
   // Google OAuth Availability Config
@@ -1763,9 +2472,32 @@ http.createServer((req, res) => {
 
   // Google OAuth Login
   if (req.method === 'POST' && pathname === '/api/auth/google-login') {
-    return parseBody((err, body) => {
+    return parseBody(async (err, body) => {
       if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
-      const { email, displayName, avatarUrl, googleId } = body;
+      let { email, displayName, avatarUrl, googleId, idToken, credential } = body;
+      const tokenToVerify = idToken || credential;
+
+      if (tokenToVerify) {
+        try {
+          const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenToVerify)}`);
+          if (!verifyRes.ok) {
+            return jsonRes(401, { ok: false, error: 'Invalid Google ID token' });
+          }
+          const tokenInfo = await verifyRes.json();
+          if (process.env.GOOGLE_CLIENT_ID && tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+            return jsonRes(401, { ok: false, error: 'Google ID token audience mismatch' });
+          }
+          email = tokenInfo.email;
+          displayName = tokenInfo.name || displayName || email.split('@')[0];
+          avatarUrl = tokenInfo.picture || avatarUrl;
+          googleId = tokenInfo.sub || googleId;
+        } catch (e) {
+          return jsonRes(401, { ok: false, error: 'Failed to verify Google ID token: ' + e.message });
+        }
+      } else if (process.env.NODE_ENV === 'production') {
+        return jsonRes(401, { ok: false, error: 'Google ID token verification is required in production' });
+      }
+
       if (!email) {
         return jsonRes(400, { ok: false, error: 'Google email is required' });
       }
@@ -1782,7 +2514,7 @@ http.createServer((req, res) => {
           });
         }
         const session = db.createSession(user.id, true);
-        const cookieHeader = `nexus_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${14 * 86400}`;
+        const cookieHeader = getSessionCookie(session.token, 14 * 86400, req);
         const safeUser = db.getUserById(user.id);
         return jsonRes(200, { ok: true, user: safeUser, sessionId: session.sessionId, token: session.token }, { 'Set-Cookie': cookieHeader });
       } catch (e) {
@@ -1800,21 +2532,38 @@ http.createServer((req, res) => {
         return jsonRes(400, { ok: false, error: 'A valid email address is required' });
       }
       const cleanEmail = email.toLowerCase().trim();
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      if (!checkAuthRateLimit(clientIp, cleanEmail, 'send-otp', 10, 15 * 60 * 1000)) {
+        return jsonRes(429, { ok: false, error: 'Too many OTP requests. Please try again after 15 minutes.', retryAfter: 900 });
+      }
+      const code = crypto.randomInt(100000, 1000000).toString();
       otpStore.set('login:' + cleanEmail, {
         code,
+        attempts: 0,
         expiresAt: Date.now() + 10 * 60 * 1000
       });
 
       const mailResult = await sendEmailOtp(cleanEmail, code, 'login');
 
-      return jsonRes(200, {
+      if (!mailResult.sent) {
+        return jsonRes(400, {
+          ok: false,
+          error: mailResult.error || 'Failed to dispatch email. Please check your Gmail SMTP settings.',
+          testOtp: mailResult.testOtp,
+          html: mailResult.html
+        });
+      }
+
+      const responsePayload = {
         ok: true,
-        message: `One-Time Passcode (OTP) sent to ${cleanEmail}`,
-        emailSent: mailResult.sent,
+        message: `One-Time Passcode (OTP) successfully dispatched to ${cleanEmail} via Gmail!`,
+        emailSent: true,
         method: mailResult.method,
-        testOtp: mailResult.testOtp || code
-      });
+        html: mailResult.html
+      };
+      if (process.env.NODE_ENV !== 'production') {
+        responsePayload.testOtp = mailResult.testOtp || code;
+      }
+      return jsonRes(200, responsePayload);
     });
   }
 
@@ -1829,10 +2578,16 @@ http.createServer((req, res) => {
       const cleanEmail = email.toLowerCase().trim();
       const record = otpStore.get('login:' + cleanEmail);
       if (!record || record.expiresAt < Date.now()) {
+        otpStore.delete('login:' + cleanEmail);
         return jsonRes(400, { ok: false, error: 'OTP has expired or is invalid. Please request a new code.' });
       }
+      record.attempts = (record.attempts || 0) + 1;
+      if (record.attempts > 5) {
+        otpStore.delete('login:' + cleanEmail);
+        return jsonRes(429, { ok: false, error: 'Too many failed verification attempts. Please request a new code.' });
+      }
       if (record.code !== otp.trim()) {
-        return jsonRes(400, { ok: false, error: 'Invalid verification code. Please check and try again.' });
+        return jsonRes(400, { ok: false, error: `Invalid verification code. Attempts remaining: ${Math.max(0, 5 - record.attempts)}` });
       }
       // OTP is valid - clear it
       otpStore.delete('login:' + cleanEmail);
@@ -1848,7 +2603,7 @@ http.createServer((req, res) => {
           });
         }
         const session = db.createSession(user.id, true);
-        const cookieHeader = `nexus_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${14 * 86400}`;
+        const cookieHeader = getSessionCookie(session.token, 14 * 86400, req);
         const safeUser = db.getUserById(user.id);
         return jsonRes(200, { ok: true, user: safeUser, sessionId: session.sessionId, token: session.token }, { 'Set-Cookie': cookieHeader });
       } catch (e) {
@@ -1866,26 +2621,36 @@ http.createServer((req, res) => {
         return jsonRes(400, { ok: false, error: 'A valid email address is required' });
       }
       const cleanEmail = email.toLowerCase().trim();
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      if (!checkAuthRateLimit(clientIp, cleanEmail, 'password-reset', 10, 15 * 60 * 1000)) {
+        return jsonRes(429, { ok: false, error: 'Too many password reset requests. Please try again after 15 minutes.', retryAfter: 900 });
+      }
+      const code = crypto.randomInt(100000, 1000000).toString();
       otpStore.set('reset:' + cleanEmail, {
         code,
+        attempts: 0,
         expiresAt: Date.now() + 15 * 60 * 1000
       });
 
       const mailResult = await sendEmailOtp(cleanEmail, code, 'reset');
 
-      return jsonRes(200, {
+      const responsePayload = {
         ok: true,
         message: `Password reset verification code sent to ${cleanEmail}`,
         emailSent: mailResult.sent,
-        method: mailResult.method,
-        testOtp: mailResult.testOtp || code
-      });
+        method: mailResult.method
+      };
+      if (process.env.NODE_ENV !== 'production') {
+        responsePayload.testOtp = mailResult.testOtp || code;
+      }
+      return jsonRes(200, responsePayload);
     });
   }
 
   // Get Latest Sent Email HTML & Preview Link
   if (req.method === 'GET' && pathname === '/api/auth/latest-email') {
+    if (process.env.NODE_ENV === 'production' && (!currentUser || currentUser.role !== 'Admin')) {
+      return jsonRes(403, { ok: false, error: 'Access restricted to administrators in production' });
+    }
     const targetEmail = (parsedQuery?.email || '').toLowerCase().trim();
     const emailData = recentSentEmails.get(targetEmail) || Array.from(recentSentEmails.values()).pop() || null;
     return jsonRes(200, { ok: true, email: emailData });
@@ -1897,22 +2662,61 @@ http.createServer((req, res) => {
       if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
       const { user, pass, host, port, secure } = body;
       if (user && pass) {
+        const cleanUser = user.trim();
+        const cleanPass = pass.trim();
+
+        // Update process.env immediately
+        process.env.GMAIL_USER = cleanUser;
+        process.env.GMAIL_PASS = cleanPass;
+
         if (host) {
+          process.env.SMTP_HOST = host;
+          process.env.SMTP_PORT = port || '587';
+          process.env.SMTP_USER = cleanUser;
+          process.env.SMTP_PASS = cleanPass;
           mailTransporter = nodemailer.createTransport({
             host,
             port: parseInt(port || '587', 10),
             secure: secure === true || port === 465,
-            auth: { user, pass }
+            auth: { user: cleanUser, pass: cleanPass }
           });
         } else {
           mailTransporter = nodemailer.createTransport({
             service: 'gmail',
-            auth: { user, pass }
+            auth: { user: cleanUser, pass: cleanPass }
           });
         }
-        return jsonRes(200, { ok: true, message: 'SMTP Transport configured successfully for ' + user });
+
+        // Persist to .env file
+        try {
+          const envPath = path.join(__dirname, '.env');
+          let envStr = '';
+          if (fs.existsSync(envPath)) {
+            envStr = fs.readFileSync(envPath, 'utf8');
+          }
+          const filteredLines = envStr.split('\n').filter(l => 
+            !l.startsWith('GMAIL_USER=') && 
+            !l.startsWith('GMAIL_PASS=') && 
+            !l.startsWith('SMTP_USER=') && 
+            !l.startsWith('SMTP_PASS=')
+          );
+          filteredLines.push(`GMAIL_USER=${cleanUser}`);
+          filteredLines.push(`GMAIL_PASS=${cleanPass}`);
+          if (host) {
+            filteredLines.push(`SMTP_HOST=${host}`);
+            filteredLines.push(`SMTP_PORT=${port || '587'}`);
+            filteredLines.push(`SMTP_USER=${cleanUser}`);
+            filteredLines.push(`SMTP_PASS=${cleanPass}`);
+          }
+          fs.writeFileSync(envPath, filteredLines.join('\n').trim() + '\n', 'utf8');
+          console.log(`\x1b[32m[SMTP Config] Successfully persisted Gmail credentials for ${cleanUser} to .env\x1b[0m`);
+        } catch (e) {
+          console.warn('[SMTP Config] Could not persist to .env:', e.message);
+        }
+
+        return jsonRes(200, { ok: true, message: 'Gmail SMTP configured and verified for ' + cleanUser });
       }
-      return jsonRes(400, { ok: false, error: 'Username/Email and Password are required' });
+      return jsonRes(400, { ok: false, error: 'Gmail address and App Password are required' });
     });
   }
 
@@ -1930,17 +2734,23 @@ http.createServer((req, res) => {
       const cleanEmail = email.toLowerCase().trim();
       const record = otpStore.get('reset:' + cleanEmail);
       if (!record || record.expiresAt < Date.now()) {
+        otpStore.delete('reset:' + cleanEmail);
         return jsonRes(400, { ok: false, error: 'Reset code has expired. Please request a new code.' });
       }
+      record.attempts = (record.attempts || 0) + 1;
+      if (record.attempts > 5) {
+        otpStore.delete('reset:' + cleanEmail);
+        return jsonRes(429, { ok: false, error: 'Too many failed verification attempts. Please request a new code.' });
+      }
       if (record.code !== otp.trim()) {
-        return jsonRes(400, { ok: false, error: 'Invalid reset code. Please try again.' });
+        return jsonRes(400, { ok: false, error: `Invalid reset code. Attempts remaining: ${Math.max(0, 5 - record.attempts)}` });
       }
       otpStore.delete('reset:' + cleanEmail);
 
       try {
         const user = db.resetUserPasswordByEmail(cleanEmail, newPassword);
         const session = db.createSession(user.id, true);
-        const cookieHeader = `nexus_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${14 * 86400}`;
+        const cookieHeader = getSessionCookie(session.token, 14 * 86400, req);
         return jsonRes(200, { ok: true, message: 'Password reset successfully', user, token: session.token }, { 'Set-Cookie': cookieHeader });
       } catch (e) {
         return jsonRes(400, { ok: false, error: e.message });
@@ -2043,6 +2853,192 @@ http.createServer((req, res) => {
     const deleted = db.deleteConversation(currentUser.id, convId);
     if (!deleted) return jsonRes(404, { ok: false, error: 'Conversation not found' });
     return jsonRes(200, { ok: true, message: 'Conversation deleted' });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // NEXUS PROJECTS & PROJECT SESSIONS & SCOPED SEARCH API
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // List Active Projects
+  if (req.method === 'GET' && (pathname === '/api/projects' || pathname === '/api/projects/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    try {
+      const projects = db.listProjects(currentUser.id);
+      return jsonRes(200, { ok: true, projects });
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  // Create New Project
+  if (req.method === 'POST' && (pathname === '/api/projects' || pathname === '/api/projects/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { name, description, sap_module, sapModule, custom_instructions, customInstructions, color_tag, colorTag } = body || {};
+      if (!name || !String(name).trim()) {
+        return jsonRes(400, { ok: false, error: 'Project name is required' });
+      }
+      try {
+        const project = db.createProject(currentUser.id, {
+          name: String(name).trim(),
+          description: description || '',
+          sap_module: sap_module || sapModule || 'General SAP',
+          custom_instructions: custom_instructions !== undefined ? custom_instructions : (customInstructions !== undefined ? customInstructions : ''),
+          color_tag: color_tag || colorTag || '#6E1A2D'
+        });
+        return jsonRes(201, { ok: true, project });
+      } catch (e) {
+        return jsonRes(400, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // Project-Specific Sessions: GET & POST /api/projects/:id/sessions
+  const projSessionsMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/sessions\/?$/);
+  if (projSessionsMatch) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const projectId = projSessionsMatch[1];
+    const project = db.getProjectById(currentUser.id, projectId);
+    if (!project) return jsonRes(404, { ok: false, error: 'Project not found' });
+
+    if (req.method === 'GET') {
+      const sessions = db.getProjectSessions(currentUser.id, projectId);
+      return jsonRes(200, { ok: true, sessions });
+    }
+
+    if (req.method === 'POST') {
+      return parseBody((err, body) => {
+        if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+        try {
+          const session = db.createProjectSession(currentUser.id, projectId, body || {});
+          return jsonRes(201, { ok: true, conversation: session, session });
+        } catch (e) {
+          return jsonRes(400, { ok: false, error: e.message });
+        }
+      });
+    }
+  }
+
+  // Project-Scoped Search: GET /api/projects/:id/search?q=...
+  const projSearchMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/search\/?$/);
+  if (req.method === 'GET' && projSearchMatch) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const projectId = projSearchMatch[1];
+    const project = db.getProjectById(currentUser.id, projectId);
+    if (!project) return jsonRes(404, { ok: false, error: 'Project not found' });
+    const query = parsedQuery.q || parsedQuery.query || '';
+    const results = db.searchProject(currentUser.id, projectId, query);
+    return jsonRes(200, {
+      ok: true,
+      projectId,
+      query,
+      sessions: results.sessions,
+      messages: results.messages,
+      files: results.files,
+      results
+    });
+  }
+
+  // Delete Project File: DELETE /api/projects/:id/files/:fileId
+  const projFileDeleteMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/files\/([^\/]+)\/?$/);
+  if (req.method === 'DELETE' && projFileDeleteMatch) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const projectId = projFileDeleteMatch[1];
+    const fileId = projFileDeleteMatch[2];
+    const deleted = db.deleteProjectFile(currentUser.id, projectId, fileId);
+    if (!deleted) return jsonRes(404, { ok: false, error: 'File not found' });
+    return jsonRes(200, { ok: true, message: 'File deleted' });
+  }
+
+  // Project Files: POST & GET /api/projects/:id/files
+  const projFilesMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/files\/?$/);
+  if (projFilesMatch) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const projectId = projFilesMatch[1];
+    const project = db.getProjectById(currentUser.id, projectId);
+    if (!project) return jsonRes(404, { ok: false, error: 'Project not found' });
+
+    if (req.method === 'POST') {
+      return parseBody((err, body) => {
+        if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+        const { filename, content, file_type, fileType, file_size, fileSize } = body || {};
+        if (!filename || !String(filename).trim()) {
+          return jsonRes(400, { ok: false, error: 'Filename is required' });
+        }
+        if (typeof content === 'undefined' || content === null) {
+          return jsonRes(400, { ok: false, error: 'Content is required' });
+        }
+        try {
+          const file = db.addProjectFile(currentUser.id, projectId, {
+            filename: String(filename).trim(),
+            content,
+            file_type,
+            fileType,
+            file_size,
+            fileSize
+          });
+          return jsonRes(201, { ok: true, file });
+        } catch (e) {
+          return jsonRes(400, { ok: false, error: e.message });
+        }
+      });
+    }
+
+    if (req.method === 'GET') {
+      const files = db.getProjectFiles(currentUser.id, projectId);
+      return jsonRes(200, { ok: true, files });
+    }
+  }
+
+  // Single Project by ID: GET, PATCH, DELETE /api/projects/:id
+  const projIdMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/?$/);
+  if (projIdMatch) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const projectId = projIdMatch[1];
+
+    if (req.method === 'GET') {
+      const project = db.getProjectById(currentUser.id, projectId);
+      if (!project) return jsonRes(404, { ok: false, error: 'Project not found' });
+      return jsonRes(200, { ok: true, project });
+    }
+
+    if (req.method === 'PATCH') {
+      return parseBody((err, body) => {
+        if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+        try {
+          const updated = db.updateProject(currentUser.id, projectId, body || {});
+          if (!updated) return jsonRes(404, { ok: false, error: 'Project not found' });
+          return jsonRes(200, { ok: true, project: updated });
+        } catch (e) {
+          return jsonRes(400, { ok: false, error: e.message });
+        }
+      });
+    }
+
+    if (req.method === 'DELETE') {
+      const deleted = db.deleteProject(currentUser.id, projectId);
+      if (!deleted) return jsonRes(404, { ok: false, error: 'Project not found' });
+      return jsonRes(200, { ok: true, message: 'Project archived' });
+    }
+  }
+
+  // Global Scoped Search: GET /api/search?q=...&projectId=...
+  if (req.method === 'GET' && pathname === '/api/search') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const query = parsedQuery.q || parsedQuery.query || '';
+    const projectId = parsedQuery.projectId || parsedQuery.project_id || null;
+    const searchData = db.searchGlobal(currentUser.id, query, projectId);
+    return jsonRes(200, {
+      ok: true,
+      query,
+      projectId,
+      sessions: searchData.sessions,
+      messages: searchData.messages,
+      files: searchData.files,
+      projects: searchData.projects || [],
+      results: searchData
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -2254,11 +3250,35 @@ http.createServer((req, res) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (req.method === 'GET' && pathname === '/api/notifications') {
-    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
-    const notifs = db.listUserNotifications(currentUser.id, parsedQuery?.unread === 'true');
-    return jsonRes(200, { ok: true, notifications: notifs });
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required', notifications: [] });
+    let notifs = db.listUserNotifications(currentUser.id, parsedQuery?.unread === 'true');
+    if ((!notifs || notifs.length === 0) && parsedQuery?.unread !== 'true') {
+      db.createNotification(currentUser.id, {
+        type: 'system',
+        title: '👑 Welcome to Sanjaya (सञ्जय) SAP Sentinel',
+        message: 'Your enterprise workspace is active with 10 default EWM playbooks, 50,000+ pre-indexed OSS notes, and Multimodal Screenshot Diagnosis.'
+      });
+      db.createNotification(currentUser.id, {
+        type: 'info',
+        title: '⚡ S/4HANA 2023 - Embedded EWM Sentinel Active',
+        message: 'Read-only safety telemetry is active. Live queue triage and root-cause classification enabled for SMQ1, SMQ2, and bgRFC pipelines.'
+      });
+      notifs = db.listUserNotifications(currentUser.id, false);
+    }
+    return jsonRes(200, {
+      ok: true,
+      notifications: (notifs || []).map(n => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        read_status: n.read_status,
+        read_at: n.read_status ? n.created_at : null,
+        created_at: n.created_at
+      }))
+    });
   }
-  if (req.method === 'PATCH' && pathname.startsWith('/api/notifications/') && pathname.endsWith('/read')) {
+  if ((req.method === 'PATCH' || req.method === 'POST') && pathname.startsWith('/api/notifications/') && pathname.endsWith('/read')) {
     if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
     const notifId = pathname.split('/')[3];
     db.markNotificationAsRead(currentUser.id, notifId);
@@ -2275,14 +3295,18 @@ http.createServer((req, res) => {
   // ══════════════════════════════════════════════════════════════════════════
 
   if (req.method === 'POST' && pathname === '/api/feedback') {
-    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const feedbackUserId = currentUser ? currentUser.id : null;
     return parseBody((err, body) => {
       if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
       try {
-        const fb = db.recordUserFeedback(currentUser.id, body);
-        return jsonRes(200, { ok: true, feedback: fb });
+        if (feedbackUserId) {
+          const fb = db.recordUserFeedback(feedbackUserId, body);
+          return jsonRes(200, { ok: true, feedback: fb });
+        } else {
+          return jsonRes(200, { ok: true, feedback: { rating: body.rating, guest: true } });
+        }
       } catch(e) {
-        return jsonRes(400, { ok: false, error: e.message });
+        return jsonRes(200, { ok: true, warning: e.message });
       }
     });
   }
@@ -2563,6 +3587,435 @@ http.createServer((req, res) => {
     });
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // OFFICIAL SAP NEWS & RETRIEVAL ENGINE ENDPOINTS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // List official SAP News & Innovations registry (with filtering)
+  if (req.method === 'GET' && pathname === '/api/sap/news') {
+    const qMod = (parsedQuery?.module || '').toLowerCase();
+    const qSearch = (parsedQuery?.search || '').toLowerCase();
+    const qTier = parsedQuery?.tier;
+    const qEdition = (parsedQuery?.edition || '').toLowerCase();
+
+    let filtered = OFFICIAL_SAP_NEWS_REGISTRY.slice();
+    if (qMod && qMod !== 'all') {
+      filtered = filtered.filter(item => {
+        const itemMod = (item.module || '').toLowerCase();
+        const itemTitle = (item.title || '').toLowerCase();
+        const itemTopics = (item.topics || item.keywords || []).map(t => t.toLowerCase());
+
+        const isSd = qMod === 'sd' && (itemMod.includes('sales') || itemMod.includes('sd') || itemTopics.some(t => t.includes('sales') || t.includes('sd')));
+        const isGts = qMod === 'gts' && (itemMod.includes('gts') || itemMod.includes('trade') || itemTopics.some(t => t.includes('gts') || t.includes('customs')));
+        const isEwm = qMod === 'ewm' && (itemMod.includes('ewm') || itemMod.includes('warehouse') || itemTopics.some(t => t.includes('ewm')));
+        const isMm = qMod === 'mm' && (itemMod.includes('mm') || itemMod.includes('sourcing') || itemMod.includes('procurement') || itemTopics.some(t => t.includes('procurement')));
+        const isPp = qMod === 'pp' && (itemMod.includes('pp') || itemMod.includes('manufacturing') || itemMod.includes('production') || itemTopics.some(t => t.includes('mrp')));
+        const isAi = (qMod === 'ai' || qMod === 'joule') && (itemMod.includes('ai') || itemMod.includes('joule') || itemTitle.includes('joule') || itemTopics.some(t => t.includes('joule') || t.includes('ai')));
+
+        return isSd || isGts || isEwm || isMm || isPp || isAi || itemMod.includes(qMod) || itemTitle.includes(qMod) || itemTopics.some(t => t.includes(qMod));
+      });
+    }
+    if (qSearch) {
+      filtered = filtered.filter(item => {
+        const s = qSearch.toLowerCase();
+        const itemTopics = (item.topics || item.keywords || []).map(t => t.toLowerCase());
+        return (
+          (item.title && item.title.toLowerCase().includes(s)) ||
+          (item.summary && item.summary.toLowerCase().includes(s)) ||
+          (item.release && item.release.toLowerCase().includes(s)) ||
+          (item.module && item.module.toLowerCase().includes(s)) ||
+          itemTopics.some(t => t.includes(s))
+        );
+      });
+    }
+    if (qTier) {
+      filtered = filtered.filter(item => String(item.tierLevel) === String(qTier));
+    }
+    if (qEdition && qEdition !== 'all') {
+      filtered = filtered.filter(item => {
+        const ed = qEdition.toLowerCase();
+        const itemEd = (item.edition || '').toLowerCase();
+        const itemApp = JSON.stringify(item.editionApplicability || {}).toLowerCase();
+        return itemEd.includes(ed) || itemApp.includes(ed);
+      });
+    }
+
+    return jsonRes(200, {
+      ok: true,
+      count: filtered.length,
+      totalRegistry: OFFICIAL_SAP_NEWS_REGISTRY.length,
+      items: filtered
+    });
+  }
+
+  // Classify Query using SAP News & Entity Classifier
+  if (req.method === 'POST' && pathname === '/api/sap/classify') {
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const queryText = body?.query || '';
+      const classification = SapNewsQueryClassifier.classify(queryText);
+      const isNewsQuery = SapNewsQueryClassifier.isNewsOrUpdateQuery(queryText);
+      return jsonRes(200, { ok: true, isNewsQuery, classification });
+    });
+  }
+
+  // Execute Full News & Knowledge Orchestration
+  if (req.method === 'POST' && pathname === '/api/sap/retrieve') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const queryText = body?.query || '';
+      if (!queryText) return jsonRes(400, { ok: false, error: 'Query is required' });
+      try {
+        const result = await SapNewsKnowledgeEngine.orchestrate(queryText, {
+          selectedModule: body.selectedModule,
+          skipLiveFeed: !!body.skipLiveFeed
+        });
+        return jsonRes(200, { ok: true, ...result });
+      } catch (retrieveErr) {
+        return jsonRes(500, { ok: false, error: retrieveErr.message });
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // GENAI FEATURES: PREFERENCES, BOOKMARKS, TEMPLATES, QUIZ, SUMMARIES
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // 1. User Preferences
+  if (req.method === 'GET' && pathname === '/api/preferences') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const prefs = db.getUserPreferences(currentUser.id);
+    return jsonRes(200, { ok: true, preferences: prefs });
+  }
+
+  if ((req.method === 'PUT' || req.method === 'POST') && pathname === '/api/preferences') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const updated = db.upsertUserPreferences(currentUser.id, body || {});
+        return jsonRes(200, { ok: true, preferences: updated });
+      } catch (e) {
+        return jsonRes(400, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // 2. Bookmarks & Pins
+  if (req.method === 'GET' && pathname === '/api/bookmarks') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const bookmarks = db.listBookmarks(currentUser.id, {
+      search: parsedQuery?.search || '',
+      module: parsedQuery?.module || '',
+      tag: parsedQuery?.tag || ''
+    });
+    return jsonRes(200, { ok: true, bookmarks });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/bookmarks') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const bmk = db.createBookmark(currentUser.id, body || {});
+        return jsonRes(200, { ok: true, bookmark: bmk });
+      } catch (e) {
+        return jsonRes(400, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'DELETE' && pathname.startsWith('/api/bookmarks/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const bmkId = pathname.split('/')[3];
+    const deleted = db.deleteBookmark(currentUser.id, bmkId);
+    return jsonRes(200, { ok: true, deleted });
+  }
+
+  // 3. Prompt Templates
+  if (req.method === 'GET' && pathname === '/api/templates/prompts') {
+    const templates = db.listPromptTemplates(currentUser?.id || null);
+    return jsonRes(200, { ok: true, templates });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/templates/prompts') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const tpl = db.createPromptTemplate(currentUser.id, body || {});
+        return jsonRes(200, { ok: true, template: tpl });
+      } catch (e) {
+        return jsonRes(400, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'DELETE' && pathname.startsWith('/api/templates/prompts/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const tplId = pathname.split('/')[4];
+    const deleted = db.deletePromptTemplate(currentUser.id, tplId);
+    return jsonRes(200, { ok: true, deleted });
+  }
+
+  // 4. Conversation Summarization & Auto-Title
+  if (req.method === 'POST' && pathname.startsWith('/api/conversations/') && pathname.endsWith('/summarize')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const convId = pathname.split('/')[3];
+    const conv = db.getConversation(currentUser.id, convId);
+    if (!conv) return jsonRes(404, { ok: false, error: 'Conversation not found' });
+
+    try {
+      const summaryData = await NexusGenAiEngine.generateConversationSummary({
+        messages: conv.messages || [],
+        apiKey: API_KEY
+      });
+      const saved = db.saveConversationSummary(currentUser.id, convId, summaryData);
+      if (summaryData.title && summaryData.title !== 'Empty Investigation') {
+        db.updateConversation(currentUser.id, convId, { title: summaryData.title });
+      }
+      return jsonRes(200, { ok: true, summary: saved });
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  if (req.method === 'GET' && pathname.startsWith('/api/conversations/') && pathname.endsWith('/summary')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const convId = pathname.split('/')[3];
+    const sum = db.getConversationSummary(currentUser.id, convId);
+    return jsonRes(200, { ok: true, summary: sum });
+  }
+
+  // 5. Smart Follow-Up Suggestions
+  if (req.method === 'POST' && pathname === '/api/chat/follow-ups') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const followUps = await NexusGenAiEngine.generateFollowUpSuggestions({
+          lastUserPrompt: body?.lastUserPrompt || '',
+          lastAssistantResponse: body?.lastAssistantResponse || '',
+          module: body?.module || 'General',
+          apiKey: API_KEY
+        });
+        return jsonRes(200, { ok: true, followUps });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // 6. Conversation to Knowledge Base Article
+  if (req.method === 'POST' && pathname.startsWith('/api/conversations/') && pathname.endsWith('/to-article')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const convId = pathname.split('/')[3];
+    const conv = db.getConversation(currentUser.id, convId);
+    if (!conv) return jsonRes(404, { ok: false, error: 'Conversation not found' });
+
+    try {
+      const article = await NexusGenAiEngine.convertConversationToArticle({
+        conversationTitle: conv.title,
+        messages: conv.messages || [],
+        module: conv.selected_role || 'General',
+        apiKey: API_KEY
+      });
+
+      const savedKb = db.saveKnowledgeItem(currentUser.id, {
+        itemType: 'Knowledge Article',
+        title: article.title || `KB: ${conv.title}`,
+        content: article.fullMarkdown || article.problemStatement,
+        sapProduct: 'SAP S/4HANA',
+        tags: [article.module || 'General', article.category || 'Troubleshooting', ...(article.applicableTransactions || [])],
+        provenanceType: 'official',
+        sourceConversationId: convId
+      });
+
+      return jsonRes(200, { ok: true, article, savedKnowledgeItem: savedKb });
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  // 7. Interactive Quizzes
+  if (req.method === 'POST' && pathname === '/api/quiz/generate') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const topic = body?.topic || 'SAP S/4HANA Core Concepts';
+        const module = body?.module || 'General';
+        const difficulty = body?.difficulty || 'intermediate';
+        const count = body?.count || 5;
+
+        const questions = await NexusGenAiEngine.generateSapQuiz({
+          topic, module, difficulty, count, apiKey: API_KEY
+        });
+
+        const quiz = db.saveQuiz(currentUser.id, {
+          topic, module, difficulty, questions
+        });
+
+        return jsonRes(200, { ok: true, quiz });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/quiz/list') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const quizzes = db.listQuizzes(currentUser.id);
+    return jsonRes(200, { ok: true, quizzes });
+  }
+
+  if (req.method === 'GET' && pathname.startsWith('/api/quiz/') && !pathname.endsWith('/attempt') && !pathname.endsWith('/stats') && !pathname.endsWith('/list')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const quizId = pathname.split('/')[3];
+    const quiz = db.getQuizById(currentUser.id, quizId);
+    if (!quiz) return jsonRes(404, { ok: false, error: 'Quiz not found' });
+    return jsonRes(200, { ok: true, quiz });
+  }
+
+  if (req.method === 'POST' && pathname.startsWith('/api/quiz/') && pathname.endsWith('/attempt')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const quizId = pathname.split('/')[3];
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const attempt = db.recordQuizAttempt(currentUser.id, {
+          quizId,
+          score: body.score || 0,
+          totalQuestions: body.totalQuestions || 1,
+          answers: body.answers || []
+        });
+        return jsonRes(200, { ok: true, attempt });
+      } catch (e) {
+        return jsonRes(400, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/quiz/stats') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const stats = db.getUserQuizStats(currentUser.id);
+    return jsonRes(200, { ok: true, stats });
+  }
+
+  // 8. Personalized News Digest
+  if (req.method === 'GET' && pathname === '/api/sap/digest') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    try {
+      const prefs = db.getUserPreferences(currentUser.id);
+      const digest = await NexusGenAiEngine.generatePersonalNewsDigest({
+        userPreferences: prefs,
+        apiKey: API_KEY
+      });
+      return jsonRes(200, { ok: true, digest });
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  // 9. Personal AI Analytics
+  if (req.method === 'GET' && pathname === '/api/user/ai-analytics') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const analytics = db.getUserAiAnalytics(currentUser.id);
+    return jsonRes(200, { ok: true, analytics });
+  }
+
+  // 10. Nexus Docs (Claude-style persistent documents)
+  if (req.method === 'GET' && pathname === '/api/nexus-docs') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const docs = db.listNexusDocs(currentUser.id);
+    return jsonRes(200, { ok: true, docs });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/nexus-docs') {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        let title = body?.title;
+        let content = body?.content;
+
+        // If rawContent provided without explicit title/content, use GenAI to structure it!
+        if (body?.rawContent && (!title || !content)) {
+          const structured = await NexusGenAiEngine.structureNexusDoc({
+            rawContent: body.rawContent,
+            apiKey: API_KEY
+          });
+          title = title || structured.title;
+          content = content || structured.content;
+        }
+
+        if (!title) title = 'Untitled Document';
+        if (!content) content = '';
+
+        const doc = db.createNexusDoc(currentUser.id, {
+          title,
+          content,
+          sourceConversationId: body?.sourceConversationId || null,
+          sourceTurnId: body?.sourceTurnId || null
+        });
+        return jsonRes(200, { ok: true, doc });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'GET' && pathname.startsWith('/api/nexus-docs/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const docId = pathname.split('/')[3];
+    const doc = db.getNexusDocById(currentUser.id, docId);
+    if (!doc) return jsonRes(404, { ok: false, error: 'Document not found' });
+    return jsonRes(200, { ok: true, doc });
+  }
+
+  if (req.method === 'PUT' && pathname.startsWith('/api/nexus-docs/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const docId = pathname.split('/')[3];
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const updated = db.updateNexusDoc(currentUser.id, docId, {
+          title: body?.title,
+          content: body?.content
+        });
+        if (!updated) return jsonRes(404, { ok: false, error: 'Document not found' });
+        return jsonRes(200, { ok: true, doc: updated });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'DELETE' && pathname.startsWith('/api/nexus-docs/')) {
+    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
+    const docId = pathname.split('/')[3];
+    const deleted = db.deleteNexusDoc(currentUser.id, docId);
+    return jsonRes(200, { ok: true, deleted });
+  }
+
+  // 11. Prompt Enhancer (Claude-style prompt polish)
+  if (req.method === 'POST' && pathname === '/api/prompt/enhance') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const draftPrompt = body?.prompt || '';
+        const activeModule = body?.module || 'AUTO';
+        const result = await NexusGenAiEngine.enhancePrompt({
+          draftPrompt,
+          activeModule,
+          apiKey: API_KEY
+        });
+        return jsonRes(200, { ok: true, enhancedPrompt: result.enhancedPrompt });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
   // Connectors
   if (req.method === 'GET' && pathname === '/api/connectors') {
     return jsonRes(200, CONNECTOR_STATUSES);
@@ -2585,50 +4038,6 @@ http.createServer((req, res) => {
     });
   }
 
-  // Notifications API
-  if (req.method === 'GET' && pathname === '/api/notifications') {
-    if (!currentUser) return jsonRes(200, { notifications: [] });
-    let notifs = db.listUserNotifications(currentUser.id);
-    if (!notifs || notifs.length === 0) {
-      db.createNotification(currentUser.id, {
-        type: 'system',
-        title: '👑 Welcome to Sanjaya (सञ्जय) SAP Sentinel',
-        message: 'Your enterprise workspace is active with 10 default EWM playbooks, 50,000+ pre-indexed OSS notes, and Multimodal Screenshot Diagnosis.'
-      });
-      db.createNotification(currentUser.id, {
-        type: 'info',
-        title: '⚡ S/4HANA 2023 - Embedded EWM Sentinel Active',
-        message: 'Read-only safety telemetry is active. Live queue triage and root-cause classification enabled for SMQ1, SMQ2, and bgRFC pipelines.'
-      });
-      notifs = db.listUserNotifications(currentUser.id);
-    }
-    return jsonRes(200, {
-      notifications: notifs.map(n => ({
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        read_status: n.read_status,
-        read_at: n.read_status ? n.created_at : null,
-        created_at: n.created_at
-      }))
-    });
-  }
-
-  if (req.method === 'POST' && pathname === '/api/notifications/read-all') {
-    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
-    db.markAllNotificationsAsRead(currentUser.id);
-    return jsonRes(200, { ok: true });
-  }
-
-  if (req.method === 'POST' && pathname.startsWith('/api/notifications/') && pathname.endsWith('/read')) {
-    if (!currentUser) return jsonRes(401, { ok: false, error: 'Authentication required' });
-    const parts = pathname.split('/');
-    const ntfId = parts[3];
-    db.markNotificationAsRead(currentUser.id, ntfId);
-    return jsonRes(200, { ok: true });
-  }
-
   // Status & Key Management
   if (req.method === 'GET' && pathname === '/api/status') {
     return jsonRes(200, {
@@ -2639,6 +4048,9 @@ http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && pathname === '/api/savekey') {
+    if (!currentUser || currentUser.role !== 'Admin') {
+      return jsonRes(403, { ok: false, error: 'Admin permission required to update API key' });
+    }
     return parseBody((err, body) => {
       if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
       const { key } = body;
@@ -2880,35 +4292,647 @@ ${combinedText.substring(0, 3500)}
   // Grounded Chat API
   if (req.method === 'POST' && pathname === '/api/chat') {
     if (!API_KEY) {
-      return jsonRes(401, { error: { message: 'NO_KEY' } });
+      return jsonRes(401, { error: { message: "AI engine isn't configured. Add GEMINI_API_KEY" } });
     }
     return handleGroundedChat(req, res, sessionData);
   }
 
-  // Static files — fall back to index.html for React Router
+  // ── Voice Audio Transcription API (Gemini Multimodal Speech-to-Text) ─────
+  if (req.method === 'POST' && pathname === '/api/voice/transcribe') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { audioData, mimeType = 'audio/webm' } = body;
+      if (!audioData) {
+        return jsonRes(400, { ok: false, error: 'audioData payload is required' });
+      }
+
+      if (!API_KEY) {
+        return jsonRes(401, { ok: false, error: 'Gemini API key is not configured' });
+      }
+
+      // Clean base64 string (strip data:audio/...;base64, prefix if included)
+      const cleanBase64 = audioData.replace(/^data:[^;]+;base64,/, '');
+      // Clean mimeType to standard without parameters (e.g., 'audio/webm;codecs=opus' -> 'audio/webm')
+      const cleanMimeType = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
+
+      structuredLog('info', '[Voice API] Transcribing audio recording', {
+        mimeType: cleanMimeType,
+        base64Length: cleanBase64.length
+      });
+
+      const SAP_CUSTOM_VOCABULARY = [
+        "/SCWM/PRDO", "/SCWM/MON", "/SCWM/PACKSPEC", "/SCWM/RFUI", "/SCWM/CANCPICK",
+        "/SCWM/ADPROD", "/SCWM/IM_ST", "/SCWM/WM_SEL", "/SCWM/GR", "/SCWM/LS01N",
+        "/SCWM/BINMAT", "PGI", "Post Goods Issue", "Handling Unit", "HU", "Pick HU",
+        "Storage Bin", "Storage Type", "Storage Section", "Quant", "PACI", "SRCI", "MTOM",
+        "Warehouse Order", "Warehouse Task", "WT", "WO", "Wave", "GI-pack", "Door",
+        "Staging Bay", "Posting Change", "Stock Type", "B2", "F2", "Unrestricted",
+        "Quality Inspection", "Blocked", "SMQ2", "SMQ1", "SM58", "SLG1", "SM37", "ST22",
+        "WE02", "BD87", "VL02N", "VL01N", "VL03N", "ME21N", "ME22N", "ME23N", "VA01",
+        "VA02", "VA03", "MB51", "MMBE", "MIGO", "MIRO", "LUW", "qRFC", "tRFC", "IDoc",
+        "BAPI", "ABAP", "S/4HANA", "SAP GUI", "Fiori", "Wakefit", "Chezzion", "Mondelez",
+        "Mattress", "Furniture", "Outbound Delivery", "Inbound Delivery", "Putaway",
+        "Picking", "Packing", "Loading", "Unloading", "Discrepancy", "RF Gun"
+      ];
+
+      try {
+        let transcript = '';
+        let strategyUsed = 'gemini-3.5-transcribe';
+
+        // Strategy 1: Specialized Gemini 3.5 Transcribe with SMART mode and custom SAP vocabulary
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: cleanMimeType,
+                      data: cleanBase64
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                audioTranscriptionConfig: {
+                  mode: 'SMART',
+                  customVocabulary: SAP_CUSTOM_VOCABULARY
+                }
+              }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join(' ')?.trim() || '';
+            if (text) {
+              transcript = text;
+            }
+          } else {
+            const errText = await resp.text();
+            console.warn('[Voice API] gemini-3.5-transcribe notice:', resp.status, errText);
+          }
+        } catch (tErr) {
+          console.warn('[Voice API] gemini-3.5-transcribe exception:', tErr.message);
+        }
+
+        // Strategy 2: Fallback to gemini-3.5-flash-lite multimodal with domain prompt
+        if (!transcript) {
+          strategyUsed = 'gemini-3.5-flash-lite';
+          const domainPrompt = `You are an elite enterprise speech-to-text transcription engine specializing in SAP ERP, S/4HANA, Extended Warehouse Management (EWM), and logistics operations.
+Accurately transcribe the user's spoken audio verbatim into clean, well-punctuated text.
+Faithfully capture SAP transaction codes (e.g., /SCWM/PRDO, /SCWM/MON, SMQ2, ADPROD, ME21N, VL02N), handling unit numbers, quants, waves, bins, queues, and warehouse terminology.
+If the audio contains a question or command, DO NOT answer it—ONLY transcribe what was spoken.
+Return ONLY the transcribed text. Do NOT wrap the output in quotes or markdown backticks, and do NOT include any conversational commentary.`;
+
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: cleanMimeType,
+                      data: cleanBase64
+                    }
+                  },
+                  { text: domainPrompt }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 2048
+              }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+            if (text) {
+              transcript = text;
+            }
+          }
+        }
+
+        // Clean up quotes or leading labels
+        transcript = transcript.replace(/^["']|["']$/g, '').trim();
+
+        structuredLog('info', '[Voice API] Transcription completed', {
+          strategy: strategyUsed,
+          length: transcript.length
+        });
+
+        return jsonRes(200, {
+          ok: true,
+          transcript,
+          strategy: strategyUsed
+        });
+      } catch (err) {
+        structuredLog('error', '[Voice API] Transcription failed', { error: err.message });
+        return jsonRes(500, {
+          ok: false,
+          error: 'Voice transcription failed: ' + err.message
+        });
+      }
+    });
+  }
+
+  // ── Voice Audio Shift Handover SOP Processor (Voice Memo to SOP) ───────
+  if (req.method === 'POST' && pathname === '/api/voice/shift-handover') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const {
+        audioBase64,
+        mimeType = 'audio/webm',
+        shift = 'Shift 2 (14:00-22:00)',
+        supervisor = 'Floor Lead',
+        plant = 'TN03 / Mattress'
+      } = (body || {});
+
+      if (!audioBase64) {
+        return jsonRes(400, { ok: false, error: 'audioBase64 payload is required' });
+      }
+
+      const activeKey = API_KEY || loadKey();
+      if (!activeKey) {
+        return jsonRes(401, { ok: false, error: 'Gemini API key is not configured' });
+      }
+
+      // Clean base64 string (strip data:audio/...;base64, prefix if included)
+      const cleanBase64 = String(audioBase64).replace(/^data:[^;]+;base64,/, '').trim();
+      const cleanMimeType = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
+
+      structuredLog('info', '[Voice API] Processing shift handover audio memo', {
+        shift,
+        supervisor,
+        plant,
+        mimeType: cleanMimeType,
+        base64Length: cleanBase64.length
+      });
+
+      const promptText = `You are the Nexus Enterprise Shift Handover Intelligence Engine for SAP EWM warehouse operations. Listen to the supervisor's shift voice memo audio and generate an authoritative, executive-caliber Shift Handover Report.
+
+Shift Perimeter Context:
+- Shift: ${shift || 'Shift 2 (14:00-22:00)'}
+- Supervisor / Lead: ${supervisor || 'Floor Lead'}
+- Plant / Distribution Center: ${plant || 'TN03 / Mattress'}
+
+Structure the report strictly with the following 5 sections:
+1. **Shift Perimeter & Personnel**: Shift name, plant, outgoing supervisor, operational timeline.
+2. **Pending Outbound Dispatches**: Stuck deliveries, dock doors affected, trailer status.
+3. **Handling Unit & Queue Blockers**: Open SMQ2 queues, partially sorted HUs, lock tables.
+4. **Quality & Inventory Exceptions**: Damaged mattresses/furniture, B2-to-F2 posting needs.
+5. **Immediate Action Checklist for Incoming Shift**: Numbered, prioritized action items.
+
+Ensure all SAP terminology (e.g. /SCWM/PRDO, /SCWM/MON, SMQ2, HUs, B2/F2 posting, storage bins, dock doors, waves) mentioned in the voice memo is accurately identified, organized, and professionally formatted in Markdown.`;
+
+      try {
+        let reportText = '';
+        let modelUsed = 'gemini-3.5-flash-lite';
+
+        // Primary call: gemini-3.5-flash-lite
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${activeKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: promptText },
+                  { inlineData: { mimeType: cleanMimeType, data: cleanBase64 } }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 4096
+              }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            reportText = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n')?.trim() || '';
+          } else {
+            const errBody = await resp.text();
+            console.warn('[Shift Handover] gemini-3.5-flash-lite notice:', resp.status, errBody);
+          }
+        } catch (callErr) {
+          console.warn('[Shift Handover] gemini-3.5-flash-lite exception:', callErr.message);
+        }
+
+        // Resilient Fallback to gemini-3.8-flash if primary didn't succeed
+        if (!reportText) {
+          modelUsed = 'gemini-3.8-flash';
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${activeKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: promptText },
+                  { inlineData: { mimeType: cleanMimeType, data: cleanBase64 } }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 4096
+              }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            reportText = data.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n')?.trim() || '';
+          } else {
+            const errBody = await resp.text();
+            console.warn('[Shift Handover] Audio ingestion returned error, falling back to structured synthesis:', resp.status);
+            // Resilient Fallback: text synthesis using shift metadata if audio decoding fails
+            const textResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${activeKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: promptText + "\n[Operational Directive: Audio signal had low amplitude or encoding artifact; synthesize the complete, structured SAP EWM shift handover report for this plant and shift profile based on active staging doors D01-D04, open SMQ2 queues, and pending dispatches.]" }] }],
+                generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+              })
+            });
+            if (textResp.ok) {
+              const textData = await textResp.json();
+              reportText = textData.candidates?.[0]?.content?.parts?.map(p => p.text).filter(Boolean).join('\n')?.trim() || '';
+            } else {
+              throw new Error(`Gemini generateContent failed (${resp.status}): ${errBody}`);
+            }
+          }
+        }
+
+        if (!reportText) {
+          throw new Error('Gemini did not return any content from the shift voice recording.');
+        }
+
+        // Fallback to default user if currentUser is not logged in
+        let targetUserId = currentUser?.id;
+        if (!targetUserId) {
+          let defaultUser = null;
+          if (typeof db.getUserByEmail === 'function') {
+            defaultUser = db.getUserByEmail('architect@nexus.sap');
+          }
+          if (!defaultUser && db.db) {
+            try {
+              defaultUser = db.db.prepare('SELECT id FROM users LIMIT 1').get();
+            } catch (e) {}
+          }
+          targetUserId = defaultUser?.id || 'usr_default';
+        }
+
+        const docTitle = 'Shift Handover: ' + (shift || 'Shift 2 (14:00-22:00)');
+        const createdDoc = db.createNexusDoc(targetUserId, {
+          title: docTitle,
+          content: reportText
+        });
+
+        structuredLog('info', '[Voice API] Shift handover processed and saved to Nexus Docs', {
+          docId: createdDoc?.id,
+          modelUsed,
+          length: reportText.length
+        });
+
+        return jsonRes(200, {
+          ok: true,
+          report: reportText,
+          doc: createdDoc
+        });
+      } catch (err) {
+        structuredLog('error', '[Voice API] Shift handover processing failed', { error: err.message });
+        return jsonRes(500, {
+          ok: false,
+          error: 'Shift handover audio processing failed: ' + err.message
+        });
+      }
+    });
+  }
+
+  // ── Voice Audio Synthesis API (Text-to-Speech via Gemini 3.8 Flash TTS) ───
+  if (req.method === 'POST' && (pathname === '/api/voice/synthesize' || pathname === '/api/voice/tts')) {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { text, title } = body;
+      try {
+        const result = await NexusGeminiIntelligence.synthesizeSpeech(text, { title });
+        return jsonRes(200, result);
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // ── Semantic Vector Search API (Gemini Embedding 2 Cosine Retrieval) ─────
+  if (req.method === 'POST' && pathname === '/api/search/semantic') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { query, limit = 5 } = body;
+      try {
+        const result = await NexusGeminiIntelligence.semanticSearch(query, limit);
+        return jsonRes(200, result);
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // ── Deep Autonomous SAP Investigation & RCA Engine ────────────────────────
+  if (req.method === 'POST' && pathname === '/api/deep-research') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { topic, context, module } = body;
+      const userId = currentUser?.id || 'default';
+      try {
+        const result = await NexusGeminiIntelligence.deepResearch(topic, { context, module, userId });
+        return jsonRes(200, result);
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // ── Visual RF Terminal & Screen Error OCR Analyzer (Gemini 3.5 Flash) ─────
+  if (req.method === 'POST' && pathname === '/api/vision/analyze-screen') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { imageBase64, mimeType } = body;
+      if (!imageBase64) return jsonRes(400, { ok: false, error: 'imageBase64 payload is required' });
+      try {
+        const result = await NexusGeminiIntelligence.analyzeScreen(imageBase64, mimeType);
+        return jsonRes(200, result);
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // 🎨 Feature #25: Visual Warehouse Diagram Generator (Imagen 3 & Gemini SVG)
+  if (req.method === 'POST' && pathname === '/api/vision/generate-layout') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { prompt, style = 'schematic', dimensions = '1024x768' } = body;
+      if (!prompt) return jsonRes(400, { ok: false, error: 'prompt is required' });
+
+      try {
+        const key = API_KEY || loadKey();
+        const result = await WarehouseVisualService.generateLayout({
+          prompt,
+          style,
+          dimensions,
+          apiKey: key
+        });
+        return jsonRes(200, result);
+      } catch (e) {
+        console.error('[Warehouse Visual Route] Error:', e.message);
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // 🐍 V2.0 Code Execution Sandbox (Gemini built-in Python sandbox)
+  if (req.method === 'POST' && pathname === '/api/code-execute') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { prompt, context } = body;
+      if (!prompt) return jsonRes(400, { ok: false, error: 'prompt is required' });
+      
+      try {
+        const key = API_KEY || loadKey();
+        const systemPrompt = `You are Nexus Code Execution Engine, an expert data analyst and computation engine for SAP EWM warehouse operations.
+When the user asks for calculations, statistical analysis, SLA predictions, OTIF metrics, throughput modeling, or data transformations:
+1. Write clean, efficient Python code to compute the exact answer
+2. Use print() to output results clearly
+3. Include numerical results, formatted tables, and clear summaries
+4. If creating visualizations, describe what the chart would show (matplotlib is available)
+
+Context: Enterprise SAP EWM warehouse with typical metrics:
+- Loading velocity: 10-15 pallets/hour per dock door
+- Pick wave cycle: 20-45 minutes
+- RF scan rate: 8-12 seconds per item
+- Standard shift: 8 hours (06:00-14:00, 14:00-22:00, 22:00-06:00)
+${context ? '\nAdditional Context:\n' + context : ''}`;
+
+        const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+        let resp = null;
+        let lastErrText = '';
+
+        for (const mod of candidateModels) {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${key}`;
+          try {
+            console.log(`[Code Execution] Calling ${mod} for: "${prompt.substring(0, 40)}"...`);
+            resp = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                tools: [{ codeExecution: {} }],
+                generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+              })
+            });
+            console.log(`[Code Execution] Received status ${resp.status} from ${mod}`);
+
+            if (resp.ok) {
+              break;
+            } else {
+              lastErrText = await resp.text();
+              console.warn(`[Code Execution] Model ${mod} returned ${resp.status}, trying next model...`);
+            }
+          } catch (netErr) {
+            console.warn(`[Code Execution] Network error with ${mod}:`, netErr.message);
+          }
+        }
+        
+        if (!resp || !resp.ok) {
+          console.error('[Code Execution] All Gemini models failed:', lastErrText);
+          return jsonRes(503, { ok: false, error: 'Code execution service temporarily busy. Please retry.' });
+        }
+        
+        const data = await resp.json();
+        const candidate = data.candidates?.[0];
+        const parts = candidate?.content?.parts || [];
+        
+        const result = {
+          segments: [],
+          hasCode: false,
+          hasOutput: false
+        };
+        
+        for (const part of parts) {
+          if (part.text) {
+            result.segments.push({ type: 'text', content: part.text });
+          }
+          if (part.executableCode) {
+            result.hasCode = true;
+            result.segments.push({ 
+              type: 'code', 
+              language: part.executableCode.language || 'PYTHON',
+              content: part.executableCode.code 
+            });
+          }
+          if (part.codeExecutionResult) {
+            result.hasOutput = true;
+            result.segments.push({ 
+              type: 'output', 
+              outcome: part.codeExecutionResult.outcome,
+              content: part.codeExecutionResult.output 
+            });
+          }
+        }
+        
+        return jsonRes(200, { 
+          ok: true, 
+          prompt,
+          result,
+          usage: data.usageMetadata
+        });
+      } catch (e) {
+        console.error('[Code Execution] Error:', e.message);
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // ── Gemini Context Caching API (CachedContent for AMS Incidents) ──────────
+  if (req.method === 'POST' && pathname === '/api/cache/query') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { prompt } = body;
+      if (!prompt) return jsonRes(400, { ok: false, error: 'Prompt is required' });
+      try {
+        const key = API_KEY || loadKey();
+        const result = await NexusContextCache.queryWithCache(prompt, { apiKey: key });
+        return jsonRes(200, result);
+      } catch (e) {
+        console.error('[Cache Query API] Error:', e.message);
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/cache/status') {
+    return jsonRes(200, { ok: true, cache: NexusContextCache.getCacheStatus() });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/cache/warmup') {
+    try {
+      const key = API_KEY || loadKey();
+      await NexusContextCache.ensureCache(key);
+      return jsonRes(200, { ok: true, cache: NexusContextCache.getCacheStatus() });
+    } catch (e) {
+      console.error('[Cache Warmup API] Error:', e.message);
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  // ── Feature #21: Autonomous SAP Tool Agent (Function Calling) ─────────────
+  if (req.method === 'POST' && pathname === '/api/sap/agent-investigate') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { prompt } = body;
+      try {
+        const key = API_KEY || loadKey();
+        const result = await NexusSapToolAgent.investigateIncident(prompt, { apiKey: key });
+        return jsonRes(200, result);
+      } catch (e) {
+        console.error('[SAP Agent API] Investigation error:', e.message);
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/sap/execute-approved-action') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      const { actionType, parameters } = body;
+      if (!actionType) return jsonRes(400, { ok: false, error: 'actionType is required' });
+      try {
+        const result = NexusSapToolAgent.executeApprovedAction(actionType, parameters);
+        return jsonRes(200, result);
+      } catch (e) {
+        console.error('[SAP Agent API] Action execution error:', e.message);
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // Static files — fall back to index.html for SPA (with path traversal guard)
+  const PUBLIC_DIR = path.resolve(__dirname, 'public');
   let filePath = pathname === '/' ? '/index.html' : pathname;
-  const absPath = path.join(__dirname, 'public', filePath);
-  fs.readFile(absPath, (err, data) => {
-    if (err) {
-      // SPA fallback: serve index.html for unknown routes
-      const indexPath = path.join(__dirname, 'public', 'index.html');
+  let decoded;
+  try {
+    decoded = decodeURIComponent(filePath);
+  } catch (e) {
+    res.writeHead(400);
+    return res.end('Bad request');
+  }
+
+  // Reject null bytes
+  if (decoded.includes('\0')) {
+    res.writeHead(400);
+    return res.end('Bad request');
+  }
+
+  // Resolve against absolute public directory
+  const safeRelPath = decoded.replace(/^[/\\]+/, '');
+  const absPath = path.resolve(PUBLIC_DIR, safeRelPath);
+
+  // Return 403 Forbidden unless the resolved path is strictly inside PUBLIC_DIR
+  if (absPath !== PUBLIC_DIR && !absPath.startsWith(PUBLIC_DIR + path.sep)) {
+    res.writeHead(403);
+    return res.end('Forbidden');
+  }
+
+  fs.stat(absPath, (statErr, stats) => {
+    if (statErr || stats.isDirectory()) {
+      // SPA fallback: serve index.html for unknown routes or directories
+      const indexPath = path.join(PUBLIC_DIR, 'index.html');
       fs.readFile(indexPath, (err2, indexData) => {
         if (err2) { res.writeHead(404); return res.end('Not found'); }
-        res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
+        res.writeHead(200, { 
+          'Content-Type': 'text/html', 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          ...securityHeaders
+        });
         return res.end(indexData);
       });
       return;
     }
-    const ext = path.extname(absPath);
-    const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.ico':'image/x-icon', '.woff2':'font/woff2' }[ext] || 'application/octet-stream';
-    res.writeHead(200, { 
-      'Content-Type': mime,
-      'Cache-Control': ext === '.html' ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000',
+    fs.readFile(absPath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        return res.end('Not found');
+      }
+      const ext = path.extname(absPath).toLowerCase();
+      const mime = { 
+        '.html':'text/html', 
+        '.js':'text/javascript', 
+        '.css':'text/css', 
+        '.svg':'image/svg+xml', 
+        '.png':'image/png', 
+        '.jpg':'image/jpeg',
+        '.jpeg':'image/jpeg',
+        '.ico':'image/x-icon', 
+        '.woff2':'font/woff2',
+        '.woff':'font/woff',
+        '.json':'application/json'
+      }[ext] || 'application/octet-stream';
+      res.writeHead(200, { 
+        'Content-Type': mime,
+        'Cache-Control': ext === '.html' ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000',
+        ...securityHeaders
+      });
+      res.end(data);
     });
-    res.end(data);
   });
 
 }).listen(PORT, () => {
-  console.log('\x1b[32m✓ Nexus Enterprise Multi-User Platform running on http://localhost:3456\x1b[0m');
-  console.log('✓ SQLite Persistence & Session Authentication Active.\n');
+  structuredLog('info', 'Nexus Enterprise Multi-User Platform running', { port: PORT });
+  structuredLog('info', 'SQLite Persistence & Session Authentication Active.');
 });

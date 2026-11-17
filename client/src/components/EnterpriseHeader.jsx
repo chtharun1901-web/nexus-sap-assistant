@@ -501,10 +501,10 @@ export default function EnterpriseHeader({ user, onLogout, onNavigate, activeTop
                 fontWeight: 800
               }}
             >
-              {user?.display_name?.[0]?.toUpperCase() || "U"}
+              {(user?.display_name || user?.displayName)?.[0]?.toUpperCase() || "U"}
             </div>
             <span style={{ fontSize: 12, color: "#EDEDED", fontWeight: 600 }}>
-              {user?.display_name || "User"}
+              {user?.display_name || user?.displayName || "User"}
             </span>
             <span style={{ fontSize: 10, color: "#71717A" }}>⚙️</span>
           </button>

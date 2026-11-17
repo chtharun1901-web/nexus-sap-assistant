@@ -12,8 +12,17 @@ retrieval_audit.jsonl
 .env.local
 
 *.xlsx
+*.pptx
 dist/
 client/dist/
+scratch/
+
+# Scratch & Debug files
+debug-*.js
+test-*.js
+test_*.mjs
+list-models.js
+parse.js
 
 # OS
 .DS_Store

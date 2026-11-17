@@ -2,28 +2,28 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { parseMermaidToGraph, exportDrawingMlExcel } from "../utils/valueStreamMapping.js";
 
 // Modern Claude-Style Rotating Radial Flower Spinner
-export function ClaudeThinkingFlower({ text = "Laying out the dynamic process flow", elapsed = 0 }) {
+export function ClaudeThinkingFlower({ text = "Thinking...", elapsed = 0 }) {
   return (
-    <div style={{ margin: "12px 0", display: "flex", flexDirection: "column", gap: 6, padding: "6px 0" }}>
+    <div style={{ margin: "8px 0", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
       {elapsed > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748B", userSelect: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted, #8E8E87)", userSelect: "none" }}>
           <span>Thought for {elapsed}s</span>
           <span style={{ fontSize: 10 }}>›</span>
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div className="claude-thinking-flower" style={{ width: 20, height: 20, minWidth: 20, minHeight: 20, position: "relative" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <div className="claude-thinking-flower" style={{ width: 18, height: 18, minWidth: 18, minHeight: 18, position: "relative" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, i) => {
               const rad = (deg * Math.PI) / 180;
               const cx = 12 + 8.2 * Math.cos(rad);
               const cy = 12 + 8.2 * Math.sin(rad);
               const opacity = 0.2 + 0.8 * ((i + 1) / 12);
-              return <circle key={deg} cx={cx.toFixed(2)} cy={cy.toFixed(2)} r="1.25" fill="#6366F1" opacity={opacity} />;
+              return <circle key={deg} cx={cx.toFixed(2)} cy={cy.toFixed(2)} r="1.35" fill="var(--orange, #CC5500)" opacity={opacity} />;
             })}
           </svg>
         </div>
-        <span style={{ fontSize: 13, color: "#334155", fontWeight: 500, fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
+        <span style={{ fontSize: 13, color: "var(--text-muted, #5A5A54)", fontWeight: 500, fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
           {text}
         </span>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { FormattedText } from "../../views/Workspace.jsx";
+import TurnNavigatorHUD from "../TurnNavigatorHUD.jsx";
 
 const QUICK_PRESETS = [
   { label: "Production Version (C223)", prompt: "In SAP S/4HANA Manufacturing, what is the role of Production Version (C223) and why is it mandatory?" },
@@ -18,12 +19,11 @@ export default function InterviewChat({
   const [input, setInput] = useState("");
   const [activeTab, setActiveTab] = useState({});
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
-  const [hoveredTurn, setHoveredTurn] = useState(null);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const chatScrollRef = useRef(null);
 
-  // Extract user question turns for right-side navigation dots
+  // Extract user question turns for right-side navigation HUD
   const userTurns = useMemo(() => {
     return history
       .map((m, idx) => ({ ...m, originalIdx: idx }))
@@ -32,9 +32,35 @@ export default function InterviewChat({
         id: `interview-turn-${m.originalIdx}`,
         originalIdx: m.originalIdx,
         turnNumber: uIdx + 1,
-        title: (m.content || "").slice(0, 60) + ((m.content || "").length > 60 ? "..." : "")
+        title: (m.content || "").slice(0, 60) + ((m.content || "").length > 60 ? "..." : ""),
+        content: m.content || ""
       }));
   }, [history]);
+
+  // Dynamic scroll-based active turn indicator for InterviewChat
+  useEffect(() => {
+    const container = chatScrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const turnEls = container.querySelectorAll('[id^="interview-turn-"]');
+      if (!turnEls.length) return;
+      const containerTop = container.getBoundingClientRect().top;
+      let currentActive = 0;
+
+      turnEls.forEach((turnEl, idx) => {
+        const rect = turnEl.getBoundingClientRect();
+        if (rect.top - containerTop <= 220) {
+          currentActive = idx;
+        }
+      });
+
+      setActiveTurnIndex(currentActive);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [userTurns]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,7 +91,7 @@ export default function InterviewChat({
   };
 
   const handleExportWord = (content) => {
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Operations Advisory</title><style>body{font-family:Arial,sans-serif;line-height:1.6;}h1{color:#FF5500;}h2{color:#D97706;}</style></head><body>";
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Operations Advisory</title><style>body{font-family:'Aptos',sans-serif;line-height:1.6;}h1{color:#FF5500;}h2{color:#D97706;}</style></head><body>";
     const footer = "</body></html>";
     const html = header + "<h1>SAP Operations & Architecture Analysis</h1><hr/>" + content.replace(/\n/g, "<br/>") + footer;
     const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
@@ -496,149 +522,31 @@ export default function InterviewChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* Right-Side User Question Turn Dots Rail */}
+      {/* Right-Side Turn Navigator HUD (Option 3 Radial Dial & Circular HUD + Option 1 Semantic Mini-Map) */}
       {userTurns.length >= 1 && (
-        <div
-          style={{
-            position: "fixed",
-            right: "22px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 9999,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 12,
-            background: "var(--bg-surface)",
-            border: "1.5px solid var(--border-strong)",
-            padding: "14px 8px",
-            borderRadius: 24,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
-            backdropFilter: "blur(12px)"
+        <TurnNavigatorHUD
+          turns={userTurns}
+          activeIndex={activeTurnIndex}
+          onSelectTurn={(tIdx, turnId) => {
+            const el = document.getElementById(turnId);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "start" });
+              setActiveTurnIndex(tIdx);
+            }
           }}
-        >
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 800,
-              color: "var(--orange)",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: 2
-            }}
-          >
-            TURNS
-          </span>
-
-          {userTurns.map((turn, tIdx) => {
-            const isActive = activeTurnIndex === tIdx;
-            const isHovered = hoveredTurn === tIdx;
-
-            return (
-              <div
-                key={turn.id}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}
-              >
-                {tIdx < userTurns.length - 1 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 14,
-                      width: 2,
-                      height: 14,
-                      background: "var(--border-subtle)",
-                      zIndex: 0
-                    }}
-                  />
-                )}
-
-                <button
-                  onClick={() => {
-                    const el = document.getElementById(turn.id);
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "start" });
-                      setActiveTurnIndex(tIdx);
-                    }
-                  }}
-                  onMouseEnter={() => setHoveredTurn(tIdx)}
-                  onMouseLeave={() => setHoveredTurn(null)}
-                  className={isActive ? "anim-nav-dot-active" : ""}
-                  style={{
-                    position: "relative",
-                    zIndex: 1,
-                    width: isActive ? 14 : 10,
-                    height: isActive ? 14 : 10,
-                    borderRadius: "50%",
-                    background: isActive ? "var(--orange)" : isHovered ? "var(--text-primary)" : "var(--bg-card)",
-                    border: isActive
-                      ? "2px solid #FFFFFF"
-                      : isHovered
-                      ? "2px solid var(--orange)"
-                      : "2px solid var(--border-strong)",
-                    cursor: "pointer",
-                    padding: 0,
-                    transition: "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)",
-                    transform: isHovered ? "scale(1.4)" : "scale(1)",
-                    boxShadow: isActive ? "0 0 10px rgba(255,85,0,0.85)" : "none"
-                  }}
-                  aria-label={`Jump to Question ${turn.turnNumber}: ${turn.title}`}
-                />
-
-                {isHovered && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 32,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "var(--bg-card)",
-                      border: "1px solid var(--border-strong)",
-                      boxShadow: "0 6px 24px rgba(0,0,0,0.3)",
-                      borderRadius: 8,
-                      padding: "7px 14px",
-                      whiteSpace: "nowrap",
-                      maxWidth: 320,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      pointerEvents: "none",
-                      fontFamily: "var(--font-sans)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      zIndex: 99999
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: "rgba(255,85,0,0.15)",
-                        color: "var(--orange)",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontSize: 11,
-                        fontWeight: 800,
-                        fontFamily: "var(--font-mono)"
-                      }}
-                    >
-                      Q${turn.turnNumber}
-                    </span>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {turn.title}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          onScrollToTop={() => {
+            if (chatScrollRef.current) {
+              chatScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+          onScrollToBottom={() => {
+            if (bottomRef.current) {
+              bottomRef.current.scrollIntoView({ behavior: "smooth" });
+            }
+          }}
+          placement="interview"
+          style={{ right: "22px" }}
+        />
       )}
 
       {/* Bottom Input Dock */}

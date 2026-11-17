@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -20,6 +20,11 @@ export default class ErrorBoundary extends React.Component {
         <div style={{ padding: 40, color: "#EDEDED", background: "#0D0D0D", height: "100%", overflowY: "auto" }}>
           <h2 style={{ color: "var(--orange)", marginBottom: 12 }}>Something encountered an issue in this view</h2>
           <p style={{ color: "#A1A1AA", marginBottom: 16 }}>{this.state.error?.message || "Unknown error"}</p>
+          {this.state.error?.stack && (
+            <pre style={{ fontSize: 11, background: "#18181B", color: "#F87171", padding: 12, borderRadius: 6, overflow: "auto", whiteSpace: "pre-wrap", marginBottom: 16, maxHeight: 300 }}>
+              {this.state.error.stack}
+            </pre>
+          )}
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
             className="btn-primary"

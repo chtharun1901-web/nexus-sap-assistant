@@ -16,6 +16,23 @@ function setAuthToken(token) {
   } catch (e) {}
 }
 
+export function jsonHeaders() {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+}
+
+export async function codeExecute({ prompt, context }) {
+  const res = await fetch('/api/code-execute', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ prompt, context })
+  });
+  return res.json();
+}
+
 async function req(method, path, body, opts = {}) {
   const token = getAuthToken();
   const headers = {
@@ -84,7 +101,7 @@ export const api = {
   deleteConversation:  (id) => req('DELETE', '/api/conversations/' + id),
 
   // Chat (Grounded Streaming & Normal)
-  streamChat: async (payload, onChunk, onSources, onClassification, signal) => {
+  streamChat: async (payload, onChunk, onSources, onClassification, signal, onIntent, onTaskInfo, onSearchEntry) => {
     const token = getAuthToken();
     const res = await fetch(BASE + '/api/chat', {
       method: 'POST',
@@ -113,6 +130,8 @@ export const api = {
     let fullText = '';
     let citations = [];
     let classification = null;
+    let taskInfo = null;
+    let searchEntryHtml = null;
     let buffer = '';
 
     let currentEventType = 'message';
@@ -146,18 +165,34 @@ export const api = {
               const classData = JSON.parse(dataPayload);
               classification = classData.classification || null;
               if (onClassification) onClassification(classification);
+            } else if (currentEventType === 'nexus-intent') {
+              const intentData = JSON.parse(dataPayload);
+              if (onIntent) onIntent(intentData);
             } else if (currentEventType === 'nexus-sources') {
               const srcData = JSON.parse(dataPayload);
               citations = srcData.sources || [];
               if (onSources) onSources(citations);
+            } else if (currentEventType === 'nexus-search-entry') {
+              const entryData = JSON.parse(dataPayload);
+              searchEntryHtml = entryData.html || null;
+              if (onSearchEntry) onSearchEntry(searchEntryHtml);
             } else if (currentEventType === 'nexus-complete') {
               const completeData = JSON.parse(dataPayload);
               if (completeData.text) {
                 fullText = completeData.text;
                 if (onChunk) onChunk('', fullText);
               }
+              if (completeData.taskInfo) {
+                taskInfo = completeData.taskInfo;
+                if (onTaskInfo) onTaskInfo(completeData.taskInfo);
+              }
             } else if (currentEventType === 'nexus-conversation') {
               // Handled or ignored
+            } else if (currentEventType === 'nexus-error') {
+              const errData = JSON.parse(dataPayload);
+              const errMsg = errData.error || 'Server error occurred.';
+              fullText += `\n\n⚠ Upstream notice: ${errMsg}\n`;
+              if (onChunk) onChunk('', fullText);
             } else {
               const dataJson = JSON.parse(dataPayload);
               const chunk = dataJson.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -174,7 +209,7 @@ export const api = {
       }
     }
 
-    return { text: fullText, citations, classification };
+    return { text: fullText, citations, classification, taskInfo, searchEntryHtml };
   },
 
   chat: (d) => req('POST', '/api/chat', d),
@@ -219,6 +254,12 @@ export const api = {
   // KB & Notes
   getKb:    () => req('GET', '/api/kb'),
   getNotes: () => req('GET', '/api/notes'),
+  getSapNews: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req('GET', '/api/sap/news' + (qs ? '?' + qs : ''));
+  },
+  classifySapNews: (d) => req('POST', '/api/sap/classify', d),
+  retrieveSapNews: (d) => req('POST', '/api/sap/retrieve', d),
 
   // Connectors
   getConnectors: () => req('GET', '/api/connectors'),
@@ -248,4 +289,101 @@ export const api = {
 
   // Process Intelligence
   getProcessIntelligence: () => req('GET', '/api/process-intelligence'),
+
+  // GenAI: Preferences
+  getPreferences: () => req('GET', '/api/preferences'),
+  updatePreferences: (d) => req('PUT', '/api/preferences', d),
+
+  // GenAI: Bookmarks & Pins
+  getBookmarks: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req('GET', '/api/bookmarks' + (qs ? '?' + qs : ''));
+  },
+  createBookmark: (d) => req('POST', '/api/bookmarks', d),
+  deleteBookmark: (id) => req('DELETE', '/api/bookmarks/' + id),
+
+  // GenAI: Prompt Templates
+  getPromptTemplates: () => req('GET', '/api/templates/prompts'),
+  createPromptTemplate: (d) => req('POST', '/api/templates/prompts', d),
+  deletePromptTemplate: (id) => req('DELETE', '/api/templates/prompts/' + id),
+
+  // GenAI: Summaries & Auto-Title
+  summarizeConversation: (id) => req('POST', `/api/conversations/${id}/summarize`),
+  getConversationSummary: (id) => req('GET', `/api/conversations/${id}/summary`),
+
+  // GenAI: Smart Follow-Ups
+  getFollowUpSuggestions: (d) => req('POST', '/api/chat/follow-ups', d),
+
+  // GenAI: Conversation to Article
+  convertConversationToArticle: (id) => req('POST', `/api/conversations/${id}/to-article`),
+
+  // GenAI: Quizzes
+  generateQuiz: (d) => req('POST', '/api/quiz/generate', d),
+  getQuizzes: () => req('GET', '/api/quiz/list'),
+  getQuiz: (id) => req('GET', `/api/quiz/${id}`),
+  submitQuizAttempt: (id, d) => req('POST', `/api/quiz/${id}/attempt`, d),
+  getQuizStats: () => req('GET', '/api/quiz/stats'),
+
+  // GenAI: Personalized News Digest
+  getPersonalNewsDigest: () => req('GET', '/api/sap/digest'),
+
+  // GenAI: AI Analytics
+  getAiAnalytics: () => req('GET', '/api/user/ai-analytics'),
+
+  // Nexus Docs (Claude-style persistent documents)
+  createNexusDoc: (d) => req('POST', '/api/nexus-docs', d),
+  listNexusDocs: () => req('GET', '/api/nexus-docs'),
+  getNexusDoc: (id) => req('GET', `/api/nexus-docs/${id}`),
+  updateNexusDoc: (id, d) => req('PUT', `/api/nexus-docs/${id}`, d),
+  deleteNexusDoc: (id) => req('DELETE', `/api/nexus-docs/${id}`),
+
+  // Prompt Enhancer (Claude-style prompt polish)
+  enhancePrompt: (d) => req('POST', '/api/prompt/enhance', d),
+
+  // Voice Multimodal Transcription (Gemini 3.5 Transcribe / Flash)
+  transcribeAudio: (d) => req('POST', '/api/voice/transcribe', d),
+
+  // Audio Shift Handover Processor (Voice Memo to SOP)
+  processShiftHandover: (d) => req('POST', '/api/voice/shift-handover', d),
+
+  // Voice Speech Synthesis (Text-to-Speech via Gemini 3.8 Flash TTS)
+  synthesizeSpeech: (d) => req('POST', '/api/voice/synthesize', d),
+
+  // Semantic Vector Search (Gemini Embedding 2 Cosine Retrieval)
+  semanticSearch: (d) => req('POST', '/api/search/semantic', d),
+
+  // Deep Autonomous SAP Investigation & RCA Engine
+  deepResearch: (d) => req('POST', '/api/deep-research', d),
+
+  // Visual RF Terminal & Screen Error OCR Analyzer (Gemini 3.5 Flash)
+  analyzeScreen: (d) => req('POST', '/api/vision/analyze-screen', d),
+
+  // Python Code Execution Sandbox (Gemini built-in Python sandbox)
+  codeExecute: (d) => codeExecute(d),
+
+  // Gemini Context Caching (CachedContent API for AMS Incidents)
+  cacheQuery: (d) => req('POST', '/api/cache/query', d),
+  cacheStatus: () => req('GET', '/api/cache/status'),
+  cacheWarmup: (d) => req('POST', '/api/cache/warmup', d),
+
+  // Feature #21: Autonomous SAP Tool Agent (Function Calling)
+  sapAgentInvestigate: (d) => req('POST', '/api/sap/agent-investigate', d),
+  sapExecuteAction: (d) => req('POST', '/api/sap/execute-approved-action', d),
+
+  // Feature #25: Visual Warehouse Diagram Generator (Imagen 3 & Gemini SVG)
+  generateWarehouseVisual: (d) => req('POST', '/api/vision/generate-layout', d),
+
+  // Nexus Projects, Workspaces & Scoped Search
+  getProjects: () => req('GET', '/api/projects'),
+  createProject: (data) => req('POST', '/api/projects', data),
+  getProject: (id) => req('GET', `/api/projects/${id}`),
+  updateProject: (id, data) => req('PATCH', `/api/projects/${id}`, data),
+  deleteProject: (id) => req('DELETE', `/api/projects/${id}`),
+  getProjectSessions: (id) => req('GET', `/api/projects/${id}/sessions`),
+  createProjectSession: (id, data) => req('POST', `/api/projects/${id}/sessions`, data),
+  searchProject: (id, query) => req('GET', `/api/projects/${id}/search?q=${encodeURIComponent(query)}`),
+  uploadProjectFile: (id, fileData) => req('POST', `/api/projects/${id}/files`, fileData),
+  deleteProjectFile: (id, fileId) => req('DELETE', `/api/projects/${id}/files/${fileId}`),
+  globalSearch: (query, projectId) => req('GET', `/api/search?q=${encodeURIComponent(query)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`),
 };
+

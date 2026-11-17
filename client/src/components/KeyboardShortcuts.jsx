@@ -25,11 +25,18 @@ const KeyboardShortcuts = ({
         return;
       }
 
-      // If typing in input, ignore other shortcuts
-      if (isInput) return;
-
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      // Allow Ctrl/Cmd+K even when chat textarea or search input is focused
+      if (modifier && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (onFocusSearch) onFocusSearch();
+        return;
+      }
+
+      // If typing in input, ignore other shortcuts
+      if (isInput) return;
 
       if (modifier) {
         switch (e.key.toLowerCase()) {
