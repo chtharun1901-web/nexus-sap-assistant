@@ -1981,6 +1981,15 @@ export function ClaudeArtifactCard({
   );
 }
 
+const HERO_DYNAMIC_PROMPTS = [
+  "Ask anything about SAP EWM, PP, Basis queues, or type '/' for commands...",
+  "Ask: Triage an SMQ2 inbound qRFC queue jam with status SYSFAIL...",
+  "Ask: Trace document flow from Production Material Request (PMR) to EWM staging...",
+  "Ask: Compare 16-step pricing condition technique with S/4HANA PRCD_ELEMENTS...",
+  "Ask: How does S/4HANA aATP BOP redistribute stock across Win & Gain tiers?",
+  "Ask: Provide a sanitized CSV upload template for /SCWM/IPU with handling units..."
+];
+
 export default function Workspace({
   activeTopic,
   onNavigate,
@@ -2007,6 +2016,11 @@ export default function Workspace({
   const [taskInfoModalOpen, setTaskInfoModalOpen] = useState(false);
   const [currentTaskInfo, setCurrentTaskInfo] = useState(null);
   const [turnTaskInfoMap, setTurnTaskInfoMap] = useState({});
+
+  // ── Concept 2: Ambient Caustic Glow & Dynamic Typing Aura State ──
+  const [heroPromptIndex, setHeroPromptIndex] = useState(0);
+  const [heroTypingText, setHeroTypingText] = useState(HERO_DYNAMIC_PROMPTS[0]);
+  const [isOmniboxFocused, setIsOmniboxFocused] = useState(false);
 
   const handleOpenTaskInfo = (info = null, turnId = null) => {
     let targetInfo = info || (turnId ? turnTaskInfoMap[turnId] : null) || currentTaskInfo;
@@ -2206,6 +2220,41 @@ export default function Workspace({
       setTurnMetricsMap(prev => ({ ...prev, [turnKey]: finalMetrics }));
     }
   };
+
+  // ── Concept 2: Dynamic Animated Typing Aura for Empty-State Omnibox ──
+  useEffect(() => {
+    if (followUpInput.trim() || doc || aiText || aiStreaming) return;
+
+    let charIdx = 0;
+    let isDeleting = false;
+    let currentPrompt = HERO_DYNAMIC_PROMPTS[heroPromptIndex];
+    let typingTimer = null;
+
+    const tick = () => {
+      if (isDeleting) {
+        charIdx--;
+        setHeroTypingText(currentPrompt.substring(0, charIdx));
+        if (charIdx <= 0) {
+          isDeleting = false;
+          setHeroPromptIndex(prev => (prev + 1) % HERO_DYNAMIC_PROMPTS.length);
+          return;
+        }
+        typingTimer = setTimeout(tick, 20);
+      } else {
+        charIdx++;
+        setHeroTypingText(currentPrompt.substring(0, charIdx));
+        if (charIdx >= currentPrompt.length) {
+          isDeleting = true;
+          typingTimer = setTimeout(tick, 3500);
+          return;
+        }
+        typingTimer = setTimeout(tick, 36);
+      }
+    };
+
+    typingTimer = setTimeout(tick, 2200);
+    return () => clearTimeout(typingTimer);
+  }, [heroPromptIndex, followUpInput, doc, aiText, aiStreaming]);
 
   useEffect(() => {
     const onExportPpt = () => setSessionDeckModalOpen(true);
@@ -4068,40 +4117,71 @@ export default function Workspace({
           {!doc && !aiText && !aiStreaming && (
             <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 12px 28px 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
-              {/* Centered Brand Header (Clean Claude Aesthetic) */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 28, textAlign: "center" }}>
-                <img 
-                  src="/nexus-logo.jpg" 
-                  alt="Nexus Logo" 
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    objectFit: "cover",
-                    marginBottom: 12,
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.06)"
-                  }} 
-                />
+              {/* Centered Brand Header with Ambient Caustic Aura (Concept 2) */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32, textAlign: "center", position: "relative" }}>
+                
+                {/* Caustic Ambient Breathing Aura Halo */}
+                <div style={{ position: "relative", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: -10,
+                      borderRadius: "50%",
+                      background: "conic-gradient(from 180deg at 50% 50%, #D97706 0deg, #F59E0B 72deg, #831843 144deg, #B45309 216deg, #D97706 288deg, #F59E0B 360deg)",
+                      filter: "blur(20px)",
+                      opacity: 0.72,
+                      animation: "causticAuraBreathe 4.5s ease-in-out infinite alternate, causticRotate 20s linear infinite",
+                      pointerEvents: "none",
+                      zIndex: 0
+                    }}
+                  />
+                  <img 
+                    src="/nexus-logo.jpg" 
+                    alt="Nexus Logo" 
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      objectFit: "cover",
+                      boxShadow: "0 4px 20px rgba(217, 119, 6, 0.28), 0 2px 6px rgba(0,0,0,0.1)",
+                      border: "2px solid rgba(255, 255, 255, 0.95)",
+                      position: "relative",
+                      zIndex: 1
+                    }} 
+                  />
+                </div>
+
                 <h1 style={{
-                  fontSize: 26,
+                  fontSize: 27,
                   fontWeight: 650,
                   color: "var(--text-primary, #1C1917)",
-                  margin: 0,
-                  letterSpacing: "-0.02em"
+                  margin: "0 0 6px 0",
+                  letterSpacing: "-0.025em"
                 }}>
                   How can Nexus help you today?
                 </h1>
+                <p style={{
+                  margin: 0,
+                  fontSize: 13.5,
+                  color: "var(--text-muted, #78716C)",
+                  letterSpacing: "-0.01em",
+                  fontWeight: 450
+                }}>
+                  Enterprise SAP S/4HANA Architecture &amp; Forensic Intelligence
+                </p>
               </div>
 
-              {/* ── THE ELEVATED CENTRAL OMNIBOX CARD ── */}
+              {/* ── THE ELEVATED CENTRAL OMNIBOX CARD WITH AMBIENT GLOW ── */}
               <div style={{
                 width: "100%",
                 background: "var(--bg-card, #FFFFFF)",
-                border: "1.5px solid var(--border-subtle, #E5E5DF)",
+                border: isOmniboxFocused ? "1.5px solid rgba(217, 119, 6, 0.45)" : "1.5px solid var(--border-subtle, #E5E5DF)",
                 borderRadius: 16,
                 padding: "16px 18px 12px 18px",
-                boxShadow: "0 10px 32px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03)",
-                transition: "all 0.2s ease",
+                boxShadow: isOmniboxFocused 
+                  ? "0 12px 36px rgba(217, 119, 6, 0.1), 0 0 0 2.5px rgba(217, 119, 6, 0.22)" 
+                  : "0 10px 32px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02)",
+                transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
                 position: "relative"
               }}>
                 {/* Slash Command Palette Menu inside Omnibox */}
@@ -4244,7 +4324,7 @@ export default function Workspace({
                   </div>
                 )}
 
-                {/* Textarea */}
+                {/* Textarea with Animated Dynamic Typing Placeholder (Concept 2) */}
                 <textarea
                   ref={followUpTextareaRef}
                   rows={2}
@@ -4253,6 +4333,8 @@ export default function Workspace({
                     setFollowUpInput(e.target.value);
                     autoResizeTextarea(e.target, 52, 220);
                   }}
+                  onFocus={() => setIsOmniboxFocused(true)}
+                  onBlur={() => setIsOmniboxFocused(false)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -4265,7 +4347,7 @@ export default function Workspace({
                       if (followUpTextareaRef.current) autoResizeTextarea(followUpTextareaRef.current, 52, 220);
                     }, 0);
                   }}
-                  placeholder="Ask anything about SAP EWM, PP, Basis queues, or type '/' for commands..."
+                  placeholder={followUpInput ? "" : (heroTypingText || "Ask anything about SAP EWM, PP, Basis queues, or type '/' for commands...")}
                   style={{
                     width: "100%",
                     minHeight: 52,
@@ -4705,12 +4787,28 @@ export default function Workspace({
                 </div>
               </div>
 
-              {/* Clean Minimalist Prompt Suggestion Pills */}
-              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 22, maxWidth: 720 }}>
+              {/* Glassmorphic Quick Access Floating Dock (Concept 2) */}
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 22,
+                maxWidth: 760,
+                padding: "8px 14px",
+                background: "rgba(255, 255, 255, 0.8)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid rgba(229, 229, 223, 0.85)",
+                borderRadius: 30,
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)"
+              }}>
                 {[
-                  { label: "Triage Inbound qRFC Jam (SMQ2)", query: "SMQ2" },
-                  { label: "PMR vs Delivery-Based Staging", query: "delivery-based production integration" },
-                  { label: "bgRFC vs qRFC Supervisor Setup", query: "bgRFC vs qRFC" }
+                  { icon: "⚡", label: "Triage Inbound qRFC Jam (SMQ2)", query: "Triage inbound qRFC queue jam in SMQ2" },
+                  { icon: "🏗️", label: "PMR vs Delivery-Based Staging", query: "Compare PMR-based Advanced Production Integration with delivery-based staging" },
+                  { icon: "📊", label: "Initial Stock Upload (/SCWM/IPU)", query: "Provide a sanitized CSV template for SAP EWM initial stock upload (/SCWM/IPU) with handling units and products." },
+                  { icon: "📑", label: "Generate Word FSD Spec", query: "Generate standard SAP Functional Specification Document for Sales Order ATP" }
                 ].map((chip, idx) => (
                   <button
                     key={idx}
@@ -4720,34 +4818,43 @@ export default function Workspace({
                       setSearchTopic(chip.query);
                       handleGenerateInvestigation(chip.query);
                     }}
+                    className="nexus-quick-access-chip"
                     style={{
-                      background: "var(--bg-card, #FFFFFF)",
-                      border: "1px solid var(--border-subtle, rgba(0,0,0,0.12))",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "rgba(255, 255, 255, 0.95)",
+                      border: "1px solid rgba(0, 0, 0, 0.08)",
                       borderRadius: 20,
-                      padding: "7px 16px",
-                      fontSize: 13,
-                      fontWeight: 500,
+                      padding: "6px 14px",
+                      fontSize: 12.5,
+                      fontWeight: 550,
                       color: "var(--text-primary, #1C1917)",
                       cursor: "pointer",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-                      transition: "all 0.15s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--orange, #6E1A2D)";
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border-subtle, rgba(0,0,0,0.12))";
-                      e.currentTarget.style.transform = "none";
+                      transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                      fontFamily: "var(--font-sans)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
                     }}
                   >
-                    {chip.label}
+                    <span style={{ fontSize: 13 }}>{chip.icon}</span>
+                    <span>{chip.label}</span>
                   </button>
                 ))}
               </div>
 
+              {/* Micro-Keyboard Shortcut Legend */}
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, fontSize: 11.5, color: "#A8A29E", userSelect: "none" }}>
+                <span>↵ Send</span>
+                <span>•</span>
+                <span>/ Commands</span>
+                <span>•</span>
+                <span>Ctrl+K Projects</span>
+                <span>•</span>
+                <span>Ctrl+V Paste SAP Dump</span>
+              </div>
+
               {/* Centered Claude Footnote */}
-              <div style={{ fontSize: 12, color: "var(--text-muted, #78716C)", textAlign: "center", marginTop: 24 }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted, #78716C)", textAlign: "center", marginTop: 20 }}>
                 Nexus is an enterprise SAP AI assistant and verifies against official SAP OSS notes.
               </div>
 
