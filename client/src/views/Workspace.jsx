@@ -507,13 +507,16 @@ function parseContentBlocks(text) {
   if (!text) return [];
   const blocks = [];
 
-  // Match code fences: ```(lang)?\n([\s\S]*?)```
-  const fenceRegex = /```([a-zA-Z0-9_:-]*)\s*\n?([\s\S]*?)```/g;
+  // Normalize malformed `csv\n or ``csv\n into standard ```csv\n code fences
+  const cleanText = (text || "").replace(/(?:^|\n)`{1,2}(csv|tsv|abap|sql|json|sh|bash|text)\n/gi, '\n```$1\n');
+
+  // Match code fences (including unclosed fences during active streaming)
+  const fenceRegex = /```([a-zA-Z0-9_.:-]*)\s*\n?([\s\S]*?)(?:```|$)/g;
   let lastIndex = 0;
   let match;
 
-  while ((match = fenceRegex.exec(text)) !== null) {
-    const textBefore = text.slice(lastIndex, match.index);
+  while ((match = fenceRegex.exec(cleanText)) !== null) {
+    const textBefore = cleanText.slice(lastIndex, match.index);
     if (textBefore.trim()) {
       pushMarkdownWithUnfencedDiagram(blocks, textBefore);
     }
@@ -568,7 +571,7 @@ function parseContentBlocks(text) {
     lastIndex = match.index + match[0].length;
   }
 
-  const remaining = text.slice(lastIndex);
+  const remaining = cleanText.slice(lastIndex);
   if (remaining.trim()) {
     pushMarkdownWithUnfencedDiagram(blocks, remaining);
   }
@@ -673,6 +676,42 @@ function renderMarkdownBlock(content, blockKey) {
             renderInline={renderInline}
           />
         );
+        continue;
+      }
+    }
+
+    // Unfenced Semicolon/CSV Data Detection:
+    // Automatically transforms raw semicolon or comma records into an interactive ModernCodeBlock table card with 1-click downloads
+    if (trimmed.includes(";") && (trimmed.match(/;/g) || []).length >= 2) {
+      const csvLines = [];
+      let lookahead = i;
+      while (lookahead < rawLines.length) {
+        const lTrim = rawLines[lookahead].trim();
+        if (!lTrim) {
+          if (lookahead + 1 < rawLines.length && rawLines[lookahead + 1].trim().includes(";") && (rawLines[lookahead + 1].trim().match(/;/g) || []).length >= 2) {
+            lookahead++;
+            continue;
+          }
+          break;
+        }
+        if (lTrim.includes(";") && (lTrim.match(/;/g) || []).length >= 2) {
+          csvLines.push(lTrim);
+          lookahead++;
+        } else {
+          break;
+        }
+      }
+
+      if (csvLines.length >= 2) {
+        elements.push(
+          <ModernCodeBlock
+            key={`${blockKey}-unfenced-csv-${i}`}
+            code={csvLines.join("\n")}
+            language="csv"
+            title="Sanitized Data Template"
+          />
+        );
+        i = lookahead;
         continue;
       }
     }
