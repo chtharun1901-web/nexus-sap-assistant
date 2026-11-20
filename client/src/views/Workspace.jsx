@@ -2509,6 +2509,10 @@ export default function Workspace({
   // React to activeSessionId and activeTopic changes (+ New button & session select)
   useEffect(() => {
     if (activeSessionId) {
+      // If we are actively streaming this exact session from handleGenerateInvestigation, do NOT reload and wipe the stream!
+      if (isActivelyStreamingRef.current && (activeSessionId === activeStreamConvIdRef.current || activeSessionId === convId)) {
+        return;
+      }
       setConvId(activeSessionId);
       // Attempt loading session from DB
       loadConversation(activeSessionId).then((loaded) => {
@@ -2549,6 +2553,8 @@ export default function Workspace({
   const topTextareaRef = useRef(null);
   const followUpTextareaRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const isActivelyStreamingRef = useRef(false);
+  const activeStreamConvIdRef = useRef(null);
   const [turnVersionsMap, setTurnVersionsMap] = useState({});
 
   const handleSwitchTurnVersion = (turnId, newIndex) => {
@@ -2958,6 +2964,10 @@ export default function Workspace({
 
   const loadConversation = async (id) => {
     if (!id) return false;
+    // Guard against interrupting an active stream for this session
+    if (isActivelyStreamingRef.current && (id === activeStreamConvIdRef.current || id === convId)) {
+      return true;
+    }
     setConvId(id);
     onSessionChange?.(id);
     try {
@@ -3070,14 +3080,20 @@ export default function Workspace({
         return true;
       } else {
         // Blank session with no messages yet
-        setAiText("");
-        setAiStreaming(false);
+        if (!isActivelyStreamingRef.current) {
+          setAiText("");
+          setAiStreaming(false);
+        }
         const topicTitle = data?.title?.replace(/^NX-[^:]+:\s*/, "") || "";
         if (topicTitle && !topicTitle.startsWith("New Session")) {
-          setDoc(getMatchedDoc(topicTitle));
+          setDoc({
+            caseId: `NX-${topicTitle.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'TOPIC'}-${Math.floor(1000 + Math.random() * 9000)}`,
+            title: generateClaudeChatTitle(topicTitle),
+            term: topicTitle
+          });
           setSearchTopic(topicTitle);
         } else {
-          setDoc(getMatchedDoc("New Session"));
+          setDoc(null);
           setSearchTopic("");
         }
         return true;
@@ -3095,11 +3111,17 @@ export default function Workspace({
     const activeDoc = passedDoc || topDoc;
     if (!term && !activeImg && !activeDoc) return;
 
-    const matchedDoc = getMatchedDoc(term);
-    setDoc(matchedDoc);
+    const dynamicTitle = generateClaudeChatTitle(term || "Investigation");
+    const dynamicDoc = {
+      caseId: `NX-${(term || "CHAT").replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      title: dynamicTitle,
+      term: term
+    };
+    setDoc(dynamicDoc);
     setSearchTopic(term);
     setAiText("");
     setAiStreaming(true);
+    isActivelyStreamingRef.current = true;
     setAiCitations([]);
     setSearchEntryHtml(null);
     setTurnCitationsMap({});
@@ -3111,17 +3133,19 @@ export default function Workspace({
     // 1. Maintain / Create conversation in backend
     let currentConvId = convId;
     try {
-      const claudeTitle = generateClaudeChatTitle(term);
+      const claudeTitle = dynamicTitle;
       if (!currentConvId) {
         const convRes = await api.createConversation({ title: claudeTitle });
         if (convRes?.conversation) {
           currentConvId = convRes.conversation.id;
+          activeStreamConvIdRef.current = currentConvId;
           setConvId(currentConvId);
           onSessionChange?.(currentConvId);
           setConvs((prev) => [convRes.conversation, ...prev.filter(c => c.id !== currentConvId)]);
           window.dispatchEvent(new CustomEvent('nexus-conversation-updated', { detail: convRes.conversation }));
         }
       } else {
+        activeStreamConvIdRef.current = currentConvId;
         const updatedTitle = claudeTitle;
         api.updateConversation(currentConvId, { title: updatedTitle }).catch(() => {});
         setConvs((prev) => prev.map(c => c.id === currentConvId ? { ...c, title: updatedTitle } : c));
@@ -3131,10 +3155,7 @@ export default function Workspace({
 
     // 2. Stream AI reasoning directly into the center canvas!
     try {
-      const isDeliveryPrompt = /delivery[-\s]based/i.test(term);
-      const prompt = isDeliveryPrompt
-        ? "Explain delivery-based production integration in SAP PP/EWM and distinguish it from PMR-based Advanced Production Integration. Do not assume release, architecture, communication technology, or staging method."
-        : (term.trim().length > 15 || term.includes(" ") ? term.trim() : "Investigate topic: " + (term.trim() || (activeDoc ? "Analyze attached spreadsheet" : "Analyze attached SAP screenshot")));
+      const prompt = term.trim() || (activeDoc ? "Analyze attached spreadsheet" : "Analyze attached SAP screenshot");
       
       const userParts = [{ text: prompt }];
       if (activeImg?.base64Data) {
@@ -3210,17 +3231,19 @@ export default function Workspace({
       const isKeyErr = err.message?.includes('NO_KEY') || err.message?.includes('AI engine') || err.message?.includes('API key');
       setAiText(isKeyErr 
         ? "⚠ AI engine isn't configured. Add GEMINI_API_KEY" 
-        : "⚠ AI Reasoning Note: " + (err.message || "Failed to stream live reasoning. Showing verified standard runbook below."));
+        : "⚠ AI Reasoning Note: " + (err.message || "Failed to stream live reasoning. Please click Retry Query to try again."));
     } finally {
       stopStreamMetrics("turn-seg-0");
       setAiStreaming(false);
+      isActivelyStreamingRef.current = false;
+      activeStreamConvIdRef.current = null;
       abortControllerRef.current = null;
     }
   };
 
   // Extract turn objects from doc/searchTopic and aiText
   const conversationTurns = useMemo(() => {
-    if (!aiText && !doc) return [];
+    if (!aiText && !doc && !aiStreaming && !searchTopic) return [];
     const turns = [];
     const initialTitle = searchTopic || doc?.title || "Initial Inquiry";
 
@@ -3238,20 +3261,22 @@ export default function Workspace({
           id: `turn-seg-${sIdx}`,
           index: sIdx,
           title: turnTitle || `Turn ${sIdx + 1}`,
-          content: segment
+          content: segment,
+          userText: sIdx === 0 ? initialTitle : (turnTitle || `Follow-up ${sIdx}`)
         });
       });
-    } else if (doc) {
+    } else if (doc || aiStreaming || searchTopic) {
       turns.push({
         id: "turn-seg-0",
         index: 0,
         title: initialTitle,
-        content: ""
+        content: "",
+        userText: initialTitle
       });
     }
 
     return turns;
-  }, [aiText, doc, searchTopic]);
+  }, [aiText, doc, searchTopic, aiStreaming]);
 
   // 60FPS Butter Smooth Lenis Inertia Momentum Scroll Engine
   useEffect(() => {
@@ -5801,107 +5826,6 @@ export default function Workspace({
                 </div>
               )}
             </div>
-          )}
-
-          {/* Static Preset Sections: Render ONLY when doc is present and no AI text */}
-          {doc && !aiText && !aiStreaming && (
-            <>
-              {/* Section 1: Incident Overview */}
-              {(activeSection === "all" || activeSection === "overview") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    1. Incident Overview
-                  </h2>
-                  <FormattedText text={doc.overview} onNavigate={onNavigate} />
-                </section>
-              )}
-
-              {/* Section 2: Diagnostic Symptoms */}
-              {(activeSection === "all" || activeSection === "symptoms") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    2. Diagnostic Symptoms
-                  </h2>
-                  <ul style={{ fontSize: 14, color: "var(--text-body)", lineHeight: 1.9, paddingLeft: 22 }}>
-                    {doc.symptoms.map((s, i) => (
-                      <li key={i} style={{ marginBottom: 4 }}>{s}</li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Section 3: Production Safeguards */}
-              {(activeSection === "all" || activeSection === "safeguards") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    3. Production Safeguards
-                  </h2>
-                  <div style={{ background: "var(--amber-light)", border: "1px solid var(--amber-border)", borderRadius: 8, padding: 16, fontSize: 13.5, color: "var(--amber-text)", marginBottom: 12, lineHeight: 1.6 }}>
-                    ⚠ <strong>Read-Only Mode Active:</strong> {doc.safeguards}
-                  </div>
-                  <div style={{ background: "var(--blue-light)", border: "1px solid var(--blue-border)", borderRadius: 8, padding: 16, fontSize: 13.5, color: "var(--blue-text)", lineHeight: 1.6 }}>
-                    ℹ <strong>Production Policy:</strong> All operational changes must be verified against authorization objects and rehearsed in sandbox environments.
-                  </div>
-                </section>
-              )}
-
-              {/* Section 4: Step-by-Step Triage */}
-              {(activeSection === "all" || activeSection === "procedure") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    4. Step-by-Step Triage Runbook
-                  </h2>
-                  <ol style={{ fontSize: 14, color: "var(--text-body)", lineHeight: 1.85, paddingLeft: 22 }}>
-                    {doc.procedure.map((step, i) => (
-                      <li key={i} style={{ marginBottom: 10 }}>{step}</li>
-                    ))}
-                  </ol>
-                </section>
-              )}
-
-              {/* Section 5: T-Code Reference */}
-              {(activeSection === "all" || activeSection === "tcodes") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    5. T-Code Reference Cards
-                  </h2>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14 }}>
-                    {doc.tcodes.map((t) => (
-                      <div key={t.code} style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "16px 18px" }}>
-                        <div style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: 14, color: "var(--orange)", marginBottom: 6 }}>
-                          {t.code}
-                        </div>
-                        <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                          {t.desc}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Section 6: Official Citations */}
-              {(activeSection === "all" || activeSection === "evidence") && (
-                <section style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", borderBottom: "2px solid var(--border-subtle)", paddingBottom: 8, marginBottom: 14 }}>
-                    6. Citations & Grounding Status
-                  </h2>
-                  <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)", borderRadius: 10, padding: 18 }}>
-                    <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--orange)", marginBottom: 4, fontWeight: 700 }}>
-                      REFERENCE INFORMATION
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-                      {doc.citation}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-                      {doc.citation?.includes("General model knowledge") || doc.caseId === "NX-DLV-0248"
-                        ? "Evidence status: No directly matching official source was retrieved for this topic. General model knowledge."
-                        : "Verified reference from official SAP documentation index."}
-                    </div>
-                  </div>
-                </section>
-              )}
-            </>
           )}
           </div>
         </div>
