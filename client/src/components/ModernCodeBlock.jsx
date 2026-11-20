@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
+import { copyTableToClipboard, stripMarkdown } from "../utils/tableClipboardUtils.js";
 
 /**
  * Parses delimited text (semicolon, comma, or tab) into headers and rows.
@@ -95,33 +96,35 @@ export default function ModernCodeBlock({ code = "", language = "text", title = 
     }
   };
 
-  // 1-Click Copy for Excel (TSV)
+  // 1-Click Copy for Excel (Multi-MIME: HTML Table + Clean TSV)
   const handleCopyForExcel = async (e) => {
     e.stopPropagation();
     if (!parsedData) return handleCopy(e);
     try {
-      const tsv = [
-        parsedData.headers.join("\t"),
-        ...parsedData.rows.map(r => r.join("\t"))
-      ].join("\n");
-      await navigator.clipboard.writeText(tsv);
-      setCopiedExcel(true);
-      setTimeout(() => setCopiedExcel(false), 2000);
+      const ok = await copyTableToClipboard(parsedData.headers, parsedData.rows);
+      if (ok) {
+        setCopiedExcel(true);
+        setTimeout(() => setCopiedExcel(false), 2000);
+      }
     } catch (err) {
-      console.warn("Failed to copy TSV:", err);
+      console.warn("Failed to copy table:", err);
     }
   };
 
-  // 1-Click Download .CSV (with UTF-8 BOM for clean Excel opening)
+  // 1-Click Download .CSV (with UTF-8 BOM for clean Excel opening, markdown stripped)
   const handleDownloadCSV = (e) => {
     e.stopPropagation();
     try {
       let content = code;
-      if (parsedData && parsedData.delimiter !== ",") {
-        // Re-export standard comma-separated or keep original
+      if (parsedData) {
+        const escapeCsv = (val) => {
+          const clean = stripMarkdown(val);
+          const s = String(clean || "").replace(/"/g, '""');
+          return s.includes(",") || s.includes("\n") || s.includes('"') ? `"${s}"` : s;
+        };
         content = [
-          parsedData.headers.map(h => `"${h.replace(/"/g, '""')}"`).join(","),
-          ...parsedData.rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(","))
+          parsedData.headers.map(escapeCsv).join(","),
+          ...parsedData.rows.map(r => r.map(escapeCsv).join(","))
         ].join("\r\n");
       }
       const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
@@ -139,12 +142,15 @@ export default function ModernCodeBlock({ code = "", language = "text", title = 
     }
   };
 
-  // 1-Click Download .XLSX (Native Microsoft Excel Workbook)
+  // 1-Click Download .XLSX (Native Microsoft Excel Workbook, markdown stripped)
   const handleDownloadXLSX = (e) => {
     e.stopPropagation();
     try {
       if (parsedData) {
-        const aoa = [parsedData.headers, ...parsedData.rows];
+        const aoa = [
+          parsedData.headers.map(stripMarkdown),
+          ...parsedData.rows.map(r => r.map(stripMarkdown))
+        ];
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data_Template");

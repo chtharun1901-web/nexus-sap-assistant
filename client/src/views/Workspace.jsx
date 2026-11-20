@@ -32,6 +32,7 @@ import EmailDraftCard from "../components/EmailDraftCard.jsx";
 import ModernCodeBlock from "../components/ModernCodeBlock.jsx";
 import ModernImageLoader from "../components/ModernImageLoader.jsx";
 import ModernTableCard from "../components/ModernTableCard.jsx";
+import { stripMarkdown } from "../utils/tableClipboardUtils.js";
 import { useAuth } from "../App.jsx";
 
 
@@ -1451,6 +1452,31 @@ export function convertMarkdownToRichHtml(md) {
     return `<div style="border-left:4px solid ${colors.border};background-color:${colors.bg};padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0;"><div style="font-weight:700;font-size:10pt;color:${colors.text};margin-bottom:4px;">${colors.icon}</div><div style="color:#1E293B;font-size:10.5pt;line-height:1.5;">${cleanBody}</div></div>`;
   });
 
+  // Markdown Tables -> Clean, styled HTML tables
+  html = html.replace(/((?:^|\n)\|[^\n]+\|\r?\n\|[-:\s|]+\|\r?\n(?:\|[^\n]+\|\r?\n?)+)/g, (match) => {
+    const lines = match.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return match;
+    const headerCols = lines[0].replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+    const rowStartIndex = lines[1].includes('---') ? 2 : 1;
+    const rows = lines.slice(rowStartIndex).map(r => r.replace(/^\||\|$/g, '').split('|').map(c => c.trim()));
+    
+    let tableHtml = '<div style="margin:14px 0;overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-family:\'Aptos\',system-ui,sans-serif;font-size:10pt;color:#1F2937;border:1px solid #CBD5E1;">';
+    tableHtml += '<thead><tr style="background:#F1F5F9;border-bottom:2px solid #CBD5E1;">';
+    headerCols.forEach(h => {
+      tableHtml += `<th style="border:1px solid #CBD5E1;padding:8px 12px;font-weight:700;text-align:left;color:#0F172A;background:#F1F5F9;">${h}</th>`;
+    });
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach((row, rIdx) => {
+      tableHtml += `<tr style="background:${rIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'};border-bottom:1px solid #E2E8F0;">`;
+      row.forEach(cell => {
+        tableHtml += `<td style="border:1px solid #E2E8F0;padding:8px 12px;vertical-align:top;">${cell}</td>`;
+      });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table></div>';
+    return tableHtml;
+  });
+
   // Bullet points
   html = html.replace(/^\* (.*$)/gim, '<li style="margin-bottom:5px;color:#334155;line-height:1.6;font-family:\'Aptos\',system-ui,-apple-system,sans-serif;">$1</li>');
   html = html.replace(/^- (.*$)/gim, '<li style="margin-bottom:5px;color:#334155;line-height:1.6;font-family:\'Aptos\',system-ui,-apple-system,sans-serif;">$1</li>');
@@ -1467,7 +1493,35 @@ export function convertMarkdownToHtml(md) {
 export async function copyFormattedTextToClipboard(text) {
   if (!text) return false;
   const richHtml = convertMarkdownToRichHtml(text);
-  const plainText = text.replace(/`/g, '');
+  
+  // Clean plain text representation (strip raw **, ``, ~~)
+  let plainText = text;
+  // Convert markdown tables into clean TSV format
+  plainText = plainText.replace(/((?:^|\n)\|[^\n]+\|\r?\n\|[-:\s|]+\|\r?\n(?:\|[^\n]+\|\r?\n?)+)/g, (match) => {
+    const lines = match.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return match;
+    const headerCols = lines[0].replace(/^\||\|$/g, '').split('|').map(c => stripMarkdown(c));
+    const rowStartIndex = lines[1].includes('---') ? 2 : 1;
+    const rowLines = lines.slice(rowStartIndex).map(r =>
+      r.replace(/^\||\|$/g, '').split('|').map(c => stripMarkdown(c)).join('\t')
+    );
+    return '\n' + [headerCols.join('\t'), ...rowLines].join('\n') + '\n';
+  });
+
+  // Strip remaining markdown formatting from plain text
+  plainText = plainText
+    .replace(/\*\*\*(.*?)\*\*\*/g, '$1')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/___(.*?)___/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/`+([^`]+)`+/g, '$1')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s*\[!.*?\]\s*/gm, '')
+    .trim();
+
   try {
     if (typeof ClipboardItem !== "undefined" && navigator.clipboard && navigator.clipboard.write) {
       const htmlBlob = new Blob([richHtml], { type: "text/html" });

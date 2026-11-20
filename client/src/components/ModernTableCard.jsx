@@ -1,13 +1,19 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import {
+  copyTableToClipboard,
+  exportTableCSV,
+  stripMarkdown
+} from "../utils/tableClipboardUtils.js";
 
 /**
  * ModernTableCard
  * 
  * Claude-style interactive table card with:
  * - Floating action bar on hover
- * - 1-Click Copy Table (TSV formatted for Excel / Sheets)
- * - 1-Click Export CSV
- * - In-table search & filter for large datasets (BOMs, queues, storage bins)
+ * - 1-Click Clean Copy for Excel / Google Sheets (Multi-MIME: Rich HTML + Clean TSV without markdown clutter)
+ * - 1-Click Export CSV (with UTF-8 BOM for native Excel opening)
+ * - Optional Copy as Markdown for documentation
+ * - In-table search & filter for large datasets
  * - Zebra row styling & subtle hover highlight
  */
 export default function ModernTableCard({
@@ -18,57 +24,81 @@ export default function ModernTableCard({
   style = {}
 }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState(null); // 'excel' | 'tsv' | 'md' | null
+  const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const menuRef = useRef(null);
 
-  // Filter rows based on search term
+  // Close dropdown menu on outside click
+  useEffect(() => {
+    if (!showCopyMenu) return;
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowCopyMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCopyMenu]);
+
+  // Filter rows based on search term (compares against clean stripped text and raw)
   const filteredRows = useMemo(() => {
     if (!searchTerm.trim()) return rows;
     const term = searchTerm.toLowerCase();
     return rows.filter((row) =>
-      row.some((cell) => String(cell).toLowerCase().includes(term))
+      row.some((cell) => {
+        const raw = String(cell || "").toLowerCase();
+        const clean = stripMarkdown(cell).toLowerCase();
+        return raw.includes(term) || clean.includes(term);
+      })
     );
   }, [rows, searchTerm]);
 
-  // Copy as TSV (Tab Separated Values) for native Excel/Sheets pasting
-  const handleCopyTSV = (e) => {
-    e.stopPropagation();
-    const tsv = [
-      headers.join("\t"),
-      ...rows.map((r) => r.join("\t"))
-    ].join("\n");
+  // Target rows to copy: filtered subset if actively searching, else all rows
+  const targetRows = useMemo(() => {
+    return searchTerm.trim() && filteredRows.length > 0 ? filteredRows : rows;
+  }, [searchTerm, filteredRows, rows]);
 
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(tsv).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
+  // Primary Copy: 1-Click formatted for Excel / Google Sheets / Word (multi-mime: text/html + clean TSV)
+  const handleCopyForExcel = async (e) => {
+    if (e) e.stopPropagation();
+    setShowCopyMenu(false);
+    const ok = await copyTableToClipboard(headers, targetRows, { asMarkdown: false });
+    if (ok) {
+      setCopiedType("excel");
+      setTimeout(() => setCopiedType(null), 2000);
     }
   };
 
-  // Export as .csv file
+  // Copy as clean plain TSV
+  const handleCopyCleanTSV = async (e) => {
+    if (e) e.stopPropagation();
+    setShowCopyMenu(false);
+    const ok = await copyTableToClipboard(headers, targetRows, { asTSVOnly: true });
+    if (ok) {
+      setCopiedType("tsv");
+      setTimeout(() => setCopiedType(null), 2000);
+    }
+  };
+
+  // Copy as GitHub Flavored Markdown
+  const handleCopyMarkdown = async (e) => {
+    if (e) e.stopPropagation();
+    setShowCopyMenu(false);
+    const ok = await copyTableToClipboard(headers, targetRows, { asMarkdown: true });
+    if (ok) {
+      setCopiedType("md");
+      setTimeout(() => setCopiedType(null), 2000);
+    }
+  };
+
+  // Export as standardized .csv file with UTF-8 BOM
   const handleExportCSV = (e) => {
     e.stopPropagation();
-    const escapeCsv = (val) => {
-      const s = String(val || "").replace(/"/g, '""');
-      return s.includes(",") || s.includes("\n") || s.includes('"') ? `"${s}"` : s;
-    };
-
-    const csvContent = [
-      headers.map(escapeCsv).join(","),
-      ...rows.map((r) => r.map(escapeCsv).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `nexus-table-${Date.now()}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportTableCSV(headers, targetRows, `nexus-table-${Date.now()}.csv`);
   };
+
+  const isCopied = Boolean(copiedType);
 
   return (
     <div
@@ -116,7 +146,7 @@ export default function ModernTableCard({
         </div>
 
         {/* Right: Search Filter + 1-Click Copy / Export Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
           {/* Quick Search Input (shows if >= 3 rows) */}
           {rows.length >= 3 && (
             <input
@@ -140,35 +170,139 @@ export default function ModernTableCard({
             />
           )}
 
-          {/* Copy for Excel / TSV */}
-          <button
-            type="button"
-            onClick={handleCopyTSV}
-            title="Copy table to clipboard formatted for Excel or Google Sheets"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "3px 8px",
-              borderRadius: 6,
-              background: copied ? "rgba(16, 185, 129, 0.1)" : "var(--bg-card, #FFFFFF)",
-              border: `1px solid ${copied ? "#10B981" : "var(--border-subtle, rgba(0,0,0,0.15))"}`,
-              color: copied ? "#059669" : "var(--text-primary, #1C1917)",
-              fontSize: 11.5,
-              fontWeight: 550,
-              cursor: "pointer",
-              transition: "all 0.15s ease"
-            }}
-          >
-            <span>{copied ? "✓" : "📋"}</span>
-            <span>{copied ? "Copied" : "Copy for Excel"}</span>
-          </button>
+          {/* Copy Button Group: 1-Click Primary + Options Menu */}
+          <div ref={menuRef} style={{ display: "inline-flex", position: "relative" }}>
+            <button
+              type="button"
+              onClick={handleCopyForExcel}
+              title="Copy clean table to clipboard (formatted natively for Excel, Sheets, and Word)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 8px",
+                borderTopLeftRadius: 6,
+                borderBottomLeftRadius: 6,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+                background: isCopied ? "rgba(16, 185, 129, 0.1)" : "var(--bg-card, #FFFFFF)",
+                border: `1px solid ${isCopied ? "#10B981" : "var(--border-subtle, rgba(0,0,0,0.15))"}`,
+                borderRight: "none",
+                color: isCopied ? "#059669" : "var(--text-primary, #1C1917)",
+                fontSize: 11.5,
+                fontWeight: 550,
+                cursor: "pointer",
+                transition: "all 0.15s ease"
+              }}
+            >
+              <span>{isCopied ? "✓" : "📋"}</span>
+              <span>{isCopied ? (copiedType === "md" ? "Copied MD" : "Copied!") : "Copy for Excel"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCopyMenu((prev) => !prev);
+              }}
+              title="More copy formats (TSV, Markdown)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "3px 5px",
+                borderTopRightRadius: 6,
+                borderBottomRightRadius: 6,
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                background: isCopied ? "rgba(16, 185, 129, 0.1)" : "var(--bg-card, #FFFFFF)",
+                border: `1px solid ${isCopied ? "#10B981" : "var(--border-subtle, rgba(0,0,0,0.15))"}`,
+                color: isCopied ? "#059669" : "var(--text-muted, #78716C)",
+                fontSize: 10,
+                cursor: "pointer",
+                transition: "all 0.15s ease"
+              }}
+            >
+              ▾
+            </button>
+
+            {/* Dropdown Menu for Alternative Formats */}
+            {showCopyMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 4,
+                  backgroundColor: "var(--bg-card, #FFFFFF)",
+                  borderRadius: 8,
+                  border: "1px solid var(--border-subtle, rgba(0,0,0,0.12))",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  padding: "4px 0",
+                  zIndex: 50,
+                  minWidth: 170
+                }}
+              >
+                <div
+                  onClick={handleCopyForExcel}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 11.5,
+                    color: "var(--text-primary, #1C1917)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-surface, #F5F5F0)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <span>📋</span>
+                  <span>Copy for Excel / Sheets</span>
+                </div>
+                <div
+                  onClick={handleCopyCleanTSV}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 11.5,
+                    color: "var(--text-primary, #1C1917)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-surface, #F5F5F0)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <span>📄</span>
+                  <span>Copy as Clean TSV</span>
+                </div>
+                <div
+                  onClick={handleCopyMarkdown}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 11.5,
+                    color: "var(--text-primary, #1C1917)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-surface, #F5F5F0)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <span>📑</span>
+                  <span>Copy as Markdown</span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Download CSV */}
           <button
             type="button"
             onClick={handleExportCSV}
-            title="Download table as .csv file"
+            title="Download clean table as UTF-8 .csv file"
             style={{
               display: "inline-flex",
               alignItems: "center",
