@@ -22,7 +22,6 @@ import NexusDocCard from "../components/NexusDocCard.jsx";
 import NexusDocPanel from "../components/NexusDocPanel.jsx";
 import SlashCommandMenu from "../components/SlashCommandMenu.jsx";
 import ExpandableThinking from "../components/ExpandableThinking.jsx";
-import GroundingSourcesPanel from "../components/GroundingSourcesPanel.jsx";
 import TCodeHoverCard, { isKnownTCode } from "../components/TCodeHoverCard.jsx";
 import { SemanticIncidentMatcherModal, DeepResearchModal } from "../components/GeminiModals.jsx";
 import ShiftHandoverModal from "../components/ShiftHandoverModal.jsx";
@@ -5544,13 +5543,7 @@ export default function Workspace({
                             />
                           )}
 
-                          {/* Verified Sources & Live Citations Panel under Diagnosis */}
-                          {((turnCitationsMap[turn.id] && turnCitationsMap[turn.id].length > 0) || (tIdx === conversationTurns.length - 1 && aiCitations && aiCitations.length > 0)) && (
-                            <GroundingSourcesPanel
-                              sources={turnCitationsMap[turn.id] || (tIdx === conversationTurns.length - 1 ? aiCitations : [])}
-                              searchEntryHtml={tIdx === conversationTurns.length - 1 ? searchEntryHtml : null}
-                            />
-                          )}
+
 
                           {/* Smart Follow-Up Suggestions */}
                           {!isStreamingThisTurn && tIdx === conversationTurns.length - 1 && followUpSuggestions && followUpSuggestions.length > 0 && (
@@ -5843,12 +5836,7 @@ export default function Workspace({
                               </div>
                             )}
 
-                            {aiCitations && aiCitations.length > 0 && (
-                              <GroundingSourcesPanel
-                                sources={aiCitations}
-                                searchEntryHtml={searchEntryHtml}
-                              />
-                            )}
+
 
                             {activeSapAgentResult && (
                               <SapActionTimelineCard
