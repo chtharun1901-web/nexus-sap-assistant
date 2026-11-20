@@ -171,13 +171,25 @@ export default function ClaudeSidebar({
           paddingTop: 14
         }}
       >
-        <img 
-          src="/nexus-logo.jpg" 
-          alt="Nexus" 
+        <div
           onClick={handleToggleCollapse}
-          style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", cursor: "pointer", marginBottom: 14, boxShadow: "0 2px 6px rgba(0,0,0,0.18)" }}
           title="Expand Nexus Sidebar"
-        />
+          style={{
+            width: 32,
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            marginBottom: 14,
+            borderRadius: 8,
+            transition: "background 0.2s"
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M12 0L13.5 8.5L22 10L14.5 13.5L16 22L11 15.5L4 19L7.5 12L0 8.5L8.5 7.5L12 0Z" fill="#D4622B" />
+          </svg>
+        </div>
         <button onClick={handleToggleCollapse} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }}>☰</button>
         <button onClick={() => { if (onNewChat) onNewChat(); else if (onNavigate) onNavigate("workspace", null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="New Chat">＋</button>
         <button onClick={() => { if (onOpenSearchModal) onOpenSearchModal(); else window.dispatchEvent(new CustomEvent('nexus-open-search-modal')); }} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: 20, fontSize: 18 }} title="Search (Ctrl+K)">🔍</button>
@@ -226,18 +238,16 @@ export default function ClaudeSidebar({
               style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
               title="Nexus Studio - Home"
             >
-              <img 
-                src="/nexus-logo.jpg" 
-                alt="Nexus Logo" 
-                style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", boxShadow: "0 2px 6px rgba(0,0,0,0.18)" }} 
-              />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, filter: "drop-shadow(0 1px 3px rgba(212, 98, 43, 0.25))" }}>
+                <path d="M12 0L13.5 8.5L22 10L14.5 13.5L16 22L11 15.5L4 19L7.5 12L0 8.5L8.5 7.5L12 0Z" fill="#D4622B" />
+              </svg>
               <span
                 style={{
-                  fontFamily: "var(--font-sans, system-ui)",
-                  fontSize: 20,
-                  fontWeight: 800,
+                  fontFamily: "'Newsreader', 'Lora', 'Source Serif 4', Georgia, serif",
+                  fontSize: 21,
+                  fontWeight: 600,
                   color: "var(--text-primary, #1C1917)",
-                  letterSpacing: "-0.03em"
+                  letterSpacing: "-0.015em"
                 }}
               >
                 Nexus

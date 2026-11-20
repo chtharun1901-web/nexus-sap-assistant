@@ -4142,38 +4142,70 @@ export default function Workspace({
           {!doc && !aiText && !aiStreaming && (
             <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 12px 28px 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
-              {/* Centered Brand Header with Ambient Caustic Aura (Concept 2) */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32, textAlign: "center", position: "relative" }}>
+              {/* Centered Brand Header with Claude Editorial Serif & Ambient Caustic Spark */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 30, textAlign: "center", position: "relative" }}>
                 
-                {/* Caustic Ambient Breathing Aura Halo */}
-                <div style={{ position: "relative", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-                  <div
+                {/* Claude Typographic Wordmark & Terracotta Spark */}
+                <div 
+                  className="nexus-claude-brand-logo"
+                  style={{ 
+                    position: "relative", 
+                    display: "inline-flex", 
+                    alignItems: "center", 
+                    gap: 12, 
+                    marginBottom: 14,
+                    userSelect: "none"
+                  }}
+                >
+                  {/* Caustic Ambient Breathing Aura Halo behind the Spark */}
+                  <div style={{ position: "relative", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: -10,
+                        borderRadius: "50%",
+                        background: "conic-gradient(from 180deg at 50% 50%, #D4622B 0deg, #D97706 72deg, #F59E0B 144deg, #B45309 216deg, #D4622B 288deg, #F59E0B 360deg)",
+                        filter: "blur(16px)",
+                        opacity: 0.68,
+                        animation: "causticAuraBreathe 4.5s ease-in-out infinite alternate, causticRotate 20s linear infinite",
+                        pointerEvents: "none",
+                        zIndex: 0
+                      }}
+                    />
+                    {/* Anthropic / Claude Signature 12-Point Terracotta Spark Mark */}
+                    <svg 
+                      width="34" 
+                      height="34" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      style={{ 
+                        position: "relative", 
+                        zIndex: 1,
+                        filter: "drop-shadow(0 2px 8px rgba(212, 98, 43, 0.35))"
+                      }}
+                    >
+                      <path 
+                        d="M12 0L13.5 8.5L22 10L14.5 13.5L16 22L11 15.5L4 19L7.5 12L0 8.5L8.5 7.5L12 0Z" 
+                        fill="#D4622B" 
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Claude Typographic Serif Wordmark */}
+                  <span 
                     style={{
-                      position: "absolute",
-                      inset: -10,
-                      borderRadius: "50%",
-                      background: "conic-gradient(from 180deg at 50% 50%, #D97706 0deg, #F59E0B 72deg, #831843 144deg, #B45309 216deg, #D97706 288deg, #F59E0B 360deg)",
-                      filter: "blur(20px)",
-                      opacity: 0.72,
-                      animation: "causticAuraBreathe 4.5s ease-in-out infinite alternate, causticRotate 20s linear infinite",
-                      pointerEvents: "none",
-                      zIndex: 0
-                    }}
-                  />
-                  <img 
-                    src="/nexus-logo.jpg" 
-                    alt="Nexus Logo" 
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 14,
-                      objectFit: "cover",
-                      boxShadow: "0 4px 20px rgba(217, 119, 6, 0.28), 0 2px 6px rgba(0,0,0,0.1)",
-                      border: "2px solid rgba(255, 255, 255, 0.95)",
+                      fontFamily: "'Newsreader', 'Lora', 'Source Serif 4', Georgia, serif",
+                      fontSize: 42,
+                      fontWeight: 550,
+                      color: "var(--text-primary, #1F1F1E)",
+                      letterSpacing: "-0.02em",
+                      lineHeight: 1,
                       position: "relative",
                       zIndex: 1
-                    }} 
-                  />
+                    }}
+                  >
+                    Nexus
+                  </span>
                 </div>
 
                 <h1 style={{
