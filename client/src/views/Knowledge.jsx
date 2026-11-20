@@ -38,7 +38,7 @@ export default function Knowledge() {
       <div style={{maxWidth:1080,margin:"0 auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
           <div>
-            <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginBottom:6}}>Sanjaya &gt; Personal Workspace &gt; <strong style={{color:"var(--text-primary)"}}>Knowledge Library</strong></div>
+            <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginBottom:6}}>Nexus &gt; Personal Workspace &gt; <strong style={{color:"var(--text-primary)"}}>Knowledge Library</strong></div>
             <h1 style={{fontSize:22,fontWeight:800,color:"var(--text-primary)",letterSpacing:"-0.02em"}}>Personal Knowledge Library</h1>
             <p style={{fontSize:13,color:"var(--text-muted)",marginTop:4}}>Saved procedures, verified code snippets, operational notes, and personal documentation — isolated to your account.</p>
           </div>

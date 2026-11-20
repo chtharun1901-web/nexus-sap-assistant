@@ -78,7 +78,7 @@ export default function ActivityRail({ active, onNavigate }) {
           flexShrink: 0,
           cursor: "default"
         }}
-        title="SANJAYA (सञ्जय) — SAP Operations Intelligence"
+        title="NEXUS — SAP Operations Intelligence"
       >
         SJ
       </div>

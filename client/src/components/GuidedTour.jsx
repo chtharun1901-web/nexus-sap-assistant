@@ -4,10 +4,10 @@ const TOUR_STEPS = [
   {
     id: "welcome",
     target: "#tour-hero-banner",
-    title: "👑 Welcome to SANJAYA (सञ्जय)",
+    title: "Welcome to Nexus",
     tag: "STEP 1 OF 5 · ENTERPRISE AI SENTINEL",
-    desc: "Sanjaya is your agent-ready SAP Operations Intelligence companion. With real-time queue triage, root-cause diagnosis for SMQ1, SMQ2, and bgRFC pipelines, and zero-hallucination grounded reasoning.",
-    icon: "🛕",
+    desc: "Nexus is your agent-ready SAP Operations Intelligence companion. With real-time queue triage, root-cause diagnosis for SMQ1, SMQ2, and bgRFC pipelines, and zero-hallucination grounded reasoning.",
+    icon: "✳",
     position: "bottom"
   },
   {

@@ -207,7 +207,7 @@ export default function Home({ onNavigate }) {
         <div id="tour-search-card" style={{ ...CARD, marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h2 style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>
-              Search Sanjaya Enterprise Knowledge
+              Search Nexus Enterprise Knowledge
             </h2>
             <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
               Official Help · OSS Notes · Runbooks · Playbooks

@@ -189,7 +189,7 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
           <div style={{ width: 22, height: 22, borderRadius: 4, background: "linear-gradient(135deg,var(--orange),#FF8C00)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#fff" }}><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
           </div>
-          <span style={{ fontWeight: 700, fontSize: 13, color: "#EDEDED" }}>Sanjaya AI Reasoning</span>
+          <span style={{ fontWeight: 700, fontSize: 13, color: "#EDEDED" }}>Nexus AI Reasoning</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <select
@@ -258,10 +258,10 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
               <div style={{ width: 20, height: 20, borderRadius: 4, background: "linear-gradient(135deg, #F59E0B, #D97706)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#EDEDED", fontFamily: "var(--font-mono)" }}>SANJAYA AI (सञ्जय)</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#EDEDED", fontFamily: "var(--font-mono)" }}>NEXUS AI</span>
             </div>
             <p style={{ fontSize: 13, color: "#A1A1AA", lineHeight: 1.6 }}>
-              I am Sanjaya, your divine-vision SAP Operations copilot. Ask me about any queue, T-code, or symptom (e.g. <strong style={{ color: "var(--orange)" }}>SMQ1</strong>, <strong style={{ color: "var(--orange)" }}>SMQ2</strong>, <strong style={{ color: "var(--orange)" }}>PMR</strong>, <strong style={{ color: "var(--orange)" }}>bgRFC</strong>).
+              I am Nexus, your enterprise SAP copilot. Ask me about any queue, T-code, or symptom (e.g. <strong style={{ color: "var(--orange)" }}>SMQ1</strong>, <strong style={{ color: "var(--orange)" }}>SMQ2</strong>, <strong style={{ color: "var(--orange)" }}>PMR</strong>, <strong style={{ color: "var(--orange)" }}>bgRFC</strong>).
             </p>
           </div>
         )}
@@ -275,7 +275,7 @@ export default function ChatPanel({ convId, history, onHistory, currentTopic, on
             ) : (
               <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "2px 10px 10px 10px", padding: "12px 14px", maxWidth: "94%" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", fontFamily: "var(--font-mono)" }}>SANJAYA (सञ्जय)</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", fontFamily: "var(--font-mono)" }}>NEXUS</span>
                 </div>
                 <div style={{ fontSize: 13, color: "#D6D6D6", lineHeight: 1.65 }}>
                   {m.content ? (
