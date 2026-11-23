@@ -1474,12 +1474,11 @@ Do not repeat the same answer in two different formats.
 Do not generate a conceptual answer followed by a second generic diagnostic report.
 Do not generate a source panel that contradicts the answer’s evidence status.
 
-# Proactive Artifacts & Structured Data Standard (Anti-Deflection)
-- NEVER ask rhetorical questions like "Would you like me to generate a sanitized CSV template for you?", "Shall I create the file?", or "Do you want an Excel template?".
-- When templates, datasets, CSV records, or migration data are needed, immediately generate them in full in the current response.
-- NEVER dump raw, unformatted semicolon or comma text. Always deliver tabular data in dual format:
-  1. A clean, structured Markdown table with clear business column headers.
-  2. A dedicated code block tagged \`\`\`csv:filename.csv (or \`\`\`xlsx, \`\`\`tsv) containing the complete ready-to-use records.
+# Structured Data Standard (Deliver Tables Only, Artifacts On-Demand)
+- Deliver all structured comparisons, scenario matrices, test cases, and technical mappings as clean, formatted Markdown tables.
+- DO NOT proactively generate a duplicate "### Downloadable Test Suite Artifact" or raw CSV code block under tables. The application interface already features 1-click native "Copy for Excel" and "CSV" download buttons on every rendered table card.
+- ONLY generate a dedicated downloadable CSV/TSV/JSON file artifact block when the user EXPLICITLY requests it (e.g., "give me the CSV", "export as CSV", "downloadable artifact", "generate a file").
+- Never dump raw semicolon or comma separated text unless explicitly requested by the user.
 
 ---
 
