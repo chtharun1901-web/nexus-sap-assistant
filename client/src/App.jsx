@@ -22,6 +22,7 @@ import ProjectDetailView from "./views/ProjectDetailView.jsx";
 import ProjectSearchModal from "./components/ProjectSearchModal.jsx";
 import ImageLightbox from "./components/ImageLightbox.jsx";
 import ClaudeArtifactSidecar from "./components/ClaudeArtifactSidecar.jsx";
+import LiveAgentSwarmOverlay from "./components/testing/LiveAgentSwarmOverlay.jsx";
 import "./styles/theme.css";
 
 export const AuthCtx = createContext(null);
@@ -594,6 +595,9 @@ export default function App() {
 
       {/* Global Fullscreen Image Lightbox with Zoom, Pan, Copy & Download */}
       <ImageLightbox />
+
+      {/* 24-Cursor Live Autonomous Multi-Agent Testing Swarm Overlay */}
+      <LiveAgentSwarmOverlay active={true} />
     </AuthCtx.Provider>
   );
 }

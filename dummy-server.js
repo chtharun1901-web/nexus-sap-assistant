@@ -64,6 +64,72 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Autonomous Testing Swarm Telemetry Endpoints
+  if (req.method === 'POST' && req.url.startsWith('/api/testing/telemetry/batch')) {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body || '{}');
+        const events = data.events || [];
+        const timestamp = new Date().toISOString();
+        if (!global.inMemoryTelemetryLogs) global.inMemoryTelemetryLogs = [];
+        events.forEach(e => {
+          global.inMemoryTelemetryLogs.push({
+            id: `test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            sessionId: data.sessionId || 'session-preview',
+            agentId: e.agentId || 'agent-unknown',
+            agentName: e.agentName || 'Testing Agent',
+            targetElement: e.targetElement || 'Element',
+            action: e.action || 'Verification Check',
+            status: e.status || 'passed',
+            timestamp: e.timestamp || timestamp
+          });
+        });
+        if (global.inMemoryTelemetryLogs.length > 5000) {
+          global.inMemoryTelemetryLogs = global.inMemoryTelemetryLogs.slice(-4000);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, insertedCount: events.length, totalRecorded: global.inMemoryTelemetryLogs.length }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/api/testing/telemetry/stats')) {
+    const logs = global.inMemoryTelemetryLogs || [];
+    const agentMap = {};
+    logs.forEach(l => {
+      agentMap[l.agentName] = (agentMap[l.agentName] || 0) + 1;
+    });
+    const agentBreakdown = Object.keys(agentMap).map(k => ({ agent_name: k, checks_count: agentMap[k] }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      ok: true,
+      totalChecks: logs.length,
+      agentBreakdown,
+      recentLogs: logs.slice(-25).reverse()
+    }));
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/api/testing/telemetry/export')) {
+    const logs = global.inMemoryTelemetryLogs || [];
+    const header = "id,session_id,agent_id,agent_name,target_element,action,status,timestamp\n";
+    const lines = logs.map(r => 
+      `"${r.id}","${r.sessionId}","${r.agentId}","${(r.agentName||'').replace(/"/g, '""')}","${(r.targetElement||'').replace(/"/g, '""')}","${(r.action||'').replace(/"/g, '""')}","${r.status}","${r.timestamp}"`
+    );
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="nexus-testing-telemetry-audit.csv"'
+    });
+    res.end(header + lines.join("\n"));
+    return;
+  }
+
   // Serve static files
   let cleanUrl = req.url.split('?')[0];
   let filePath = path.join(PUBLIC_DIR, cleanUrl);

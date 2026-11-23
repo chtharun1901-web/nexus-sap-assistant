@@ -2453,6 +2453,59 @@ http.createServer(async (req, res) => {
     return jsonRes(200, { ok: true, message: 'Logged out successfully' }, { 'Set-Cookie': clearCookie });
   }
 
+  // ── Autonomous Testing Swarm Telemetry Routes ─────────────────────────────────
+
+  // Ingest batch of autonomous test checks from frontend swarm
+  if (req.method === 'POST' && pathname === '/api/testing/telemetry/batch') {
+    return parseBody((err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const events = body.events || [];
+        const sessionId = body.sessionId || 'session-live';
+        const records = events.map(e => ({
+          sessionId,
+          agentId: e.agentId,
+          agentName: e.agentName,
+          targetElement: e.targetElement,
+          action: e.action,
+          status: e.status || 'passed',
+          latencyMs: e.latencyMs || 0,
+          timestamp: e.timestamp || new Date().toISOString()
+        }));
+        const count = db.recordTestTelemetryBatch(records);
+        const stats = db.getTestTelemetryStats();
+        return jsonRes(200, { ok: true, insertedCount: count, totalRecorded: stats.totalChecks });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // Live Swarm Telemetry Stats & Breakdown
+  if (req.method === 'GET' && pathname === '/api/testing/telemetry/stats') {
+    try {
+      const stats = db.getTestTelemetryStats();
+      return jsonRes(200, { ok: true, ...stats });
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
+  // Export Recorded Test Telemetry Audit as CSV
+  if (req.method === 'GET' && pathname === '/api/testing/telemetry/export') {
+    try {
+      const csv = db.exportTestTelemetryCsv(3000);
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="nexus-testing-telemetry-audit.csv"',
+        ...corsHeaders
+      });
+      return res.end(csv);
+    } catch (e) {
+      return jsonRes(500, { ok: false, error: e.message });
+    }
+  }
+
   // Current Auth State (/api/auth/me)
   if (req.method === 'GET' && pathname === '/api/auth/me') {
     if (!currentUser) {

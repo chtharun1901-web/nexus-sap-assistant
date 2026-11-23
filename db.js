@@ -421,6 +421,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_prompt_templates_user ON prompt_templates(user_id);
   CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON quiz_attempts(user_id, completed_at DESC);
   CREATE INDEX IF NOT EXISTS idx_nexus_docs_user ON nexus_docs(user_id, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS test_telemetry (
+    id TEXT PRIMARY KEY,
+    session_id TEXT,
+    agent_id TEXT,
+    agent_name TEXT,
+    target_element TEXT,
+    action TEXT,
+    status TEXT DEFAULT 'passed',
+    latency_ms INTEGER DEFAULT 0,
+    timestamp TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_test_telemetry_ts ON test_telemetry(timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_test_telemetry_agent ON test_telemetry(agent_id);
 `);
 
 // ── Schema Column Migrations ───────────────────────────────────────────────
@@ -2620,9 +2634,73 @@ function searchGlobal(userId, query, projectId = null) {
   return { sessions, messages, files, projects };
 }
 
+// ── Autonomous Testing Swarm Telemetry ──────────────────────────────────────────
+
+function recordTestTelemetryBatch(records) {
+  if (!Array.isArray(records) || records.length === 0) return 0;
+  const insertStmt = db.prepare(`
+    INSERT INTO test_telemetry (
+      id, session_id, agent_id, agent_name, target_element, action, status, latency_ms, timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  let inserted = 0;
+  for (const r of records) {
+    const id = r.id || `test-${crypto.randomUUID()}`;
+    const timestamp = r.timestamp || new Date().toISOString();
+    insertStmt.run(
+      id,
+      r.sessionId || 'session-live',
+      r.agentId || 'agent-unknown',
+      r.agentName || 'Testing Agent',
+      r.targetElement || 'Unknown Target',
+      r.action || 'Verification Check',
+      r.status || 'passed',
+      r.latencyMs || 0,
+      timestamp
+    );
+    inserted++;
+  }
+  return inserted;
+}
+
+function getTestTelemetryStats() {
+  const totalRow = db.prepare('SELECT COUNT(*) as total FROM test_telemetry').get();
+  const agentRows = db.prepare(`
+    SELECT agent_id, agent_name, COUNT(*) as checks_count 
+    FROM test_telemetry 
+    GROUP BY agent_id 
+    ORDER BY checks_count DESC
+  `).all();
+  const recentLogs = db.prepare(`
+    SELECT * FROM test_telemetry ORDER BY timestamp DESC LIMIT 30
+  `).all();
+  return {
+    totalChecks: totalRow ? totalRow.total : 0,
+    agentBreakdown: agentRows,
+    recentLogs
+  };
+}
+
+function exportTestTelemetryCsv(limit = 2000) {
+  const rows = db.prepare(`SELECT * FROM test_telemetry ORDER BY timestamp DESC LIMIT ?`).all(limit);
+  const header = "id,session_id,agent_id,agent_name,target_element,action,status,timestamp\n";
+  const lines = rows.map(r => 
+    `"${r.id}","${r.session_id}","${r.agent_id}","${(r.agent_name||'').replace(/"/g, '""')}","${(r.target_element||'').replace(/"/g, '""')}","${(r.action||'').replace(/"/g, '""')}","${r.status}","${r.timestamp}"`
+  );
+  return header + lines.join("\n");
+}
+
 module.exports = {
   db,
   hashPassword,
+  verifyPassword,
+  hashToken,
+  generateId,
+  // Testing Telemetry
+  recordTestTelemetryBatch,
+  getTestTelemetryStats,
+  exportTestTelemetryCsv,
   verifyPassword,
   hashToken,
   generateId,
