@@ -52,10 +52,10 @@ export default function VisualizationsSidebar({
           <span style={{ fontSize: 20 }}>📊</span>
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 900, letterSpacing: "-0.01em", color: "var(--text-primary)" }}>
-              Nexus Slide Studio
+              Enterprise Flow & Slide Studio
             </div>
-            <div style={{ fontSize: 9.5, color: "var(--burgundy-rich, #6E1A2D)", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
-              SAP SLIDE STUDIO
+            <div style={{ fontSize: 9.5, color: "#D4622B", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+              ENTERPRISE STUDIO
             </div>
           </div>
         </div>
@@ -92,13 +92,13 @@ export default function VisualizationsSidebar({
             gap: 8,
             padding: "9px 14px",
             borderRadius: 8,
-            background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+            background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
             color: "#FFFFFF",
             border: "none",
             fontSize: 12.5,
             fontWeight: 700,
             cursor: "pointer",
-            boxShadow: "0 2px 6px rgba(110,26,45,0.25)",
+            boxShadow: "0 2px 6px rgba(212, 98, 43, 0.25)",
             transition: "all 0.15s ease"
           }}
           onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.92"; }}
@@ -162,8 +162,8 @@ export default function VisualizationsSidebar({
                   padding: "8px 10px",
                   marginBottom: 3,
                   borderRadius: 6,
-                  background: isSelected ? "var(--burgundy-light, #FDF2F4)" : "transparent",
-                  borderLeft: isSelected ? "3px solid var(--burgundy-rich, #6E1A2D)" : "3px solid transparent",
+                  background: isSelected ? "rgba(212, 98, 43, 0.08)" : "transparent",
+                  borderLeft: isSelected ? "3px solid #D4622B" : "3px solid transparent",
                   cursor: "pointer",
                   transition: "background 0.12s ease"
                 }}
@@ -181,7 +181,7 @@ export default function VisualizationsSidebar({
                       style={{
                         fontSize: 12.5,
                         fontWeight: isSelected ? 700 : 500,
-                        color: isSelected ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)",
+                        color: isSelected ? "#D4622B" : "var(--text-primary)",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap"

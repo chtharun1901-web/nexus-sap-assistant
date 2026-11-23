@@ -107,22 +107,22 @@ export default function VisualizationEntryHero({
     {
       title: "Business Partner & Customer Master (SD-M02)",
       desc: "BP roles FLCU01, Sales Area KNVV, Shipping KNVS & CVI sync.",
-      prompt: "SAP SD SD-M02 Business Partner & Customer Master (Sales Area, Shipping Data)"
+      prompt: "Enterprise Business Partner & Customer Master (Sales Area, Shipping Data)"
     },
     {
       title: "Pricing Condition Technique (OVKK)",
       desc: "Condition tables, access sequences, pricing procedure & VK11.",
-      prompt: "SAP SD Pricing Condition Technique & Determination Logic (OVKK / V/08 / VK11)"
+      prompt: "Enterprise Pricing Condition Technique & Determination Logic (OVKK / V/08 / VK11)"
     },
     {
       title: "Shipping Point Determination (OVL2)",
       desc: "Shipping condition, loading group, delivering plant & delivery split.",
-      prompt: "SAP SD Shipping Point Determination & Route Determination (OVL2 / 0VTC)"
+      prompt: "Enterprise Shipping Point Determination & Route Determination (OVL2 / 0VTC)"
     },
     {
       title: "Automatic Account Determination (OBYC)",
       desc: "Valuation classes, movement types, account assignment & GL.",
-      prompt: "SAP MM Automatic Account Determination & Valuation Classes (OBYC)"
+      prompt: "Enterprise Automatic Account Determination & Valuation Classes (OBYC)"
     }
   ];
 
@@ -136,7 +136,7 @@ export default function VisualizationEntryHero({
         flexDirection: "column",
         alignItems: "center",
         padding: "36px 24px 60px",
-        background: "var(--bg-main, #F5F1EB)",
+        background: "var(--bg-main, #FAF9F5)",
         userSelect: "none"
       }}
     >
@@ -154,7 +154,7 @@ export default function VisualizationEntryHero({
             marginBottom: 14
           }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6E1A2D", display: "inline-block" }} />
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#D4622B", display: "inline-block" }} />
           <span style={{ fontSize: 11.5, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
             Executive Deck · 100% Native PPTX
           </span>
@@ -169,7 +169,7 @@ export default function VisualizationEntryHero({
             margin: "0 0 8px 0"
           }}
         >
-          Nexus Slide Studio
+          Enterprise Queue Flow & Slide Studio
         </h1>
         <p
           style={{
@@ -180,7 +180,7 @@ export default function VisualizationEntryHero({
             maxWidth: 620
           }}
         >
-          Enter any SAP topic to generate an executive 12-slide presentation with native PowerPoint shapes.
+          Enter any enterprise workflow or queue topic to generate an executive 12-slide presentation with native PowerPoint shapes and flow charts.
         </p>
       </div>
 
@@ -194,7 +194,7 @@ export default function VisualizationEntryHero({
             padding: "12px 16px",
             borderRadius: 8,
             background: "var(--bg-card, #FFFFFF)",
-            border: "1px solid var(--burgundy-border, #F3CBD2)",
+            border: "1px solid rgba(212, 98, 43, 0.25)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -211,8 +211,8 @@ export default function VisualizationEntryHero({
                     fontWeight: 700,
                     padding: "1px 6px",
                     borderRadius: 3,
-                    background: "var(--burgundy-light, #FDF2F4)",
-                    color: "var(--burgundy-rich, #6E1A2D)",
+                    background: "rgba(212, 98, 43, 0.08)",
+                    color: "#D4622B",
                     fontFamily: "var(--font-mono)"
                   }}
                 >
@@ -232,14 +232,14 @@ export default function VisualizationEntryHero({
             style={{
               padding: "6px 14px",
               borderRadius: 6,
-              background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+              background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
               border: "none",
               color: "#FFFFFF",
               fontSize: 11.5,
               fontWeight: 700,
               cursor: "pointer",
               whiteSpace: "nowrap",
-              boxShadow: "0 1px 3px rgba(110,26,45,0.2)"
+              boxShadow: "0 1px 3px rgba(212, 98, 43, 0.2)"
             }}
           >
             Generate Active Topic (.pptx)
@@ -257,7 +257,7 @@ export default function VisualizationEntryHero({
           width: "100%",
           background: "var(--bg-card, #FFFFFF)",
           borderRadius: 12,
-          border: isDragging ? "1.5px dashed var(--burgundy-rich, #6E1A2D)" : "1px solid var(--border-strong, rgba(0,0,0,0.12))",
+          border: isDragging ? "1.5px dashed #D4622B" : "1px solid var(--border-strong, rgba(0,0,0,0.12))",
           boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
           padding: 14,
           marginBottom: 24,
@@ -315,7 +315,7 @@ export default function VisualizationEntryHero({
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Enter an SAP topic (e.g. Business Partner SD-M02, Pricing OVKK, Shipping OVL2)..."
+          placeholder="Enter an enterprise workflow topic (e.g. Business Partner SD-M02, Pricing OVKK, Shipping OVL2)..."
           style={{
             width: "100%",
             border: "none",
@@ -352,9 +352,9 @@ export default function VisualizationEntryHero({
               gap: 6,
               padding: "5px 10px",
               borderRadius: 6,
-              background: attachedFile ? "var(--burgundy-light, #FDF2F4)" : "var(--bg-surface)",
-              color: attachedFile ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)",
-              border: attachedFile ? "1px solid var(--burgundy-border, #F3CBD2)" : "1px solid var(--border-subtle)",
+              background: attachedFile ? "rgba(212, 98, 43, 0.08)" : "var(--bg-surface)",
+              color: attachedFile ? "#D4622B" : "var(--text-primary)",
+              border: attachedFile ? "1px solid rgba(212, 98, 43, 0.25)" : "1px solid var(--border-subtle)",
               fontSize: 11.5,
               fontWeight: 600,
               cursor: "pointer"
@@ -373,13 +373,13 @@ export default function VisualizationEntryHero({
               gap: 6,
               padding: "7px 18px",
               borderRadius: 6,
-              background: isGenerating || (!prompt.trim() && !attachedFile) ? "#94A3B8" : "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+              background: isGenerating || (!prompt.trim() && !attachedFile) ? "#94A3B8" : "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
               color: "#FFFFFF",
               border: "none",
               fontSize: 12.5,
               fontWeight: 700,
               cursor: isGenerating || (!prompt.trim() && !attachedFile) ? "not-allowed" : "pointer",
-              boxShadow: "0 2px 6px rgba(110,26,45,0.25)"
+              boxShadow: "0 2px 6px rgba(212, 98, 43, 0.25)"
             }}
           >
             {isGenerating ? "Generating Deck..." : "Generate Presentation (.pptx)"}
@@ -413,7 +413,7 @@ export default function VisualizationEntryHero({
                 textAlign: "left",
                 transition: "all 0.15s ease"
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--burgundy-rich, #6E1A2D)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#D4622B"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; }}
             >
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>

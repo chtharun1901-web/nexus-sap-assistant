@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "build": "npm --prefix client install && npm --prefix client run build",
-    "deploy": "npm run build && node server.js"
+    "deploy": "npm run build && node server.js",
+    "test:swarm": "node run_headless_swarm_test.mjs"
   },
   "engines": {
     "node": ">=22.0.0"

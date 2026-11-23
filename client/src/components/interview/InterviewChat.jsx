@@ -3,12 +3,12 @@ import { FormattedText } from "../../views/Workspace.jsx";
 import TurnNavigatorHUD from "../TurnNavigatorHUD.jsx";
 
 const QUICK_PRESETS = [
-  { label: "Production Version (C223)", prompt: "In SAP S/4HANA Manufacturing, what is the role of Production Version (C223) and why is it mandatory?" },
+  { label: "Production Version (C223)", prompt: "In Enterprise Manufacturing & Production Planning, what is the role of Production Version (C223) and why is it mandatory?" },
   { label: "Embedded vs Decentralized EWM", prompt: "Explain the architectural and staging differences between Embedded EWM and Decentralized EWM." },
   { label: "SMQ2 qRFC Stuck SYSFAIL", prompt: "How do you triage and resolve stuck inbound qRFC queues in SMQ2 with status SYSFAIL?" },
   { label: "TECO vs CLSD in CO02", prompt: "Explain the functional and financial differences between TECO (Technically Complete) and CLSD (Closed) in Production Orders." },
-  { label: "bgRFC Supervisor Destination", prompt: "How does bgRFC handle supervisor destinations in S/4HANA compared to classic qRFC?" },
-  { label: "P1 Outage Scenario Analysis", prompt: "Provide a comprehensive step-by-step resolution analysis for handling a high-priority P1 production supply outage in SAP." }
+  { label: "bgRFC Supervisor Destination", prompt: "How does bgRFC handle supervisor destinations in modern Enterprise Architecture compared to classic qRFC?" },
+  { label: "P1 Outage Scenario Analysis", prompt: "Provide a comprehensive step-by-step resolution analysis for handling a high-priority P1 production supply outage in enterprise operations." }
 ];
 
 export default function InterviewChat({
@@ -91,14 +91,14 @@ export default function InterviewChat({
   };
 
   const handleExportWord = (content) => {
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Operations Advisory</title><style>body{font-family:'Aptos',sans-serif;line-height:1.6;}h1{color:#FF5500;}h2{color:#D97706;}</style></head><body>";
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Operations Advisory</title><style>body{font-family:'Aptos',sans-serif;line-height:1.6;}h1{color:#D4622B;}h2{color:#D97706;}</style></head><body>";
     const footer = "</body></html>";
-    const html = header + "<h1>SAP Operations & Architecture Analysis</h1><hr/>" + content.replace(/\n/g, "<br/>") + footer;
+    const html = header + "<h1>Enterprise Operations & Architecture Analysis</h1><hr/>" + content.replace(/\n/g, "<br/>") + footer;
     const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = "SAP_Technical_Analysis.doc";
+    a.download = "Enterprise_Technical_Analysis.doc";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -206,7 +206,7 @@ export default function InterviewChat({
                 Active Advisory
               </span>
               <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto", fontFamily: "var(--font-mono)" }}>
-                Landscape: S/4HANA 2023 · Embedded EWM
+                Landscape: Enterprise Cloud Edition · Logistics Engine
               </span>
             </div>
 
@@ -222,7 +222,7 @@ export default function InterviewChat({
               Welcome, ask anything.
             </h1>
             <p style={{ fontSize: 14, color: "var(--text-body)", lineHeight: 1.65, marginBottom: 24 }}>
-              Ask any SAP technical questions, enterprise scenarios, or operational workflows. Responses are generated with comprehensive technical depth, configuration rationale, and key T-Codes.
+              Ask any enterprise technical questions, architecture scenarios, or operational workflows. Responses are generated with comprehensive technical depth, configuration rationale, and key T-Codes.
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
@@ -327,7 +327,7 @@ export default function InterviewChat({
                           letterSpacing: "0.05em"
                         }}
                       >
-                        NEXUS SAP COPILOT · OPERATIONS ADVISOR
+                        NEXUS ENTERPRISE COPILOT · OPERATIONS ADVISOR
                       </span>
                     </div>
 
@@ -420,7 +420,7 @@ export default function InterviewChat({
                       ⭐ Evaluate Response
                     </button>
                     <button
-                      onClick={() => handleSend("Explain this in natural spoken explanation language for a 5+ years experience SAP Consultant.")}
+                      onClick={() => handleSend("Explain this in natural spoken explanation language for a 5+ years experience Enterprise Consultant.")}
                       style={{
                         background: "var(--bg-surface)",
                         border: "1px solid var(--border-subtle)",

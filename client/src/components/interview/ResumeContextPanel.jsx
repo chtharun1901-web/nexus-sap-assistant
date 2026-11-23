@@ -7,12 +7,12 @@ export default function ResumeContextPanel({
   onSaveProfile
 }) {
   const [formData, setFormData] = useState({
-    targetRole: profile.targetRole || "Senior SAP PP/EWM Consultant",
+    targetRole: profile.targetRole || "Senior Enterprise Technical Consultant",
     yearsExp: profile.yearsExp || "6+",
-    currentRole: profile.currentRole || "SAP Functional Specialist",
-    modules: profile.modules || "SAP PP, EWM, MM, Integration (qRFC/bgRFC)",
-    keyProjects: profile.keyProjects || "S/4HANA Greenfield Implementation for Manufacturing Client; High-Rack EWM Warehouse Automation & PMR Integration.",
-    resumeSummary: profile.resumeSummary || "Hands-on SAP Consultant with 6+ years specializing in discrete manufacturing, shop floor control, EWM production supply staging, and RFC queue triage."
+    currentRole: profile.currentRole || "Enterprise Solutions Specialist",
+    modules: profile.modules || "Enterprise PP, EWM, MM, Integration (qRFC/bgRFC)",
+    keyProjects: profile.keyProjects || "Enterprise Cloud Greenfield Implementation for Manufacturing Client; High-Rack EWM Warehouse Automation & PMR Integration.",
+    resumeSummary: profile.resumeSummary || "Hands-on Enterprise Consultant with 6+ years specializing in discrete manufacturing, shop floor control, EWM production supply staging, and RFC queue triage."
   });
 
   if (!isOpen) return null;
@@ -28,7 +28,7 @@ export default function ResumeContextPanel({
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(0,0,0,0.85)",
+        background: "rgba(28, 25, 23, 0.45)",
         backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "center",
@@ -67,7 +67,7 @@ export default function ResumeContextPanel({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-                Target Role at Infosys
+                Target Enterprise Role
               </label>
               <input
                 type="text"
@@ -91,7 +91,7 @@ export default function ResumeContextPanel({
 
           <div>
             <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-              Core SAP Modules & Integrations
+              Core Enterprise Modules & Integrations
             </label>
             <input
               type="text"

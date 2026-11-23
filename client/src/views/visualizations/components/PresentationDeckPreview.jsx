@@ -58,8 +58,8 @@ export default function PresentationDeckPreview({
         flexDirection: "column",
         width: "100%",
         height: "100%",
-        background: "var(--bg-main, #0B0F19)",
-        color: "var(--text-primary, #EDEDED)",
+        background: "var(--bg-main, #FAF9F5)",
+        color: "var(--text-primary, #1C1917)",
         fontFamily: "var(--font-sans, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif)",
         overflow: "hidden"
       }}
@@ -71,8 +71,8 @@ export default function PresentationDeckPreview({
           alignItems: "center",
           justifyContent: "space-between",
           padding: "10px 20px",
-          background: "var(--bg-surface, #111827)",
-          borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+          background: "var(--bg-card, #FFFFFF)",
+          borderBottom: "1px solid var(--border-subtle, #E5E5DF)",
           zIndex: 20
         }}
       >
@@ -85,9 +85,9 @@ export default function PresentationDeckPreview({
               gap: 6,
               padding: "6px 12px",
               borderRadius: 6,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "#E2E8F0",
+              background: "#FAF9F5",
+              border: "1px solid #E5E5DF",
+              color: "#1C1917",
               fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
@@ -105,11 +105,11 @@ export default function PresentationDeckPreview({
                   margin: 0,
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "#FFFFFF",
+                  color: "#1C1917",
                   letterSpacing: "-0.01em"
                 }}
               >
-                {model.professionalTitle || "SAP Architecture Presentation"}
+                {model.professionalTitle || "Enterprise Architecture Presentation"}
               </h2>
               <span
                 style={{
@@ -117,17 +117,17 @@ export default function PresentationDeckPreview({
                   fontWeight: 750,
                   padding: "2px 8px",
                   borderRadius: 12,
-                  background: "var(--burgundy-light, rgba(110,26,45,0.25))",
-                  color: "var(--burgundy-accent, #FF9488)",
-                  border: "1px solid var(--burgundy-border, rgba(110,26,45,0.5))",
+                  background: "rgba(212, 98, 43, 0.08)",
+                  color: "#D4622B",
+                  border: "1px solid rgba(212, 98, 43, 0.25)",
                   letterSpacing: "0.5px"
                 }}
               >
                 12 SLIDES · MASTER TEMPLATE
               </span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-muted, #94A3B8)", marginTop: 2 }}>
-              Case: <strong style={{ color: "#FBBF24" }}>{model.caseId || "NX-CASE"}</strong> • Landscape: {model.landscape || "SAP S/4HANA"}
+            <div style={{ fontSize: 11, color: "var(--text-muted, #78716C)", marginTop: 2 }}>
+              Case: <strong style={{ color: "#D4622B" }}>{model.caseId || "NX-CASE"}</strong> • Landscape: {model.landscape || "Enterprise Cloud"}
             </div>
           </div>
         </div>
@@ -143,13 +143,13 @@ export default function PresentationDeckPreview({
               gap: 6,
               padding: "7px 16px",
               borderRadius: 6,
-              background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+              background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
               border: "none",
               color: "#FFFFFF",
               fontSize: 12.5,
               fontWeight: 750,
               cursor: isExporting ? "wait" : "pointer",
-              boxShadow: "0 2px 10px rgba(110,26,45,0.4)",
+              boxShadow: "0 2px 8px rgba(212, 98, 43, 0.25)",
               transition: "all 0.15s ease"
             }}
             title="Export strictly styled 12-slide editable presentation (.pptx)"
@@ -165,13 +165,13 @@ export default function PresentationDeckPreview({
               gap: 6,
               padding: "7px 14px",
               borderRadius: 6,
-              background: "#1E3A8A",
-              border: "none",
-              color: "#FFFFFF",
+              background: "#FFFFFF",
+              border: "1px solid #E5E5DF",
+              color: "#1C1917",
               fontSize: 12.5,
               fontWeight: 700,
               cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(30,58,138,0.3)"
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
             }}
             title="Download executive investigation report (.docx)"
           >
@@ -186,8 +186,8 @@ export default function PresentationDeckPreview({
         <div
           style={{
             width: 250,
-            background: "var(--bg-surface, #0F172A)",
-            borderRight: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+            background: "var(--bg-surface, #FAF9F5)",
+            borderRight: "1px solid var(--border-subtle, #E5E5DF)",
             display: "flex",
             flexDirection: "column",
             overflowY: "auto",
@@ -200,7 +200,7 @@ export default function PresentationDeckPreview({
             style={{
               fontSize: 10.5,
               fontWeight: 750,
-              color: "var(--text-muted, #94A3B8)",
+              color: "var(--text-muted, #78716C)",
               textTransform: "uppercase",
               letterSpacing: "0.8px",
               padding: "4px 8px",
@@ -220,8 +220,9 @@ export default function PresentationDeckPreview({
                   padding: "8px 10px",
                   borderRadius: 8,
                   cursor: "pointer",
-                  background: isActive ? "var(--burgundy-light, rgba(110,26,45,0.28))" : "rgba(255,255,255,0.03)",
-                  border: isActive ? "1.5px solid var(--burgundy, #6E1A2D)" : "1px solid rgba(255,255,255,0.06)",
+                  background: isActive ? "#FFFFFF" : "transparent",
+                  border: isActive ? "1.5px solid #D4622B" : "1px solid transparent",
+                  boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.04)" : "none",
                   transition: "all 0.15s ease",
                   display: "flex",
                   gap: 8,
@@ -234,8 +235,8 @@ export default function PresentationDeckPreview({
                     fontWeight: 800,
                     padding: "2px 5px",
                     borderRadius: 4,
-                    background: isActive ? "var(--burgundy, #6E1A2D)" : "rgba(255,255,255,0.1)",
-                    color: "#FFFFFF",
+                    background: isActive ? "#D4622B" : "#E5E5DF",
+                    color: isActive ? "#FFFFFF" : "#78716C",
                     lineHeight: 1.2
                   }}
                 >
@@ -246,7 +247,7 @@ export default function PresentationDeckPreview({
                     style={{
                       fontSize: 9.5,
                       fontWeight: 700,
-                      color: isActive ? "var(--burgundy-accent, #FF9488)" : "var(--text-muted, #94A3B8)",
+                      color: isActive ? "#D4622B" : "var(--text-muted, #78716C)",
                       textTransform: "uppercase",
                       letterSpacing: "0.3px",
                       whiteSpace: "nowrap",
@@ -260,7 +261,7 @@ export default function PresentationDeckPreview({
                     style={{
                       fontSize: 11,
                       fontWeight: isActive ? 700 : 500,
-                      color: isActive ? "#FFFFFF" : "var(--text-body, #CBD5E1)",
+                      color: isActive ? "#1C1917" : "var(--text-body, #44403C)",
                       lineHeight: 1.3,
                       marginTop: 2,
                       display: "-webkit-box",
@@ -285,7 +286,7 @@ export default function PresentationDeckPreview({
             flexDirection: "column",
             minWidth: 0,
             overflowY: "auto",
-            background: "var(--bg-main, #0B0F19)",
+            background: "var(--bg-main, #FAF9F5)",
             alignItems: "center",
             padding: "16px 24px 80px 24px",
             position: "relative"
@@ -302,8 +303,8 @@ export default function PresentationDeckPreview({
               marginBottom: 12
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted, #94A3B8)" }}>
-              PREVIEWING SLIDE <strong style={{ color: "#FFFFFF" }}>{activeSlide + 1}</strong> OF 12
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted, #78716C)" }}>
+              PREVIEWING SLIDE <strong style={{ color: "#1C1917" }}>{activeSlide + 1}</strong> OF 12
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -313,9 +314,9 @@ export default function PresentationDeckPreview({
                 style={{
                   padding: "4px 10px",
                   borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: activeSlide === 0 ? "rgba(255,255,255,0.3)" : "#FFFFFF",
+                  border: "1px solid #E5E5DF",
+                  background: "#FFFFFF",
+                  color: activeSlide === 0 ? "rgba(0,0,0,0.25)" : "#1C1917",
                   fontSize: 11.5,
                   fontWeight: 600,
                   cursor: activeSlide === 0 ? "not-allowed" : "pointer"
@@ -329,9 +330,9 @@ export default function PresentationDeckPreview({
                 style={{
                   padding: "4px 10px",
                   borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: activeSlide === 11 ? "rgba(255,255,255,0.3)" : "#FFFFFF",
+                  border: "1px solid #E5E5DF",
+                  background: "#FFFFFF",
+                  color: activeSlide === 11 ? "rgba(0,0,0,0.25)" : "#1C1917",
                   fontSize: 11.5,
                   fontWeight: 600,
                   cursor: activeSlide === 11 ? "not-allowed" : "pointer"
@@ -348,14 +349,14 @@ export default function PresentationDeckPreview({
               width: "100%",
               maxWidth: 960,
               aspectRatio: "16 / 9",
-              background: activeSlide === 0 ? "#0F172A" : "#F8FAFC",
+              background: activeSlide === 0 ? "#1C1917" : "#FFFFFF",
               borderRadius: 10,
-              boxShadow: "0 16px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.08), 0 0 0 1px #E5E5DF",
               position: "relative",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              color: activeSlide === 0 ? "#FFFFFF" : "#0F172A"
+              color: activeSlide === 0 ? "#FFFFFF" : "#1C1917"
             }}
           >
             {/* Top Chrome Banner for slides 2-12 */}
@@ -363,38 +364,38 @@ export default function PresentationDeckPreview({
               <div
                 style={{
                   height: 48,
-                  background: "#0F172A",
+                  background: "#FAF9F5",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "0 22px",
-                  borderBottom: "3px solid #F59E0B",
+                  borderBottom: "2px solid #D4622B",
                   flexShrink: 0
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#FBBF24" }}>👑</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#FFFFFF", letterSpacing: "1px" }}>
-                    NEXUS SAP COPILOT
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#D4622B" }}>👑</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1C1917", letterSpacing: "1px" }}>
+                    NEXUS ENTERPRISE COPILOT
                   </span>
-                  <span style={{ opacity: 0.4, color: "#FFFFFF" }}>|</span>
+                  <span style={{ opacity: 0.4, color: "#78716C" }}>|</span>
                   <span
                     style={{
                       fontSize: 9.5,
                       fontWeight: 750,
                       padding: "2px 8px",
                       borderRadius: 4,
-                      background: "rgba(245,158,11,0.2)",
-                      color: "#FBBF24",
-                      border: "1px solid rgba(245,158,11,0.4)"
+                      background: "rgba(212, 98, 43, 0.08)",
+                      color: "#D4622B",
+                      border: "1px solid rgba(212, 98, 43, 0.25)"
                     }}
                   >
                     {slideList[activeSlide].tag}
                   </span>
                 </div>
 
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8" }}>
-                  {model.caseId || "NX-AUTO"} • {model.landscape || "S/4HANA 2023"}
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#78716C" }}>
+                  {model.caseId || "NX-AUTO"} • {model.landscape || "Enterprise Cloud"}
                 </div>
               </div>
             )}
@@ -416,19 +417,19 @@ export default function PresentationDeckPreview({
             <div
               style={{
                 height: 28,
-                background: "#0F172A",
+                background: "#FAF9F5",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "0 22px",
-                borderTop: "1px solid #1E293B",
+                borderTop: "1px solid #E5E5DF",
                 fontSize: 9.5,
-                color: "#94A3B8",
+                color: "#78716C",
                 flexShrink: 0
               }}
             >
-              <span>CONFIDENTIAL & READ-ONLY SAP ARCHITECTURE · 100% NATIVE OBJECTS</span>
-              <span style={{ fontWeight: 700, color: "#E2E8F0" }}>
+              <span>CONFIDENTIAL & READ-ONLY ENTERPRISE ARCHITECTURE · 100% NATIVE OBJECTS</span>
+              <span style={{ fontWeight: 700, color: "#1C1917" }}>
                 SLIDE {activeSlide + 1} OF 12
               </span>
             </div>
@@ -444,8 +445,8 @@ export default function PresentationDeckPreview({
           left: 0,
           right: 0,
           padding: "10px 24px",
-          background: "var(--bg-surface, #111827)",
-          borderTop: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
+          background: "#FFFFFF",
+          borderTop: "1px solid #E5E5DF",
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -454,7 +455,7 @@ export default function PresentationDeckPreview({
       >
         {/* Quick Suggestion Chips */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 750, color: "var(--text-muted, #94A3B8)", flexShrink: 0 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 750, color: "var(--text-muted, #78716C)", flexShrink: 0 }}>
             Quick Refine:
           </span>
           {quickPills.map((pill, i) => (
@@ -465,9 +466,9 @@ export default function PresentationDeckPreview({
               style={{
                 padding: "3px 10px",
                 borderRadius: 14,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.05)",
-                color: "#E2E8F0",
+                border: "1px solid #E5E5DF",
+                background: "#FAF9F5",
+                color: "#44403C",
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: isRefining ? "wait" : "pointer",
@@ -492,14 +493,14 @@ export default function PresentationDeckPreview({
                 handleSendFollowup();
               }
             }}
-            placeholder="Ask a follow-up or refine these presentation slides (e.g., 'Add delivery block configuration', 'Deepen CVI error resolution')..."
+            placeholder="Ask a follow-up or refine these presentation slides (e.g., 'Add delivery block configuration', 'Deepen synchronization error resolution')..."
             style={{
               flex: 1,
               padding: "9px 14px",
               borderRadius: 8,
-              border: "1px solid var(--border-subtle, rgba(255,255,255,0.15))",
-              background: "rgba(255,255,255,0.06)",
-              color: "#FFFFFF",
+              border: "1px solid #E5E5DF",
+              background: "#FFFFFF",
+              color: "#1C1917",
               fontSize: 13,
               outline: "none",
               fontFamily: "inherit"
@@ -513,14 +514,14 @@ export default function PresentationDeckPreview({
               padding: "9px 20px",
               borderRadius: 8,
               background: (!followupText.trim() || isRefining)
-                ? "rgba(255,255,255,0.1)"
-                : "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
-              color: "#FFFFFF",
+                ? "#E5E5DF"
+                : "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
+              color: (!followupText.trim() || isRefining) ? "#78716C" : "#FFFFFF",
               border: "none",
               fontSize: 12.5,
               fontWeight: 750,
               cursor: (!followupText.trim() || isRefining) ? "not-allowed" : "pointer",
-              boxShadow: followupText.trim() ? "0 2px 8px rgba(110,26,45,0.3)" : "none"
+              boxShadow: followupText.trim() ? "0 2px 8px rgba(212,98,43,0.25)" : "none"
             }}
           >
             {isRefining ? "Refining..." : "Send Follow-Up"}
@@ -542,7 +543,7 @@ function renderSlideContent(index, model, slideList) {
         <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 4, background: "#1E293B", color: "#FBBF24", border: "1px solid #F59E0B" }}>
-              👑 NEXUS SAP COPILOT · EXECUTIVE DECK
+              👑 NEXUS ENTERPRISE COPILOT · EXECUTIVE DECK
             </span>
           </div>
 
@@ -553,7 +554,7 @@ function renderSlideContent(index, model, slideList) {
           <p style={{ margin: "0 0 24px 0", fontSize: 12, color: "#94A3B8", lineHeight: 1.5, maxWidth: "85%" }}>
             Inquiry Scope: "{model.originalUserQuestion?.slice(0, 180)}..."
             <br />
-            Comprehensive 8-Part SAP Architecture & Grounded Knowledge Transformation.
+            Comprehensive 8-Part Enterprise Architecture & Grounded Knowledge Transformation.
           </p>
 
           <div
@@ -569,7 +570,7 @@ function renderSlideContent(index, model, slideList) {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, color: "#60A5FA" }}>
-              CASE IDENTIFIER: {model.caseId} | MODULE: {model.moduleClassification?.primaryModule || "SAP SD"} | DATE: {new Date().toLocaleDateString()}
+              CASE IDENTIFIER: {model.caseId} | MODULE: {model.moduleClassification?.primaryModule || "Enterprise Core"} | DATE: {new Date().toLocaleDateString()}
             </div>
             <div style={{ fontSize: 10, color: "#E2E8F0" }}>
               Target Landscape: {model.landscape} | Evidence Status: {model.evidenceStatus}
@@ -589,8 +590,8 @@ function renderSlideContent(index, model, slideList) {
           <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, flex: 1, minHeight: 0 }}>
             {/* Left Model Container */}
             <div style={{ background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: 8, padding: 14, display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#6E1A2D", marginBottom: 10 }}>
-                S/4HANA Master Data Architecture Model
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#D4622B", marginBottom: 10 }}>
+                Enterprise Master Data Architecture Model
               </div>
 
               {/* Node BUT000 */}
@@ -957,22 +958,22 @@ function renderSlideContent(index, model, slideList) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, flex: 1, marginBottom: 8 }}>
             <div style={{ background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: 6, padding: 10 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 800, color: "#64748B", marginBottom: 6 }}>SAP ECC 6.0 TRADITIONAL MODEL</div>
+              <div style={{ fontSize: 9.5, fontWeight: 800, color: "#64748B", marginBottom: 6 }}>LEGACY ENTERPRISE MODEL</div>
               <div style={{ fontSize: 8.5, color: "#475569", lineHeight: 1.5 }}>
                 ❌ Decentralized transactions: XD01, VD01, FD01.<br />
-                ❌ Redundant customer & vendor records in KNA1 and LFA1.<br />
+                ❌ Redundant customer & vendor records in legacy tables.<br />
                 ❌ Direct table storage with zero Business Partner golden header.<br />
-                ❌ Classic credit management via KNKK/KNKA (FD32).
+                ❌ Classic credit management via legacy tables.
               </div>
             </div>
 
             <div style={{ background: "#FFFFFF", border: "1.5px solid #0284C7", borderRadius: 6, padding: 10 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 800, color: "#0284C7", marginBottom: 6 }}>SAP S/4HANA MODERN ARCHITECTURE</div>
+              <div style={{ fontSize: 9.5, fontWeight: 800, color: "#0284C7", marginBottom: 6 }}>MODERN ENTERPRISE ARCHITECTURE</div>
               <div style={{ fontSize: 8.5, color: "#0F172A", lineHeight: 1.5 }}>
                 ✔ Unified BP transaction centralized in transaction BP.<br />
                 ✔ Single Golden Source of Truth (BUT000) for all entity roles.<br />
-                ✔ CVI synchronization engine automatically updates KNA1/KNVV.<br />
-                ✔ Native FSCM credit management integrated in BP role UKM000.
+                ✔ CVI synchronization engine automatically updates master records.<br />
+                ✔ Native modern credit management integrated in BP role UKM000.
               </div>
             </div>
           </div>

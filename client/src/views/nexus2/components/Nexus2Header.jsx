@@ -51,7 +51,7 @@ export default function Nexus2Header({
               fontFamily: "Georgia, serif",
               fontSize: 18,
               fontWeight: 800,
-              color: "var(--orange, #6E1A2D)",
+              color: "#D4622B",
               letterSpacing: "-0.01em"
             }}
           >
@@ -62,14 +62,14 @@ export default function Nexus2Header({
               fontSize: 11,
               fontWeight: 700,
               fontFamily: "var(--font-mono)",
-              background: "rgba(110,26,45,0.1)",
-              color: "var(--orange, #6E1A2D)",
+              background: "rgba(212, 98, 43, 0.08)",
+              color: "#D4622B",
               padding: "2px 7px",
               borderRadius: 4,
-              border: "1px solid rgba(110,26,45,0.25)"
+              border: "1px solid rgba(212, 98, 43, 0.25)"
             }}
           >
-            GTS EXECUTION SIMULATOR
+            ENTERPRISE QUEUE FLOW SIMULATOR
           </span>
         </div>
 
@@ -91,11 +91,11 @@ export default function Nexus2Header({
           title="Click to view Connected System Landscape Architecture"
         >
           <span style={{ color: "var(--green, #10B981)" }}>●</span>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>S/4HANA</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>ERP CORE</span>
           <span style={{ color: "var(--text-muted)" }}>⇄</span>
-          <span style={{ fontWeight: 700, color: "var(--orange, #6E1A2D)" }}>GTS 2023</span>
+          <span style={{ fontWeight: 700, color: "#D4622B" }}>QUEUE FLOW</span>
           <span style={{ color: "var(--text-muted)" }}>⇄</span>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>EWM 100</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>LOGISTICS</span>
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>🗺️</span>
         </div>
       </div>

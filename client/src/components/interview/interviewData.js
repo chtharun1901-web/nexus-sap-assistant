@@ -12,16 +12,16 @@ export const INTERVIEW_CATEGORIES = [
   },
   {
     id: "sap-pp",
-    name: "SAP PP (Production Planning)",
+    name: "Enterprise Production Planning (PP)",
     icon: "⚙️",
-    description: "BOMs, Routings, Work Centers, MRP, Production Orders, Capacity Planning, Shop Floor Control, and S/4HANA Manufacturing.",
+    description: "BOMs, Routings, Work Centers, MRP, Production Orders, Capacity Planning, Shop Floor Control, and Enterprise Manufacturing.",
     totalQuestions: 35,
     color: "#10B981",
     tags: ["PP", "MRP", "Shop Floor", "Manufacturing"]
   },
   {
     id: "sap-ewm",
-    name: "SAP EWM (Extended Warehouse)",
+    name: "Enterprise Extended Warehouse (EWM)",
     icon: "📦",
     description: "Warehouse Structure, Storage Types/Bins, PMR Staging, Putaway & Picking Strategies, POSC/LOSC, Wave Management, and Queues.",
     totalQuestions: 32,
@@ -30,7 +30,7 @@ export const INTERVIEW_CATEGORIES = [
   },
   {
     id: "sap-mm-sd",
-    name: "SAP MM & SD Integration",
+    name: "Enterprise Logistics & Commercial (MM/SD)",
     icon: "🔄",
     description: "Procure-to-Pay (P2P), Order-to-Cash (O2C), Material Master, Inventory Management, Movement Types, and Pricing/Billing.",
     totalQuestions: 26,
@@ -93,12 +93,12 @@ export const INTERVIEW_CATEGORIES = [
   },
   {
     id: "infosys-hr",
-    name: "Infosys HR & Leadership",
+    name: "Enterprise HR & Leadership",
     icon: "🏢",
-    description: "Self-introduction, 'Why Infosys?', Strengths/Weaknesses, Career Goals, Client Relationship Management, and Culture fit.",
+    description: "Self-introduction, 'Why Our Organization?', Strengths/Weaknesses, Career Goals, Client Relationship Management, and Culture fit.",
     totalQuestions: 20,
     color: "#14B8A6",
-    tags: ["Infosys", "HR", "Introduction", "Culture"]
+    tags: ["Enterprise", "HR", "Introduction", "Culture"]
   },
   {
     id: "weak-areas",
@@ -304,9 +304,9 @@ export const QUICK_PRACTICE_CARDS = [
     icon: "⭐"
   },
   {
-    title: "Infosys HR & Self-Introduction",
-    desc: "Perfect your 90-second pitch: 'Tell me about yourself' and 'Why Infosys?'",
-    prompt: "Help me craft and practice a high-impact, professional self-introduction and 'Why Infosys?' answer tailored to my SAP experience.",
+    title: "Enterprise HR & Self-Introduction",
+    desc: "Perfect your 90-second pitch: 'Tell me about yourself' and 'Why this role?'",
+    prompt: "Help me craft and practice a high-impact, professional self-introduction tailored to my enterprise systems experience.",
     category: "infosys-hr",
     icon: "🏢"
   }
@@ -317,14 +317,14 @@ export const DEFAULT_7DAY_PLAN = [
     day: 1,
     title: "Resume, Introduction & Enterprise Structure",
     topics: ["90-second Elevator Pitch", "Client -> Company Code -> Plant -> Storage Location", "EWM Warehouse Structure Mapping"],
-    goal: "Master self-introduction, project narrative, and fundamental SAP organizational hierarchy.",
+    goal: "Master self-introduction, project narrative, and fundamental enterprise organizational hierarchy.",
     completed: true
   },
   {
     day: 2,
-    title: "SAP PP Master Data & MRP Planning",
+    title: "Enterprise PP Master Data & MRP Planning",
     topics: ["BOM Alternatives & Item Categories", "Work Center Formulas & Cost Centers", "Routings vs Master Recipes", "Production Versions (C223)", "MRP Live (MD01N)"],
-    goal: "Fluently explain manufacturing master data dependencies and S/4HANA MRP Live execution.",
+    goal: "Fluently explain manufacturing master data dependencies and modern MRP Live execution.",
     completed: false
   },
   {
@@ -336,7 +336,7 @@ export const DEFAULT_7DAY_PLAN = [
   },
   {
     day: 4,
-    title: "SAP EWM Integration & Production Staging",
+    title: "Enterprise EWM Integration & Production Staging",
     topics: ["PMR Architecture (/SCWM/PMR)", "Production Supply Areas (PSA) & Control Cycles", "Staging Methods (Pick/Release/Crate)", "Consumption Postings"],
     goal: "Articulate the exact differences between Delivery-Based and PMR-based Advanced Production Integration.",
     completed: false
@@ -344,21 +344,21 @@ export const DEFAULT_7DAY_PLAN = [
   {
     day: 5,
     title: "Interface Architecture & Queue Troubleshooting",
-    topics: ["qRFC (SMQ1/SMQ2) FIFO Mechanics", "bgRFC (SBGRFCMON) in S/4HANA", "SLG1 Application Logs & SM21 System Logs", "ST22 Dump Root Cause Analysis"],
+    topics: ["qRFC (SMQ1/SMQ2) FIFO Mechanics", "bgRFC (SBGRFCMON) in modern architectures", "SLG1 Application Logs & SM21 System Logs", "ST22 Dump Root Cause Analysis"],
     goal: "Confidently diagnose interface stoppages without suggesting risky queue deletions.",
     completed: false
   },
   {
     day: 6,
     title: "STAR Behavioral & Scenario Drills",
-    topics: ["Difficult Production Incident (P1 SLA)", "Handling Client Conflict & Changing Requirements", "Mistake Remediation & RCA Submission"],
+    topics: ["Difficult Production Incident (P1 SLA)", "Handling Stakeholder Conflict & Changing Requirements", "Mistake Remediation & RCA Submission"],
     goal: "Deliver crisp, confident 2-minute STAR stories with quantifiable results.",
     completed: false
   },
   {
     day: 7,
-    title: "Infosys Culture, HR & Final Mock Interview",
-    topics: ["'Why Infosys?' & Value Alignment", "5-Year Career Trajectory", "Salary & Relocation Flexibility", "Full 20-Question Mixed Mock Simulation"],
+    title: "Enterprise Culture, HR & Final Mock Interview",
+    topics: ["'Why This Organization?' & Value Alignment", "5-Year Career Trajectory", "Salary & Relocation Flexibility", "Full 20-Question Mixed Mock Simulation"],
     goal: "Polish spoken confidence, finalize technical cheat-sheets, and eliminate hesitations.",
     completed: false
   }
@@ -368,7 +368,7 @@ export const EVALUATION_DIMENSIONS = [
   { key: "accuracy", label: "Technical Accuracy", max: 100, weight: 0.25 },
   { key: "completeness", label: "Completeness of Points", max: 100, weight: 0.20 },
   { key: "relevance", label: "Relevance & Directness", max: 100, weight: 0.15 },
-  { key: "sapContext", label: "SAP Context & T-Codes", max: 100, weight: 0.15 },
+  { key: "sapContext", label: "Enterprise Context & T-Codes", max: 100, weight: 0.15 },
   { key: "practicalExample", label: "Practical Example", max: 100, weight: 0.10 },
   { key: "communication", label: "Spoken Quality & Confidence", max: 100, weight: 0.15 }
 ];

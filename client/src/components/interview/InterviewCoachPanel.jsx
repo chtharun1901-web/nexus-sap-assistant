@@ -8,7 +8,7 @@ export default function InterviewCoachPanel({
   onCollapse
 }) {
   const {
-    topic = "SAP PP & EWM Staging Integration",
+    topic = "Enterprise Operations & Staging Integration",
     mode = "Interview Mode (Spoken Practice)",
     confidenceScore = 88,
     accuracyScore = 92,
@@ -52,7 +52,7 @@ export default function InterviewCoachPanel({
             <span style={{ fontSize: 12 }}>🎓</span>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>Interview Coach</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>Enterprise Incident & Interview Coach</div>
             <div style={{ fontSize: 10.5, color: "var(--text-muted)" }}>Live Spoken & Technical Telemetry</div>
           </div>
         </div>

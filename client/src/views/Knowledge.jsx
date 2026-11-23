@@ -80,7 +80,7 @@ export default function Knowledge() {
         </div>
 
         {showAdd && (
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowAdd(false)}>
+          <div style={{position:"fixed",inset:0,background:"rgba(28, 25, 23, 0.45)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowAdd(false)}>
             <div style={{background:"var(--bg-card)",border:"1px solid var(--border-subtle)",borderRadius:12,padding:28,width:520,maxWidth:"90vw"}} onClick={e=>e.stopPropagation()}>
               <h2 style={{fontSize:16,fontWeight:800,color:"var(--text-primary)",marginBottom:20}}>Add Knowledge Item</h2>
               <form onSubmit={addItem} style={{display:"flex",flexDirection:"column",gap:14}}>

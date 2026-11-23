@@ -11,8 +11,8 @@ export default function FioriSidebar({
       icon: "🛡️",
       items: [
         { id: "source_registry", label: "Screening Source Registry", tcode: "INDIA/UN/OFAC", badge: "5 Feeds", badgeColor: "var(--blue, #2563EB)" },
-        { id: "training_scenarios", label: "Compliance Scenario Labs", tcode: "/SAPSLL/LABS", badge: "15 Labs", badgeColor: "var(--orange, #6E1A2D)" },
-        { id: "screening_sandbox", label: "Interactive SPL Match Simulator", tcode: "/SAPSLL/SPL_SIM", badge: "Live Test", badgeColor: "var(--orange, #6E1A2D)" },
+        { id: "training_scenarios", label: "Compliance Scenario Labs", tcode: "/SAPSLL/LABS", badge: "15 Labs", badgeColor: "var(--orange, #D4622B)" },
+        { id: "screening_sandbox", label: "Interactive SPL Match Simulator", tcode: "/SAPSLL/SPL_SIM", badge: "Live Test", badgeColor: "var(--orange, #D4622B)" },
         { id: "blocked_partners", label: "Manage Blocked Partners", tcode: "/SAPSLL/SPL_CHCK", badge: badgeCounts.blockedPartners },
         { id: "blocked_docs", label: "Manage Blocked Documents", tcode: "/SAPSLL/BL_DOCS", badge: badgeCounts.blockedDocs },
         { id: "custom_docs", label: "Display Custom Documents", tcode: "/SAPSLL/CUHD_DISP" },
@@ -49,8 +49,8 @@ export default function FioriSidebar({
       items: [
         { id: "process_explanation", label: "Process Flow & System Ownership" },
         { id: "config_reference", label: "Configuration Reference (SPRO)" },
-        { id: "interview_prep", label: "GTS Interview Preparation" },
-        { id: "sap_help", label: "Official SAP Help & Regulations" }
+        { id: "interview_prep", label: "Compliance Interview Preparation" },
+        { id: "sap_help", label: "Official Enterprise Help & Regulations" }
       ]
     }
   ];
@@ -81,7 +81,7 @@ export default function FioriSidebar({
             marginBottom: 12
           }}
         >
-          SAP GTS WORK CENTERS
+          ENTERPRISE COMPLIANCE WORK CENTERS
         </div>
 
         {MENU_SECTIONS.map((sec, sIdx) => (
@@ -120,7 +120,7 @@ export default function FioriSidebar({
                       borderRadius: 6,
                       border: "none",
                       background: isActive ? "var(--bg-card, #FAF8F5)" : "transparent",
-                      color: isActive ? "var(--orange, #6E1A2D)" : "var(--text-primary)",
+                      color: isActive ? "var(--orange, #D4622B)" : "var(--text-primary)",
                       fontWeight: isActive ? 700 : 500,
                       fontSize: 12.5,
                       cursor: "pointer",
@@ -152,7 +152,7 @@ export default function FioriSidebar({
                           fontSize: 10,
                           fontWeight: 700,
                           fontFamily: "var(--font-mono)",
-                          background: item.badgeColor || "var(--orange, #6E1A2D)",
+                          background: item.badgeColor || "var(--orange, #D4622B)",
                           color: "#FFFFFF",
                           padding: "1px 6px",
                           borderRadius: 10,

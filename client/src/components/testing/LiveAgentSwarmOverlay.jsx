@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import TestTelemetryDashboard from "./TestTelemetryDashboard";
 
 /**
  * LiveAgentSwarmOverlay
@@ -43,6 +44,7 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
   const [showRipples, setShowRipples] = useState(true);
   const [backendRecordedCount, setBackendRecordedCount] = useState(0);
   const [backendSyncStatus, setBackendSyncStatus] = useState("connecting"); // "connecting" | "live" | "offline"
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
 
   const containerRef = useRef(null);
   const cursorsRef = useRef([]);
@@ -459,6 +461,27 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
 
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
+              type="button"
+              onClick={() => setIsDashboardOpen(true)}
+              style={{
+                background: "rgba(212, 98, 43, 0.08)",
+                border: "1px solid rgba(212, 98, 43, 0.25)",
+                cursor: "pointer",
+                color: "#D4622B",
+                fontSize: 11,
+                padding: "2px 7px",
+                borderRadius: 4,
+                fontWeight: 650,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3
+              }}
+              title="Open QA & Test Telemetry Dashboard"
+            >
+              <span>📊</span>
+              <span>QA</span>
+            </button>
+            <button
               onClick={() => setHudMinimized((prev) => !prev)}
               style={{
                 background: "none",
@@ -483,8 +506,9 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
               <span style={{ fontWeight: 600, color: "#D4622B" }}>24 Autonomous Cursors</span> actively executing end-to-end frontend regression across all features.
             </div>
 
-            {/* Test Metrics Bar */}
+            {/* Test Metrics Bar (Click to open QA Telemetry Dashboard) */}
             <div
+              onClick={() => setIsDashboardOpen(true)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -492,17 +516,29 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
                 background: "var(--bg-surface, #FAF9F5)",
                 padding: "6px 10px",
                 borderRadius: 8,
-                border: "1px solid rgba(0,0,0,0.06)",
-                fontSize: 11
+                border: "1px solid rgba(0,0,0,0.08)",
+                fontSize: 11,
+                cursor: "pointer",
+                transition: "all 0.15s ease"
+              }}
+              title="Click to open QA & Test Telemetry Dashboard"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(212, 98, 43, 0.4)";
+                e.currentTarget.style.backgroundColor = "rgba(212, 98, 43, 0.04)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(0,0,0,0.08)";
+                e.currentTarget.style.backgroundColor = "var(--bg-surface, #FAF9F5)";
               }}
             >
               <div>
                 <span style={{ color: "#78716C" }}>Verified Checks: </span>
                 <span style={{ fontWeight: 700, color: "#10B981" }}>{passedCount} ✓</span>
               </div>
-              <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ color: "#78716C" }}>Active Swarm: </span>
                 <span style={{ fontWeight: 700, color: "#D4622B" }}>24 Cursors</span>
+                <span style={{ fontSize: 9.5, color: "#D4622B" }}>↗</span>
               </div>
             </div>
 
@@ -537,19 +573,43 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
               </span>
             </div>
 
-            {/* Download Test Audit Report */}
+            {/* Quick Actions: Open QA Dashboard & Export Audit CSV */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <a
-                href="/api/testing/telemetry/export"
-                download="nexus-testing-telemetry-audit.csv"
+              <button
+                type="button"
+                onClick={() => setIsDashboardOpen(true)}
                 style={{
                   flex: 1,
-                  textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 5,
-                  padding: "4px 8px",
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  background: "rgba(212, 98, 43, 0.08)",
+                  border: "1px solid rgba(212, 98, 43, 0.3)",
+                  color: "#D4622B",
+                  fontSize: 11,
+                  fontWeight: 650,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease"
+                }}
+                title="Open interactive QA & Test Telemetry Dashboard"
+              >
+                <span>📊 QA Dashboard</span>
+                <span style={{ fontSize: 10, opacity: 0.85 }}>↗</span>
+              </button>
+
+              <a
+                href="/api/testing/telemetry/export"
+                download="nexus-testing-telemetry-audit.csv"
+                style={{
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  padding: "6px 9px",
                   borderRadius: 6,
                   background: "var(--bg-surface, #FAF9F5)",
                   border: "1px solid rgba(0,0,0,0.12)",
@@ -561,7 +621,7 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
                 }}
                 title="Download verified audit logs recorded in backend database"
               >
-                <span>📥 Export Backend Audit Log (CSV)</span>
+                <span>📥 CSV</span>
               </a>
             </div>
 
@@ -632,6 +692,12 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
           </>
         )}
       </div>
+
+      {/* QA & Test Telemetry Dashboard Modal */}
+      <TestTelemetryDashboard
+        isOpen={isDashboardOpen}
+        onClose={() => setIsDashboardOpen(false)}
+      />
     </>
   );
 }

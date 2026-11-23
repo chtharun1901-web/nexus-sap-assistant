@@ -13,7 +13,7 @@ export default function MockInterviewSession({
     difficulty: "Advanced",
     questionCount: 5,
     style: "Realistic",
-    candidateProfile: profile.targetRole || "Senior SAP PP/EWM Consultant"
+    candidateProfile: profile.targetRole || "Senior Enterprise Technical Consultant"
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -66,7 +66,7 @@ export default function MockInterviewSession({
       communication: Math.min(score + 4, 96),
       positives: [
         "Directly addressed the core interview question.",
-        "Demonstrated clear understanding of SAP business impact."
+        "Demonstrated clear understanding of enterprise business impact."
       ],
       improvements: [
         "Ensure exact transaction codes (e.g. " + (q.tcodes?.[0] || "CR01") + ") are mentioned early.",
@@ -112,7 +112,7 @@ export default function MockInterviewSession({
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(0,0,0,0.85)",
+        background: "rgba(28, 25, 23, 0.45)",
         backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "center",
@@ -127,7 +127,7 @@ export default function MockInterviewSession({
           background: "var(--bg-card)",
           border: "1px solid var(--border-strong)",
           borderRadius: 14,
-          boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
           display: "flex",
           flexDirection: "column",
           maxHeight: "90vh",
@@ -140,7 +140,7 @@ export default function MockInterviewSession({
             <span style={{ fontSize: 18 }}>🎙️</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)" }}>
-                Infosys Mock Interview Simulation
+                Enterprise Technical Interview Simulation
               </div>
               <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
                 {step === "setup" ? "Configure Simulation Parameters" : step === "interview" ? "Question " + (currentIndex + 1) + " of " + sessionQuestions.length + " · " + Math.floor(timerSec / 60) + "m " + (timerSec % 60) + "s" : "Performance Debrief"}
@@ -160,7 +160,7 @@ export default function MockInterviewSession({
           {step === "setup" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                Configure your mock interview. Nexus will simulate an authentic Infosys Technical Lead interview, asking questions one by one and evaluating your answers in real time.
+                Configure your mock interview. Nexus will simulate an authentic Enterprise Technical Lead interview, asking questions one by one and evaluating your answers in real time.
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -174,11 +174,11 @@ export default function MockInterviewSession({
                     style={{ width: "100%", padding: "8px 10px", background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderRadius: 6, fontSize: 12 }}
                   >
                     <option>Mixed (Technical, Scenario & STAR)</option>
-                    <option>SAP PP & Manufacturing Deep Dive</option>
-                    <option>SAP EWM & Staging Integration</option>
+                    <option>Enterprise Manufacturing Deep Dive</option>
+                    <option>Enterprise Logistics & Staging Integration</option>
                     <option>Production Support & SLA Triage</option>
                     <option>Behavioral (STAR Method)</option>
-                    <option>Infosys HR & Self-Introduction</option>
+                    <option>Enterprise HR & Self-Introduction</option>
                   </select>
                 </div>
 
@@ -273,7 +273,7 @@ export default function MockInterviewSession({
                   rows={6}
                   value={userAnswer}
                   disabled={!!currentFeedback}
-                  placeholder="Type your response as you would speak it to the Infosys interviewer..."
+                  placeholder="Type your response as you would speak it to the enterprise interviewer..."
                   onChange={e => setUserAnswer(e.target.value)}
                   style={{
                     width: "100%",

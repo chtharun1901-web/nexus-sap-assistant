@@ -288,7 +288,7 @@ export default function SapScreenDesigner({ onNavigate }) {
   const [selectedScenarioKey, setSelectedScenarioKey] = useState("zinsp_gate");
   const [customPrompt, setCustomPrompt] = useState("");
   const [activeTab, setActiveTab] = useState("screen"); // "screen" | "logic" | "ddic" | "abap"
-  const [guiTheme, setGuiTheme] = useState("horizon_dark"); // "horizon_dark" | "quartz_light" | "belize_blue"
+  const [guiTheme, setGuiTheme] = useState("claude_pure"); // "claude_pure" | "quartz_light" | "belize_blue"
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingStep, setThinkingStep] = useState(4);
   const [thinkingCollapsed, setThinkingCollapsed] = useState(false);
@@ -352,27 +352,32 @@ export default function SapScreenDesigner({ onNavigate }) {
   };
 
   // Color variables depending on GUI theme
-  const isDark = guiTheme === "horizon_dark";
+  const isClaude = guiTheme === "claude_pure";
   const isQuartz = guiTheme === "quartz_light";
 
   const themeStyles = {
-    windowBg: isDark ? "#1E242C" : (isQuartz ? "#ECEFF4" : "#EBF0F5"),
-    headerBarBg: isDark ? "linear-gradient(90deg, #181D23 0%, #252D37 100%)" : (isQuartz ? "linear-gradient(90deg, #2D3A4B 0%, #3B4B61 100%)" : "linear-gradient(90deg, #0A6ED1 0%, #004085 100%)"),
-    menuBarBg: isDark ? "#181D23" : (isQuartz ? "#F4F6F9" : "#E2E8F0"),
-    standardToolbarBg: isDark ? "#1E242C" : (isQuartz ? "#FFFFFF" : "#F8FAFC"),
-    dynproBg: isDark ? "#12161A" : (isQuartz ? "#F8FAFC" : "#FFFFFF"),
-    frameBorder: isDark ? "#2C3542" : (isQuartz ? "#CBD5E1" : "#B0C4DE"),
-    cardSurface: isDark ? "#181D23" : "#FFFFFF",
-    inputBg: isDark ? "#252D37" : "#FFFFFF",
-    inputBorder: isDark ? "#3A4556" : "#A0AEC0",
-    textPrimary: isDark ? "#F0F4F8" : "#1E293B",
-    textMuted: isDark ? "#8E9BAE" : "#64748B",
-    tableHeaderBg: isDark ? "#252D37" : (isQuartz ? "#E2E8F0" : "#E6F0FA"),
-    tableRowEven: isDark ? "#181D23" : "#FFFFFF",
-    tableRowOdd: isDark ? "#141920" : (isQuartz ? "#F8FAFC" : "#F1F6FB"),
-    tableRowHover: isDark ? "rgba(155, 34, 59, 0.25)" : "rgba(10, 110, 209, 0.12)",
-    statusBarBg: isDark ? "#181D23" : (isQuartz ? "#E2E8F0" : "#DDE6EE"),
-    statusBarText: isDark ? "#C5D0DC" : "#334155"
+    windowBg: isClaude ? "#FAF9F5" : (isQuartz ? "#ECEFF4" : "#EBF0F5"),
+    headerBarBg: isClaude
+      ? "linear-gradient(90deg, #FAF9F5 0%, #F5F1EB 100%)"
+      : (isQuartz ? "linear-gradient(90deg, #2D3A4B 0%, #3B4B61 100%)" : "linear-gradient(90deg, #0A6ED1 0%, #004085 100%)"),
+    headerBarText: isClaude ? "#1C1917" : "#FFFFFF",
+    headerBadgeBg: isClaude ? "rgba(212, 98, 43, 0.12)" : "rgba(255,255,255,0.2)",
+    headerBadgeText: isClaude ? "#D4622B" : "#FFFFFF",
+    menuBarBg: isClaude ? "#FAF9F5" : (isQuartz ? "#F4F6F9" : "#E2E8F0"),
+    standardToolbarBg: "#FFFFFF",
+    dynproBg: isClaude ? "#FAF9F5" : (isQuartz ? "#F8FAFC" : "#FFFFFF"),
+    frameBorder: isClaude ? "#E5E5DF" : (isQuartz ? "#CBD5E1" : "#B0C4DE"),
+    cardSurface: "#FFFFFF",
+    inputBg: "#FFFFFF",
+    inputBorder: isClaude ? "#E5E5DF" : (isQuartz ? "#CBD5E1" : "#A0AEC0"),
+    textPrimary: isClaude ? "#1C1917" : "#1E293B",
+    textMuted: isClaude ? "#78716C" : "#64748B",
+    tableHeaderBg: isClaude ? "#F5F1EB" : (isQuartz ? "#E2E8F0" : "#E6F0FA"),
+    tableRowEven: "#FFFFFF",
+    tableRowOdd: isClaude ? "#FAF9F5" : (isQuartz ? "#F8FAFC" : "#F1F6FB"),
+    tableRowHover: isClaude ? "rgba(212, 98, 43, 0.08)" : "rgba(10, 110, 209, 0.12)",
+    statusBarBg: isClaude ? "#F5F1EB" : (isQuartz ? "#E2E8F0" : "#DDE6EE"),
+    statusBarText: isClaude ? "#44403C" : "#334155"
   };
 
   return (
@@ -414,7 +419,7 @@ export default function SapScreenDesigner({ onNavigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 16 }}>🖥️</span>
               <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-                Nexus SAP GUI Screen Designer & Spec Studio
+                Enterprise Screen & Form Designer Studio
               </h1>
               <span
                 style={{
@@ -422,8 +427,8 @@ export default function SapScreenDesigner({ onNavigate }) {
                   fontFamily: "var(--font-mono)",
                   padding: "2px 7px",
                   borderRadius: 4,
-                  background: "var(--burgundy-light, rgba(110,26,45,0.1))",
-                  color: "var(--burgundy-rich, #6E1A2D)",
+                  background: "rgba(212, 98, 43, 0.1)",
+                  color: "#D4622B",
                   fontWeight: 700
                 }}
               >
@@ -431,7 +436,7 @@ export default function SapScreenDesigner({ onNavigate }) {
               </span>
             </div>
             <p style={{ margin: 0, fontSize: 11.5, color: "var(--text-muted)" }}>
-              Autonomous Dynpro Architecture, Interactive Requirement Interview & Authentic GUI Visualizer
+              Autonomous Dynpro Architecture, Interactive Requirement Interview & Enterprise Visualizer
             </p>
           </div>
         </div>
@@ -440,9 +445,9 @@ export default function SapScreenDesigner({ onNavigate }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>Screen Aesthetic:</span>
           {[
-            { id: "horizon_dark", label: "🌙 SAP Horizon Dark", desc: "#12161A Charcoal" },
-            { id: "quartz_light", label: "☀️ SAP 8.00 Quartz", desc: "Classic White/Grey" },
-            { id: "belize_blue", label: "🏢 SAP Belize Blue", desc: "Enterprise Standard" }
+            { id: "claude_pure", label: "🌾 Claude 3.7 Clean Light", desc: "Pure White & Terracotta" },
+            { id: "quartz_light", label: "☀️ Enterprise Quartz", desc: "Classic White/Grey" },
+            { id: "belize_blue", label: "🏢 Enterprise Belize", desc: "Enterprise Standard" }
           ].map(t => (
             <button
               key={t.id}
@@ -451,9 +456,9 @@ export default function SapScreenDesigner({ onNavigate }) {
               style={{
                 padding: "5px 10px",
                 borderRadius: 5,
-                border: guiTheme === t.id ? "1.5px solid var(--burgundy-rich, #6E1A2D)" : "1px solid var(--border-subtle)",
-                background: guiTheme === t.id ? "var(--burgundy-light, rgba(110,26,45,0.1))" : "var(--bg-surface)",
-                color: guiTheme === t.id ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)",
+                border: guiTheme === t.id ? "1.5px solid #D4622B" : "1px solid var(--border-subtle)",
+                background: guiTheme === t.id ? "rgba(212, 98, 43, 0.08)" : "var(--bg-surface)",
+                color: guiTheme === t.id ? "#D4622B" : "var(--text-primary)",
                 fontSize: 11.5,
                 fontWeight: guiTheme === t.id ? 700 : 500,
                 cursor: "pointer",
@@ -483,8 +488,8 @@ export default function SapScreenDesigner({ onNavigate }) {
           {/* Section A: Scenario Launcher & Prompt Box */}
           <div style={{ padding: "16px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-              <span>1. SAP Process Prompt & Archetypes</span>
-              <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>S/4HANA 2023 OP</span>
+              <span>1. Enterprise Process Prompt & Archetypes</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>Enterprise 2026</span>
             </div>
 
             {/* Quick 1-Click Scenario Buttons */}
@@ -500,8 +505,8 @@ export default function SapScreenDesigner({ onNavigate }) {
                     justifyContent: "space-between",
                     padding: "8px 10px",
                     borderRadius: 6,
-                    border: selectedScenarioKey === p.id ? "1.5px solid var(--burgundy-rich, #6E1A2D)" : "1px solid var(--border-subtle)",
-                    background: selectedScenarioKey === p.id ? "var(--burgundy-light, rgba(110,26,45,0.08))" : "var(--bg-surface)",
+                    border: selectedScenarioKey === p.id ? "1.5px solid #D4622B" : "1px solid var(--border-subtle)",
+                    background: selectedScenarioKey === p.id ? "rgba(212, 98, 43, 0.08)" : "var(--bg-surface)",
                     color: "var(--text-primary)",
                     cursor: "pointer",
                     textAlign: "left",
@@ -509,7 +514,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0, paddingRight: 6 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: selectedScenarioKey === p.id ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: selectedScenarioKey === p.id ? "#D4622B" : "var(--text-primary)" }}>
                       {p.tcode}
                     </div>
                     <div style={{ fontSize: 10.5, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -529,7 +534,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                 <textarea
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="Or describe custom SAP transaction requirements (e.g. 'Scrap return cockpit with batch splitting & cost center assignment')..."
+                  placeholder="Or describe custom enterprise transaction requirements (e.g. 'Scrap return cockpit with batch splitting & cost center assignment')..."
                   rows={2}
                   style={{
                     width: "100%",
@@ -551,7 +556,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                     marginTop: 6,
                     width: "100%",
                     padding: "7px 12px",
-                    background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+                    background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
                     color: "#FFFFFF",
                     border: "none",
                     borderRadius: 6,
@@ -566,7 +571,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                   }}
                 >
                   <span>⚡</span>
-                  <span>Nexus Think & Synthesize Screen</span>
+                  <span>Enterprise Synthesize Screen</span>
                 </button>
               </div>
             </form>
@@ -652,8 +657,8 @@ export default function SapScreenDesigner({ onNavigate }) {
                           fontWeight: 700,
                           padding: "1px 5px",
                           borderRadius: 3,
-                          background: "var(--burgundy-light, rgba(110,26,45,0.08))",
-                          color: "var(--burgundy-rich, #6E1A2D)",
+                          background: "rgba(212, 98, 43, 0.08)",
+                          color: "#D4622B",
                           border: "1px solid var(--border-subtle)"
                         }}
                       >
@@ -722,18 +727,18 @@ export default function SapScreenDesigner({ onNavigate }) {
                           style={{
                             padding: "6px 9px",
                             borderRadius: 5,
-                            border: isSelected ? "1.5px solid var(--burgundy-rich, #6E1A2D)" : "1px solid var(--border-subtle)",
-                            background: isSelected ? "var(--burgundy-light, rgba(110,26,45,0.08))" : "var(--bg-surface)",
+                            border: isSelected ? "1.5px solid #D4622B" : "1px solid var(--border-subtle)",
+                            background: isSelected ? "rgba(212, 98, 43, 0.08)" : "var(--bg-surface)",
                             cursor: "pointer",
                             transition: "all 0.12s ease"
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span style={{ fontSize: 11.5, fontWeight: isSelected ? 700 : 500, color: isSelected ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)" }}>
+                            <span style={{ fontSize: 11.5, fontWeight: isSelected ? 700 : 500, color: isSelected ? "#D4622B" : "var(--text-primary)" }}>
                               {opt.label}
                             </span>
                             {isSelected && (
-                              <span style={{ fontSize: 11, color: "var(--burgundy-rich, #6E1A2D)", fontWeight: 800 }}>✓</span>
+                              <span style={{ fontSize: 11, color: "#D4622B", fontWeight: 800 }}>✓</span>
                             )}
                           </div>
                           {opt.desc && (
@@ -767,7 +772,7 @@ export default function SapScreenDesigner({ onNavigate }) {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {[
-                { id: "screen", label: "🖥️ Authentic SAP GUI Screen", badge: "Visual" },
+                { id: "screen", label: "🖥️ Enterprise GUI Screen", badge: "Visual" },
                 { id: "logic", label: "📄 Process Logic & Functional Spec", badge: "FS" },
                 { id: "ddic", label: "📊 Data Dictionary Catalog", badge: "DDIC" },
                 { id: "abap", label: "💻 Dynpro Flow Logic (PBO/PAI)", badge: "ABAP" }
@@ -782,9 +787,9 @@ export default function SapScreenDesigner({ onNavigate }) {
                     gap: 6,
                     padding: "6px 12px",
                     borderRadius: 6,
-                    border: activeTab === tb.id ? "1px solid var(--burgundy-rich, #6E1A2D)" : "1px solid transparent",
-                    background: activeTab === tb.id ? "var(--burgundy-light, rgba(110,26,45,0.08))" : "transparent",
-                    color: activeTab === tb.id ? "var(--burgundy-rich, #6E1A2D)" : "var(--text-primary)",
+                    border: activeTab === tb.id ? "1px solid #D4622B" : "1px solid transparent",
+                    background: activeTab === tb.id ? "rgba(212, 98, 43, 0.08)" : "transparent",
+                    color: activeTab === tb.id ? "#D4622B" : "var(--text-primary)",
                     fontSize: 12,
                     fontWeight: activeTab === tb.id ? 700 : 500,
                     cursor: "pointer"
@@ -805,7 +810,7 @@ export default function SapScreenDesigner({ onNavigate }) {
               <button
                 type="button"
                 onClick={() => copyToClipboard(
-                  `# SAP Functional Specification: ${scenario.tcode}\n\nTitle: ${scenario.title}\nModule: ${scenario.module}\nTarget Release: S/4HANA 2023 OP\n\n## 1. Process Logic\n${scenario.thinking.processLogic}\n\n## 2. Screen Topology\n${scenario.thinking.topology}\n\n## 3. Data Dictionary Elements\n${scenario.thinking.ddicTables.map(t => `- **${t.table}**: ${t.desc}`).join('\n')}\n\n## 4. PBO / PAI Flow Logic\n${scenario.thinking.paiPbo}\n`,
+                  `# Enterprise Functional Specification: ${scenario.tcode}\n\nTitle: ${scenario.title}\nModule: ${scenario.module}\nTarget Release: Enterprise 2026\n\n## 1. Process Logic\n${scenario.thinking.processLogic}\n\n## 2. Screen Topology\n${scenario.thinking.topology}\n\n## 3. Data Dictionary Elements\n${scenario.thinking.ddicTables.map(t => `- **${t.table}**: ${t.desc}`).join('\n')}\n\n## 4. PBO / PAI Flow Logic\n${scenario.thinking.paiPbo}\n`,
                   "Functional Spec Markdown"
                 )}
                 style={{
@@ -827,10 +832,10 @@ export default function SapScreenDesigner({ onNavigate }) {
             </div>
           </div>
 
-          {/* View Tab 1: Authentic High-Fidelity SAP GUI Screen */}
+          {/* View Tab 1: Enterprise High-Fidelity GUI Screen */}
           {activeTab === "screen" && (
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
-              {/* SAP GUI Authentic Window Frame */}
+              {/* Enterprise GUI Window Frame */}
               <div
                 style={{
                   width: "100%",
@@ -838,28 +843,29 @@ export default function SapScreenDesigner({ onNavigate }) {
                   background: themeStyles.windowBg,
                   border: `1.5px solid ${themeStyles.frameBorder}`,
                   borderRadius: 8,
-                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
+                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
                   overflow: "hidden",
                   display: "flex",
                   flexDirection: "column",
                   fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif"
                 }}
               >
-                {/* 1. SAP Window Titlebar */}
+                {/* 1. Window Titlebar */}
                 <div
                   style={{
                     background: themeStyles.headerBarBg,
-                    color: "#FFFFFF",
+                    color: themeStyles.headerBarText || "#FFFFFF",
                     padding: "6px 12px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    userSelect: "none"
+                    userSelect: "none",
+                    borderBottom: `1px solid ${themeStyles.frameBorder}`
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, padding: "1px 5px", background: "rgba(255,255,255,0.2)", borderRadius: 3 }}>
-                      SAP
+                    <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 6px", background: themeStyles.headerBadgeBg || "rgba(255,255,255,0.2)", color: themeStyles.headerBadgeText || "#FFFFFF", borderRadius: 4, letterSpacing: "0.04em" }}>
+                      ENTERPRISE
                     </span>
                     <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.02em" }}>
                       [{scenario.tcode}] - {scenario.title}
@@ -996,7 +1002,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                   <button
                     type="button"
                     style={{
-                      background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+                      background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
                       color: "#FFFFFF",
                       border: "none",
                       borderRadius: 4,
@@ -1134,7 +1140,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                                     style={{
                                       background: "none",
                                       border: "none",
-                                      color: "var(--burgundy-rich, #6E1A2D)",
+                                      color: "#D4622B",
                                       fontSize: 11,
                                       cursor: "pointer",
                                       padding: 0
@@ -1167,7 +1173,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                             borderTopRightRadius: 5,
                             fontSize: 11.5,
                             fontWeight: isFirst ? 700 : 500,
-                            color: isFirst ? "var(--burgundy-rich, #6E1A2D)" : themeStyles.textMuted,
+                            color: isFirst ? "#D4622B" : themeStyles.textMuted,
                             cursor: "pointer",
                             zIndex: isFirst ? 2 : 1
                           }}
@@ -1342,32 +1348,32 @@ export default function SapScreenDesigner({ onNavigate }) {
                   Functional Specification: {scenario.tcode}
                 </h2>
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
-                  Target Landscape: SAP S/4HANA Cloud Private Edition 2023 · Module: {scenario.module}
+                  Target Landscape: Enterprise Cloud Edition · Module: {scenario.module}
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 14, color: "var(--burgundy-rich, #6E1A2D)", marginBottom: 6 }}>1. Business Context & Objective</h3>
+                  <h3 style={{ fontSize: 14, color: "#D4622B", marginBottom: 6 }}>1. Business Context & Objective</h3>
                   <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-body)" }}>
                     {scenario.thinking.processLogic}
                   </p>
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 14, color: "var(--burgundy-rich, #6E1A2D)", marginBottom: 6 }}>2. Dynpro Topology & Layout Architecture</h3>
+                  <h3 style={{ fontSize: 14, color: "#D4622B", marginBottom: 6 }}>2. Dynpro Topology & Layout Architecture</h3>
                   <p style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-body)" }}>
                     {scenario.thinking.topology}
                   </p>
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 14, color: "var(--burgundy-rich, #6E1A2D)", marginBottom: 6 }}>3. Selected Architecture Decisions (Interview Output)</h3>
+                  <h3 style={{ fontSize: 14, color: "#D4622B", marginBottom: 6 }}>3. Selected Architecture Decisions (Interview Output)</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {interviewState.map(q => {
                       const chosenOpt = q.options.find(o => o.id === q.selected);
                       return (
                         <div key={q.id} style={{ padding: "8px 12px", background: "var(--bg-surface)", borderRadius: 6, fontSize: 12 }}>
                           <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{q.question}: </span>
-                          <span style={{ color: "var(--burgundy-rich, #6E1A2D)", fontWeight: 600 }}>{chosenOpt?.label}</span>
+                          <span style={{ color: "#D4622B", fontWeight: 600 }}>{chosenOpt?.label}</span>
                         </div>
                       );
                     })}
@@ -1400,7 +1406,7 @@ export default function SapScreenDesigner({ onNavigate }) {
                   <tbody>
                     {scenario.headerFields.map((f, idx) => (
                       <tr key={idx} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                        <td style={{ padding: "8px 10px", fontWeight: 700, color: "var(--burgundy-rich, #6E1A2D)" }}>
+                        <td style={{ padding: "8px 10px", fontWeight: 700, color: "#D4622B" }}>
                           {f.ddic ? f.ddic.split('-')[0] : 'STRUCTURE'}
                         </td>
                         <td style={{ padding: "8px 10px" }}>{f.ddic || f.id}</td>
@@ -1442,8 +1448,9 @@ export default function SapScreenDesigner({ onNavigate }) {
 
                 <pre
                   style={{
-                    background: isDark ? "#12161A" : "#1E293B",
-                    color: "#F8FAFC",
+                    background: "#FAF9F5",
+                    color: "#1C1917",
+                    border: "1px solid #E5E5DF",
                     padding: "16px",
                     borderRadius: 6,
                     fontSize: 12,
@@ -1526,8 +1533,8 @@ ENDMODULE.`}
               overflow: "hidden"
             }}
           >
-            <div style={{ padding: "10px 14px", background: "var(--burgundy-gradient, #6E1A2D)", color: "#FFFFFF", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>🔍 SAP F4 Search Help: {f4ModalOpen.ddic}</span>
+            <div style={{ padding: "10px 14px", background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)", color: "#FFFFFF", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>🔍 Enterprise F4 Search Help: {f4ModalOpen.ddic}</span>
               <button onClick={() => setF4ModalOpen(null)} style={{ background: "none", border: "none", color: "#FFFFFF", cursor: "pointer", fontSize: 14 }}>✕</button>
             </div>
             <div style={{ padding: "14px" }}>
@@ -1547,7 +1554,7 @@ ENDMODULE.`}
                     key={oIdx}
                     onClick={() => setF4ModalOpen(null)}
                     style={{ padding: "6px 8px", background: "var(--bg-surface)", borderRadius: 4, fontSize: 11.5, cursor: "pointer" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--burgundy-light, rgba(110,26,45,0.1))"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(212, 98, 43, 0.08)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-surface)"; }}
                   >
                     {opt}

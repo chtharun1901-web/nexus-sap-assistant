@@ -82,20 +82,20 @@ export default function KnowledgeBase() {
         {/* Header */}
         <div style={{marginBottom:24}}>
           <div style={{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginBottom:6}}>
-            Nexus &gt; <strong style={{color:"var(--text-primary)"}}>SAP Official News & Retrieval Engine</strong>
+            Nexus &gt; <strong style={{color:"var(--text-primary)"}}>Enterprise Official News & Retrieval Engine</strong>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12}}>
             <div>
               <h1 style={{fontSize:24,fontWeight:800,color:"var(--text-primary)",letterSpacing:"-0.02em"}}>
-                Official SAP News & Knowledge Base
+                Enterprise Knowledge Base & News
               </h1>
               <p style={{fontSize:13,color:"var(--text-muted)",marginTop:4,maxWidth:720,lineHeight:1.5}}>
-                Verified Tier 1 release innovations, What’s New documentation, Help Portal references, and OSS notes across Cloud Public, Cloud Private, and On-Premise editions.
+                Verified release innovations, official documentation, reference architecture, and enterprise technical notes across Cloud Public, Cloud Private, and On-Premise editions.
               </p>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <span style={{fontSize:11,background:"rgba(16,185,129,0.12)",color:"#10B981",border:"1px solid rgba(16,185,129,0.3)",padding:"4px 10px",borderRadius:20,fontWeight:700,fontFamily:"var(--font-mono)"}}>
-                ● Tier 1 SAP Grounded
+                ● Tier 1 Enterprise Grounded
               </span>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function KnowledgeBase() {
           <input 
             value={search} 
             onChange={e=>setSearch(e.target.value)} 
-            placeholder="Search verified SAP release innovations, T-codes, or keywords (e.g. Sales, Joule, EWM, 2408)..." 
+            placeholder="Search verified enterprise release innovations, transaction codes, or keywords (e.g. Sales, Supply Chain, Logistics)..." 
             style={{flex:1,background:"var(--bg-card)",border:"1px solid var(--border-subtle)",borderRadius:8,padding:"10px 16px",fontSize:13,color:"var(--text-primary)",outline:"none"}}
           />
           {search && <button onClick={()=>setSearch("")} className="btn-secondary" style={{padding:"8px 14px",fontSize:13}}>Clear</button>}
@@ -116,8 +116,8 @@ export default function KnowledgeBase() {
         <div style={{display:"flex",gap:6,marginBottom:20,borderBottom:"1px solid var(--border-subtle)",paddingBottom:8}}>
           {[
             { id: "news", label: "Official Release Innovations & News", count: filteredNews.length },
-            { id: "kb", label: "SAP Help Portal Articles", count: filteredKb.length },
-            { id: "notes", label: "OSS Notes Catalog", count: filteredNotes.length }
+            { id: "kb", label: "Enterprise Documentation Articles", count: filteredKb.length },
+            { id: "notes", label: "Enterprise Notes Catalog", count: filteredNotes.length }
           ].map(t => (
             <button 
               key={t.id} 
@@ -145,7 +145,7 @@ export default function KnowledgeBase() {
           ))}
         </div>
 
-        {loading && <p style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0"}}>Loading official SAP knowledge assets...</p>}
+        {loading && <p style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0"}}>Loading official enterprise knowledge assets...</p>}
 
         {/* ── TAB 1: OFFICIAL SAP NEWS & RELEASE INNOVATIONS ── */}
         {!loading && activeTab === "news" && (
@@ -205,7 +205,7 @@ export default function KnowledgeBase() {
 
             {filteredNews.length === 0 && (
               <div style={{background:"var(--bg-card)",border:"1px solid var(--border-subtle)",borderRadius:10,padding:32,textAlign:"center",color:"var(--text-muted)",fontSize:13}}>
-                No official SAP release innovations found matching the selected filter criteria.
+                No official enterprise release innovations found matching the selected filter criteria.
               </div>
             )}
 
@@ -216,7 +216,7 @@ export default function KnowledgeBase() {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                       <span style={{fontSize:10,fontFamily:"var(--font-mono)",fontWeight:800,color:"#10B981",background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.3)",padding:"3px 8px",borderRadius:4}}>
-                        Tier {item.tierLevel || 1} Official SAP
+                        Tier {item.tierLevel || 1} Official Enterprise
                       </span>
                       <span style={{fontSize:11,fontFamily:"var(--font-mono)",fontWeight:700,color:"var(--orange)",background:"rgba(255,85,0,0.08)",border:"1px solid rgba(255,85,0,0.25)",padding:"2px 8px",borderRadius:4}}>
                         {item.citationId || item.id}
@@ -232,7 +232,7 @@ export default function KnowledgeBase() {
                       </span>
                       {item.url && (
                         <a href={item.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--blue-text)",fontFamily:"var(--font-mono)",textDecoration:"none",display:"flex",alignItems:"center",gap:3,fontWeight:600}}>
-                          SAP Official Portal ↗
+                          Enterprise Official Portal ↗
                         </a>
                       )}
                     </div>
@@ -321,7 +321,7 @@ export default function KnowledgeBase() {
                     <span style={{fontSize:10,fontFamily:"var(--font-mono)",fontWeight:700,color:"var(--orange)",background:"rgba(255,85,0,0.1)",border:"1px solid rgba(255,85,0,0.3)",padding:"2px 8px",borderRadius:4}}>{item.citationId}</span>
                     <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:8}}>{item.tier}</span>
                   </div>
-                  {item.url && <a href={item.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--blue-text)",fontFamily:"var(--font-mono)"}}>View on SAP Help ↗</a>}
+                  {item.url && <a href={item.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--blue-text)",fontFamily:"var(--font-mono)"}}>View Documentation ↗</a>}
                 </div>
                 <div style={{fontSize:14,fontWeight:700,color:"var(--text-primary)",marginBottom:6}}>{item.title}</div>
                 <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:10}}>{item.product} · {item.release}</div>
@@ -336,18 +336,18 @@ export default function KnowledgeBase() {
           </div>
         )}
 
-        {/* ── TAB 3: OSS NOTES CATALOG ── */}
+        {/* ── TAB 3: ENTERPRISE TECHNICAL NOTES CATALOG ── */}
         {!loading && activeTab === "notes" && (
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             {filteredNotes.length === 0 && <p style={{color:"var(--text-muted)",fontSize:13}}>No results found.</p>}
             {filteredNotes.map(note => (
               <div key={note.noteNumber} style={{background:"var(--bg-card)",border:"1px solid var(--border-subtle)",borderRadius:10,padding:"18px 20px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"gap",gap:8}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:10,fontFamily:"var(--font-mono)",fontWeight:700,color:"var(--blue-text)",background:"var(--blue-light)",border:"1px solid var(--blue-border)",padding:"2px 8px",borderRadius:4}}>OSS #{note.noteNumber}</span>
+                    <span style={{fontSize:10,fontFamily:"var(--font-mono)",fontWeight:700,color:"var(--blue-text)",background:"var(--blue-light)",border:"1px solid var(--blue-border)",padding:"2px 8px",borderRadius:4}}>Note #{note.noteNumber}</span>
                     <span style={{fontSize:10,color:"var(--green-text)",background:"var(--green-light)",border:"1px solid var(--green-border)",padding:"2px 8px",borderRadius:4,fontWeight:600}}>{note.verified?"Verified":""}</span>
                   </div>
-                  {note.url && <a href={note.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--blue-text)"}}>SAP Me ↗</a>}
+                  {note.url && <a href={note.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--blue-text)"}}>Documentation Portal ↗</a>}
                 </div>
                 <div style={{fontSize:14,fontWeight:700,color:"var(--text-primary)",marginBottom:6}}>{note.title}</div>
                 <div style={{fontSize:12,color:"var(--text-muted)",marginBottom:10}}>{note.component} · {note.priority} · {note.release}</div>

@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
 
 export default function ReasoningOverlay({
-  topic = "SAP S/4HANA Master Data Architecture",
+  topic = "Enterprise Master Data Architecture",
   onComplete = () => {}
 }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [progress, setProgress] = useState(12);
 
   const steps = [
-    { title: "Analyzing SAP Domain & Master Data Controls", detail: "Scanning sales area, shipping data and organizational structure..." },
-    { title: "Extracting 8-Layer Knowledge Graph", detail: "Resolving role extension FLCU01 and CVI synchronization logic..." },
-    { title: "Mapping Database Entities & T-Codes", detail: "Indexing BUT000, KNA1, KNVV, KNVS with SPRO customizing paths..." },
-    { title: "Synthesizing Automated Determination Logic", detail: "Calculating shipping point (OVL2) and pricing procedure (OVKK) schemas..." },
+    { title: "Analyzing Enterprise Domain & Master Data Controls", detail: "Scanning sales area, fulfillment routing and organizational structure..." },
+    { title: "Extracting 8-Layer Knowledge Graph", detail: "Resolving entity extension and synchronization logic..." },
+    { title: "Mapping Database Entities & Flow Handlers", detail: "Indexing primary tables, key fields, and customizing schemas..." },
+    { title: "Synthesizing Automated Determination Logic", detail: "Calculating shipping points, pricing schemas, and fulfillment determinations..." },
     { title: "Composing 12-Slide Master Template Storyboard", detail: "Generating native editable PowerPoint objects and evidence citations..." }
   ];
 
@@ -37,9 +37,9 @@ export default function ReasoningOverlay({
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(11, 15, 25, 0.72)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
+        background: "rgba(28, 25, 23, 0.45)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -51,10 +51,10 @@ export default function ReasoningOverlay({
         style={{
           width: "100%",
           maxWidth: 520,
-          background: "rgba(17, 24, 39, 0.92)",
+          background: "#FFFFFF",
           borderRadius: 16,
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          boxShadow: "0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(110, 26, 45, 0.3)",
+          border: "1px solid #E5E5DF",
+          boxShadow: "0 20px 48px rgba(0, 0, 0, 0.12)",
           padding: "32px 36px",
           display: "flex",
           flexDirection: "column",
@@ -68,13 +68,14 @@ export default function ReasoningOverlay({
             width: 56,
             height: 56,
             borderRadius: "50%",
-            background: "var(--burgundy-gradient, linear-gradient(135deg, #7A1930 0%, #4D0E1C 100%))",
+            background: "linear-gradient(135deg, #D4622B 0%, #B84D19 100%)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 0 24px rgba(110, 26, 45, 0.6)",
+            boxShadow: "0 4px 16px rgba(212, 98, 43, 0.3)",
             marginBottom: 20,
-            fontSize: 24
+            fontSize: 24,
+            color: "#FFFFFF"
           }}
         >
           <span style={{ animation: "pulse 1.8s infinite ease-in-out" }}>👑</span>
@@ -86,11 +87,11 @@ export default function ReasoningOverlay({
             margin: "0 0 8px 0",
             fontSize: 18,
             fontWeight: 800,
-            color: "#FFFFFF",
+            color: "#1C1917",
             letterSpacing: "-0.015em"
           }}
         >
-          Synthesizing SAP Architecture Presentation
+          Synthesizing Enterprise Architecture Presentation
         </h3>
 
         {/* Topic Snippet */}
@@ -98,12 +99,12 @@ export default function ReasoningOverlay({
           style={{
             margin: "0 0 24px 0",
             fontSize: 12.5,
-            color: "var(--text-muted, #94A3B8)",
+            color: "#78716C",
             lineHeight: 1.45,
             maxWidth: 440
           }}
         >
-          Analyzing topic: <strong style={{ color: "#FBBF24" }}>"{topic?.slice(0, 85)}{topic?.length > 85 ? "..." : ""}"</strong>
+          Analyzing topic: <strong style={{ color: "#D4622B" }}>"{topic?.slice(0, 85)}{topic?.length > 85 ? "..." : ""}"</strong>
         </p>
 
         {/* Progress Bar Container */}
@@ -111,7 +112,8 @@ export default function ReasoningOverlay({
           style={{
             width: "100%",
             height: 6,
-            background: "rgba(255, 255, 255, 0.08)",
+            background: "#FAF9F5",
+            border: "1px solid #E5E5DF",
             borderRadius: 3,
             overflow: "hidden",
             marginBottom: 24,
@@ -122,7 +124,7 @@ export default function ReasoningOverlay({
             style={{
               height: "100%",
               width: `${progress}%`,
-              background: "linear-gradient(90deg, #6E1A2D 0%, #E8614D 50%, #F59E0B 100%)",
+              background: "linear-gradient(90deg, #D4622B 0%, #E8614D 100%)",
               borderRadius: 3,
               transition: "width 0.4s ease"
             }}
@@ -153,12 +155,14 @@ export default function ReasoningOverlay({
                   padding: "8px 12px",
                   borderRadius: 8,
                   background: isCurrent
-                    ? "rgba(110, 26, 45, 0.16)"
+                    ? "rgba(212, 98, 43, 0.08)"
                     : isCompleted
-                    ? "rgba(255, 255, 255, 0.03)"
+                    ? "#FAF9F5"
                     : "transparent",
                   border: isCurrent
-                    ? "1px solid rgba(110, 26, 45, 0.4)"
+                    ? "1px solid rgba(212, 98, 43, 0.3)"
+                    : isCompleted
+                    ? "1px solid #E5E5DF"
                     : "1px solid transparent",
                   transition: "all 0.25s ease",
                   opacity: idx > currentStepIndex ? 0.35 : 1
@@ -179,9 +183,9 @@ export default function ReasoningOverlay({
                     background: isCompleted
                       ? "#10B981"
                       : isCurrent
-                      ? "#F59E0B"
-                      : "rgba(255, 255, 255, 0.1)",
-                    color: "#FFFFFF"
+                      ? "#D4622B"
+                      : "#E5E5DF",
+                    color: isCompleted || isCurrent ? "#FFFFFF" : "#78716C"
                   }}
                 >
                   {isCompleted ? "✔" : isCurrent ? "●" : idx + 1}
@@ -192,7 +196,7 @@ export default function ReasoningOverlay({
                     style={{
                       fontSize: 12,
                       fontWeight: isCurrent ? 750 : 600,
-                      color: isCurrent ? "#FFFFFF" : isCompleted ? "#E2E8F0" : "#64748B"
+                      color: isCurrent ? "#1C1917" : isCompleted ? "#44403C" : "#A8A29E"
                     }}
                   >
                     {step.title}
@@ -201,7 +205,7 @@ export default function ReasoningOverlay({
                     <div
                       style={{
                         fontSize: 10.5,
-                        color: "var(--text-muted, #94A3B8)",
+                        color: "#78716C",
                         marginTop: 2,
                         lineHeight: 1.3
                       }}
@@ -220,7 +224,7 @@ export default function ReasoningOverlay({
           style={{
             marginTop: 20,
             fontSize: 10.5,
-            color: "var(--text-muted, #64748B)",
+            color: "#78716C",
             letterSpacing: "0.2px"
           }}
         >

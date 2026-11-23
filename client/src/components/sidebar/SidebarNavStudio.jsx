@@ -22,34 +22,34 @@ import React from "react";
 const NAV_ITEMS = [
   {
     id: "visualizations",
-    label: "Flow Simulator & Visualizations",
-    shortLabel: "Flows & Visuals",
+    label: "Enterprise Queue Flow Simulator",
+    shortLabel: "Queue Simulator",
     icon: "⚡",
-    tooltip: "Flow Simulator & Visualizations",
+    tooltip: "Enterprise Queue Flow Simulator",
     isActive: (view) => view === "visualizations" || view === "simulator"
   },
   {
     id: "screen-designer",
-    label: "SAP Screen & ABAP Designer",
+    label: "Enterprise Screen & Form Designer",
     shortLabel: "Screen Designer",
     icon: "🖥️",
-    tooltip: "SAP Screen & ABAP Designer",
+    tooltip: "Enterprise Screen & Form Designer",
     isActive: (view) => view === "screen-designer" || view === "sap-designer"
   },
   {
     id: "knowledge",
-    label: "Knowledge Base & OSS Notes",
+    label: "Enterprise Knowledge Base",
     shortLabel: "Knowledge Base",
     icon: "📚",
-    tooltip: "Knowledge Base & OSS Notes",
+    tooltip: "Enterprise Knowledge Base",
     isActive: (view) => view === "knowledge" || view === "kb"
   },
   {
     id: "interview",
-    label: "Architecture Challenges & Interview Prep",
-    shortLabel: "Architecture Prep",
+    label: "Enterprise Incident Troubleshooting Prep",
+    shortLabel: "Troubleshooting Prep",
     icon: "🎯",
-    tooltip: "Architecture Challenges & Interview Prep",
+    tooltip: "Enterprise Incident Troubleshooting Prep",
     isActive: (view) => view === "interview"
   }
 ];
@@ -297,7 +297,7 @@ export default function SidebarNavStudio({
             letterSpacing: "0.02em"
           }}
         >
-          SAP 3.7
+          ENTERPRISE 3.7
         </span>
       </div>
 
@@ -366,7 +366,7 @@ export default function SidebarNavStudio({
           type="button"
           className="sidebar-studio-pill-btn"
           onClick={handleOpenBookmarks}
-          title="Open saved bookmarks & OSS notes"
+          title="Open saved bookmarks & enterprise notes"
         >
           <span style={{ fontSize: 11 }}>⭐</span>
           <span>Bookmarks</span>

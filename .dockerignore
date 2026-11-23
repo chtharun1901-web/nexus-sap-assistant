@@ -1,0 +1,12 @@
+node_modules
+client/node_modules
+npm-debug.log*
+.git
+.gitignore
+.env
+.apikey
+*.db
+*.db-wal
+*.db-shm
+*.log
+scratch/
