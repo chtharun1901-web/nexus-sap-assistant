@@ -194,6 +194,9 @@ export default function ScenarioModelStudio({ onNavigate }) {
             if (evt.speaker && evt.thought) {
               setBattleRounds((prev) => [...prev, { speaker: evt.speaker, message: evt.thought }]);
             }
+            if (evt.phase === "error") {
+              triggerToast("Battle error: " + (evt.error || "Unknown error"), "error");
+            }
             if (evt.phase === "complete" && evt.model) {
               setModelResult(evt.model);
               triggerToast(

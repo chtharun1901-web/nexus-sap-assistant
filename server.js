@@ -2532,7 +2532,7 @@ http.createServer(async (req, res) => {
       try {
         await runWmsModelBattleStream({
           ...(body || {}),
-          apiKey: getApiKey(),
+          apiKey: API_KEY || loadKey(),
           onEvent: (evt) => {
             if (!res.writableEnded) {
               res.write(`data: ${JSON.stringify(evt)}\n\n`);
