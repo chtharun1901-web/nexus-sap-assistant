@@ -219,8 +219,13 @@ export default function App() {
 
   const handleShareSession = () => {
     const url = window.location.href;
-    navigator.clipboard.writeText(url);
-    alert("Session reference copied to clipboard!");
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        window.dispatchEvent(new CustomEvent("nexus-toast", { detail: { message: "✓ Session link copied to clipboard", type: "success" } }));
+      }).catch(() => {
+        window.dispatchEvent(new CustomEvent("nexus-toast", { detail: { message: "Could not access clipboard", type: "warning" } }));
+      });
+    }
   };
 
   if (user === undefined) return (
@@ -361,6 +366,7 @@ export default function App() {
           >
             {/* Active Chat Title Dropdown (Exact Claude.ai Layout) */}
             <div
+              onClick={() => setSearchModalOpen(true)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -368,7 +374,7 @@ export default function App() {
                 cursor: "pointer",
                 maxWidth: "60%"
               }}
-              title="Session Title"
+              title="Switch conversation or open Command Palette (Ctrl+K)"
             >
               <span
                 style={{

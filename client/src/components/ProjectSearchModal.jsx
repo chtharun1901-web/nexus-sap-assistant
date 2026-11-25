@@ -82,7 +82,7 @@ export default function ProjectSearchModal({
       hint: "Studio",
       keywords: "screen form designer sap ui studio",
       run: () => {
-        if (onNavigate) onNavigate("designer");
+        if (onNavigate) onNavigate("screen-designer");
         onClose();
       }
     },

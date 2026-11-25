@@ -224,7 +224,7 @@ export default function OrganizationalDiagram({ data }) {
             minHeight: isFullscreen ? "calc(100vh - 120px)" : 480,
             maxHeight: isFullscreen ? "none" : 640,
             overflow: "auto",
-            background: isFullscreen ? "#0D0D0D" : "var(--bg-main)",
+            background: "var(--bg-main, #FFFFFF)",
             padding: "36px 24px",
             cursor: isDragging ? "grabbing" : "grab",
             display: "flex",
