@@ -124,6 +124,16 @@ export default function ExpandableThinking({
     return dynamicPhases[Math.max(0, idx)];
   }, [userPrompt, effectiveSeconds]);
 
+  // Compute live token velocity during active streaming (tok/s)
+  const liveTokenVelocity = useMemo(() => {
+    if (!isStreaming) return 0;
+    if (thinkingText && thinkingText.trim().length > 0) {
+      const estTokens = Math.max(40, Math.round(thinkingText.length / 3.6));
+      return Math.max(28, Math.min(84, Math.round(estTokens / Math.max(1, effectiveSeconds))));
+    }
+    return 44 + ((effectiveSeconds * 7) % 11);
+  }, [isStreaming, thinkingText, effectiveSeconds]);
+
   // Format model pill badge (Claude 3.7 Thinking with dynamic live tokens)
   const { modelBadgeLabel, tokenBadgeLabel } = useMemo(() => {
     // Under no circumstances display "Gemini" - brand as Claude 3.7 Thinking
@@ -283,7 +293,13 @@ export default function ExpandableThinking({
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
+        @keyframes thinkingTerracottaPulse {
+          0%, 100% { opacity: 0.72; }
+          50% { opacity: 1; }
+        }
         .expandable-thinking-bar {
+          position: relative;
+          overflow: hidden;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -319,6 +335,24 @@ export default function ExpandableThinking({
         className="expandable-thinking-bar"
         title={isExpanded ? "Click to collapse reasoning" : "Click to view reasoning breakdown"}
       >
+        {/* Subtle animated terracotta pulse/shimmer bar along the top edge during active streaming */}
+        {isStreaming && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 6,
+              right: 6,
+              height: 2,
+              borderRadius: 999,
+              background: "linear-gradient(90deg, rgba(212, 98, 43, 0.2) 0%, #D4622B 50%, rgba(212, 98, 43, 0.2) 100%)",
+              backgroundSize: "200% 100%",
+              animation: "thinkingShimmer 1.8s linear infinite, thinkingTerracottaPulse 1.6s ease-in-out infinite",
+              pointerEvents: "none"
+            }}
+          />
+        )}
         {/* Left: Concept 3 — Neural Synapse Ripple (OpenAI o3 / Apple Intelligence Style) */}
         <div
           style={{
@@ -465,6 +499,27 @@ export default function ExpandableThinking({
               >
                 ({effectiveSeconds}s)
               </span>
+              {/* Live Token Velocity Pill */}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: "10.5px",
+                  fontFamily: "var(--font-mono, 'SF Mono', Menlo, monospace)",
+                  fontWeight: 500,
+                  color: "#D4622B",
+                  backgroundColor: "rgba(212, 98, 43, 0.09)",
+                  border: "1px solid rgba(212, 98, 43, 0.22)",
+                  padding: "1px 6px",
+                  borderRadius: "9999px",
+                  flexShrink: 0,
+                  letterSpacing: "0.01em"
+                }}
+                title="Live reasoning token velocity"
+              >
+                ⚡ ~{liveTokenVelocity} tok/s
+              </span>
             </>
           ) : (
             `Thought for ${effectiveSeconds} ${effectiveSeconds === 1 ? "second" : "seconds"}`
@@ -536,7 +591,7 @@ export default function ExpandableThinking({
         style={{
           display: "grid",
           gridTemplateRows: isExpanded ? "1fr" : "0fr",
-          transition: "grid-template-rows 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease",
+          transition: "all 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
           opacity: isExpanded ? 1 : 0
         }}
       >

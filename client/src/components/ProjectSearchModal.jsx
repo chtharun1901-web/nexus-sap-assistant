@@ -29,7 +29,8 @@ export default function ProjectSearchModal({
   onClose,
   currentProjectId = null,
   currentProjectName = null,
-  onNavigate
+  onNavigate,
+  onStartTour
 }) {
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState(() => (currentProjectId ? "project" : "all"));
@@ -39,6 +40,85 @@ export default function ProjectSearchModal({
 
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
+
+  const quickActions = [
+    {
+      id: "qa-dashboard",
+      icon: "📊",
+      label: "Open QA & Telemetry Dashboard",
+      hint: "Telemetry",
+      keywords: "qa telemetry dashboard metrics testing",
+      run: () => {
+        window.dispatchEvent(new CustomEvent("nexus-open-qa-dashboard"));
+        onClose();
+      }
+    },
+    {
+      id: "swarm-stealth",
+      icon: "👻",
+      label: "Toggle Swarm Stealth Mode (Alt+T)",
+      hint: "Alt+T",
+      keywords: "swarm stealth mode overlay cursor agents",
+      run: () => {
+        window.dispatchEvent(new CustomEvent("nexus-toggle-swarm-stealth"));
+        onClose();
+      }
+    },
+    {
+      id: "queue-simulator",
+      icon: "🌊",
+      label: "Open Queue Flow Simulator",
+      hint: "Visualizations",
+      keywords: "queue flow simulator visualizations rfc",
+      run: () => {
+        if (onNavigate) onNavigate("visualizations");
+        onClose();
+      }
+    },
+    {
+      id: "screen-designer",
+      icon: "🖥️",
+      label: "Open Screen & Form Designer",
+      hint: "Studio",
+      keywords: "screen form designer sap ui studio",
+      run: () => {
+        if (onNavigate) onNavigate("designer");
+        onClose();
+      }
+    },
+    {
+      id: "knowledge-base",
+      icon: "📚",
+      label: "Open Knowledge Base",
+      hint: "Docs",
+      keywords: "knowledge base docs runbooks",
+      run: () => {
+        if (onNavigate) onNavigate("knowledge");
+        onClose();
+      }
+    },
+    {
+      id: "guided-tour",
+      icon: "✨",
+      label: "Start Guided Tour",
+      hint: "Help",
+      keywords: "guided tour walkthrough help onboarding",
+      run: () => {
+        if (onStartTour) onStartTour();
+        onClose();
+      }
+    }
+  ];
+
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredQuickActions = trimmedQuery
+    ? quickActions.filter(
+        (action) =>
+          action.label.toLowerCase().includes(trimmedQuery) ||
+          action.keywords.toLowerCase().includes(trimmedQuery) ||
+          action.hint.toLowerCase().includes(trimmedQuery)
+      )
+    : quickActions;
 
   useEffect(() => {
     if (isOpen) {
@@ -121,6 +201,7 @@ export default function ProjectSearchModal({
 
   // Flatten items for arrow key navigation
   const flatItems = [];
+  filteredQuickActions.forEach((a) => flatItems.push({ type: "action", item: a }));
   if (results) {
     (results.sessions || []).forEach((s) => flatItems.push({ type: "session", item: s }));
     (results.messages || []).forEach((m) => flatItems.push({ type: "message", item: m }));
@@ -129,6 +210,10 @@ export default function ProjectSearchModal({
 
   const handleSelectItem = (itemObj) => {
     if (!itemObj) return;
+    if (itemObj.type === "action") {
+      itemObj.item.run();
+      return;
+    }
     onClose();
 
     if (itemObj.type === "session") {
@@ -306,8 +391,68 @@ export default function ProjectSearchModal({
 
         {/* Results Container */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+          {/* Quick Actions & Studio Tools Section */}
+          {filteredQuickActions.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  padding: "4px 8px 6px"
+                }}
+              >
+                Quick Actions & Studio Tools
+              </div>
+              {filteredQuickActions.map((action) => {
+                const thisIdx = currentFlatIdx++;
+                const isSelected = selectedIndex === thisIdx;
+                return (
+                  <div
+                    key={action.id}
+                    onClick={() => handleSelectItem({ type: "action", item: action })}
+                    onMouseEnter={() => setSelectedIndex(thisIdx)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: isSelected ? "var(--bg-surface, rgba(0,0,0,0.06))" : "transparent",
+                      border: isSelected ? "1px solid var(--burgundy, #6E1A2D)" : "1px solid transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 3,
+                      transition: "background 0.12s ease"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <span style={{ fontSize: 15 }}>{action.icon}</span>
+                      <span
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          color: "var(--text-primary)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {query.trim() ? highlightMatch(action.label, query.trim()) : action.label}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>
+                      {action.hint} ↵
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {!query.trim() ? (
-            <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+            <div style={{ padding: "14px 20px 18px", textAlign: "center", color: "var(--text-muted)", fontSize: 12.5 }}>
               Type to search conversations, specific SAP t-code advice, or attached runbooks.
             </div>
           ) : results && flatItems.length === 0 ? (

@@ -23,6 +23,7 @@ import ProjectSearchModal from "./components/ProjectSearchModal.jsx";
 import ImageLightbox from "./components/ImageLightbox.jsx";
 import ClaudeArtifactSidecar from "./components/ClaudeArtifactSidecar.jsx";
 import LiveAgentSwarmOverlay from "./components/testing/LiveAgentSwarmOverlay.jsx";
+import ToastContainer from "./components/ToastContainer.jsx";
 import "./styles/theme.css";
 
 export const AuthCtx = createContext(null);
@@ -348,7 +349,12 @@ export default function App() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              background: "var(--bg-card, #FFFFFF)",
+              background: themeMode === "dark" ? "rgba(24, 24, 27, 0.82)" : "rgba(255, 255, 255, 0.85)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              position: "sticky",
+              top: 0,
+              zIndex: 40,
               borderBottom: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
               flexShrink: 0
             }}
@@ -547,7 +553,17 @@ export default function App() {
 
           {/* Main Full-Screen View Area with Claude Artifact Sidecar Split */}
           <main style={{ flex: 1, overflow: "hidden", position: "relative", background: "var(--bg-main, #FFFFFF)", display: "flex" }}>
-            <div style={{ flex: 1, height: "100%", overflow: "hidden", position: "relative" }}>
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: 0,
+                background: "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212, 98, 43, 0.045) 0%, rgba(212, 98, 43, 0.015) 45%, transparent 75%)"
+              }}
+            />
+            <div style={{ flex: 1, height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
               <ErrorBoundary>
                 {viewEl}
               </ErrorBoundary>
@@ -591,6 +607,7 @@ export default function App() {
         onClose={() => setSearchModalOpen(false)}
         currentProjectId={activeProjectId}
         onNavigate={navigateTo}
+        onStartTour={() => setShowTour(true)}
       />
 
       {/* Global Fullscreen Image Lightbox with Zoom, Pan, Copy & Download */}
@@ -598,6 +615,9 @@ export default function App() {
 
       {/* 24-Cursor Live Autonomous Multi-Agent Testing Swarm Overlay */}
       <LiveAgentSwarmOverlay active={true} />
+
+      {/* Floating Linear/Sonner-style Toast Notifications */}
+      <ToastContainer />
     </AuthCtx.Provider>
   );
 }

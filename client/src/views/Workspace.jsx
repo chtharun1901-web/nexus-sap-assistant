@@ -4507,14 +4507,48 @@ export default function Workspace({
                           display: "inline-block",
                           animation: "nexusVoicePulse 1.2s infinite ease-in-out"
                         }} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#DC2626", fontFamily: "var(--font-mono)" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#D4622B", fontFamily: "var(--font-mono)" }}>
                           Listening {formatVoiceDuration(recordingSeconds)}
                         </span>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 3, height: 16, marginLeft: 2 }}>
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar1 0.6s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar2 0.7s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar3 0.5s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar4 0.65s infinite ease-in-out" }} />
+                        {/* Sleek 7-bar animated terracotta audio waveform */}
+                        <div
+                          aria-label="Live voice audio waveform"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2.5,
+                            height: 18,
+                            padding: "0 4px",
+                            marginLeft: 2
+                          }}
+                        >
+                          <style>{`
+                            @keyframes terracottaVoiceWave {
+                              0%, 100% { transform: scaleY(0.28); opacity: 0.65; }
+                              50% { transform: scaleY(1); opacity: 1; }
+                            }
+                          `}</style>
+                          {[
+                            { dur: "0.68s", delay: "0ms" },
+                            { dur: "0.54s", delay: "90ms" },
+                            { dur: "0.76s", delay: "180ms" },
+                            { dur: "0.50s", delay: "270ms" },
+                            { dur: "0.72s", delay: "140ms" },
+                            { dur: "0.60s", delay: "220ms" },
+                            { dur: "0.64s", delay: "60ms" }
+                          ].map((bar, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                width: 3,
+                                height: 16,
+                                borderRadius: 999,
+                                background: "#D4622B",
+                                transformOrigin: "center",
+                                animation: `terracottaVoiceWave ${bar.dur} ease-in-out ${bar.delay} infinite`
+                              }}
+                            />
+                          ))}
                         </div>
                         <span style={{ fontSize: 11.5, color: "var(--text-muted)", marginLeft: 6 }}>
                           Speak SAP transaction codes, /SCWM/ commands, or queries...
@@ -6304,14 +6338,48 @@ export default function Workspace({
                           display: "inline-block",
                           animation: "nexusVoicePulse 1.2s infinite ease-in-out"
                         }} />
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: "#DC2626", fontFamily: "var(--font-mono)" }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: "#D4622B", fontFamily: "var(--font-mono)" }}>
                           Listening {formatVoiceDuration(recordingSeconds)}
                         </span>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 3, height: 16 }}>
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar1 0.6s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar2 0.7s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar3 0.5s infinite ease-in-out" }} />
-                          <span style={{ width: 3, background: "#EF4444", borderRadius: 2, animation: "nexusWaveBar4 0.65s infinite ease-in-out" }} />
+                        {/* Sleek 7-bar animated terracotta audio waveform */}
+                        <div
+                          aria-label="Live voice audio waveform"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2.5,
+                            height: 18,
+                            padding: "0 4px",
+                            marginLeft: 2
+                          }}
+                        >
+                          <style>{`
+                            @keyframes terracottaVoiceWave {
+                              0%, 100% { transform: scaleY(0.28); opacity: 0.65; }
+                              50% { transform: scaleY(1); opacity: 1; }
+                            }
+                          `}</style>
+                          {[
+                            { dur: "0.68s", delay: "0ms" },
+                            { dur: "0.54s", delay: "90ms" },
+                            { dur: "0.76s", delay: "180ms" },
+                            { dur: "0.50s", delay: "270ms" },
+                            { dur: "0.72s", delay: "140ms" },
+                            { dur: "0.60s", delay: "220ms" },
+                            { dur: "0.64s", delay: "60ms" }
+                          ].map((bar, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                width: 3,
+                                height: 16,
+                                borderRadius: 999,
+                                background: "#D4622B",
+                                transformOrigin: "center",
+                                animation: `terracottaVoiceWave ${bar.dur} ease-in-out ${bar.delay} infinite`
+                              }}
+                            />
+                          ))}
                         </div>
                         <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
                           Speak SAP codes (/SCWM/PRDO, SMQ2), issue details, or follow-ups...

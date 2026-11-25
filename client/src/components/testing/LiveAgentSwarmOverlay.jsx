@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import TestTelemetryDashboard from "./TestTelemetryDashboard";
 
 /**
@@ -45,12 +45,59 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
   const [backendRecordedCount, setBackendRecordedCount] = useState(0);
   const [backendSyncStatus, setBackendSyncStatus] = useState("connecting"); // "connecting" | "live" | "offline"
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [stealthMode, setStealthMode] = useState(false);
 
   const containerRef = useRef(null);
   const cursorsRef = useRef([]);
   const animationFrameRef = useRef(null);
   const ripplesContainerRef = useRef(null);
   const pendingEventsRef = useRef([]);
+  const stealthModeRef = useRef(stealthMode);
+
+  useEffect(() => {
+    stealthModeRef.current = stealthMode;
+  }, [stealthMode]);
+
+  const toggleStealth = useCallback(() => {
+    const next = !stealthModeRef.current;
+    setStealthMode(next);
+    window.dispatchEvent(
+      new CustomEvent("nexus-toast", {
+        detail: {
+          message: next
+            ? "👻 Swarm Stealth Mode ON (Testing continues in background)"
+            : "👀 Swarm Cursors Visible",
+          type: "info"
+        }
+      })
+    );
+  }, []);
+
+  // Global keyboard shortcut (Alt + T) & Command Palette custom event listeners
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        toggleStealth();
+      }
+    };
+    const handleToggleStealthEvent = () => {
+      toggleStealth();
+    };
+    const handleOpenDashboardEvent = () => {
+      setIsDashboardOpen(true);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("nexus-toggle-swarm-stealth", handleToggleStealthEvent);
+    window.addEventListener("nexus-open-qa-dashboard", handleOpenDashboardEvent);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("nexus-toggle-swarm-stealth", handleToggleStealthEvent);
+      window.removeEventListener("nexus-open-qa-dashboard", handleOpenDashboardEvent);
+    };
+  }, [toggleStealth]);
 
   // Fetch initial telemetry stats from backend
   useEffect(() => {
@@ -388,9 +435,20 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
 
       {/* Floating Active Swarm Cursors Overlay */}
       {swarmActive && (
-        <div ref={containerRef} className="swarm-overlay-container">
+        <div
+          ref={containerRef}
+          className="swarm-overlay-container"
+          style={{
+            display: stealthMode ? "none" : "block"
+          }}
+        >
           {/* Click Ripples Container */}
-          <div ref={ripplesContainerRef} />
+          <div
+            ref={ripplesContainerRef}
+            style={{
+              display: stealthMode ? "none" : "block"
+            }}
+          />
 
           {/* 24 Simultaneous Agent Cursors */}
           {SWARM_AGENTS.map((agent) => (
@@ -436,68 +494,150 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
       {/* Floating Swarm HUD Controller (Bottom Right) */}
       <div
         className="swarm-hud-card"
-        style={{
-          padding: hudMinimized ? "8px 12px" : "12px 16px",
-          minWidth: hudMinimized ? "auto" : 280
-        }}
+        style={
+          hudMinimized
+            ? {
+                borderRadius: 999,
+                padding: "6px 14px",
+                minWidth: "auto",
+                background: "rgba(255, 255, 255, 0.88)",
+                backdropFilter: "blur(14px)",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06)",
+                cursor: "pointer"
+              }
+            : {
+                padding: "12px 16px",
+                minWidth: 280
+              }
+        }
+        onClick={hudMinimized ? () => setHudMinimized(false) : undefined}
+        title={hudMinimized ? "Click to expand Swarm HUD" : undefined}
       >
-        {/* HUD Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        {hudMinimized ? (
+          /* Compact Floating Capsule Mode */
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: swarmActive ? "#10B981" : "#EF4444",
-                boxShadow: swarmActive ? "0 0 8px #10B981" : "none",
-                display: "inline-block"
-              }}
-            />
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#1C1917" }}>
-              Autonomous Testing Swarm
-            </span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
-              type="button"
-              onClick={() => setIsDashboardOpen(true)}
-              style={{
-                background: "rgba(212, 98, 43, 0.08)",
-                border: "1px solid rgba(212, 98, 43, 0.25)",
-                cursor: "pointer",
-                color: "#D4622B",
-                fontSize: 11,
-                padding: "2px 7px",
-                borderRadius: 4,
+                fontSize: 12,
                 fontWeight: 650,
+                color: "#1C1917",
+                whiteSpace: "nowrap",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 3
+                gap: 5
               }}
-              title="Open QA & Test Telemetry Dashboard"
             >
-              <span>📊</span>
-              <span>QA</span>
-            </button>
-            <button
-              onClick={() => setHudMinimized((prev) => !prev)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#78716C",
-                fontSize: 12,
-                padding: "2px 5px",
-                borderRadius: 4
-              }}
-              title={hudMinimized ? "Expand HUD" : "Minimize HUD"}
-            >
-              {hudMinimized ? "▲" : "▼"}
-            </button>
+              {swarmActive ? "🟢" : "⏸️"} 24 Agents · {passedCount} Checks
+            </span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleStealth();
+                }}
+                style={{
+                  background: stealthMode ? "rgba(139, 92, 246, 0.14)" : "rgba(0, 0, 0, 0.04)",
+                  border: `1px solid ${stealthMode ? "rgba(139, 92, 246, 0.4)" : "rgba(0, 0, 0, 0.08)"}`,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: "2px 7px",
+                  borderRadius: 999,
+                  lineHeight: 1.3,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.15s ease"
+                }}
+                title={stealthMode ? "Disable Stealth Mode (Alt+T)" : "Enable Stealth Mode (Alt+T)"}
+              >
+                👻
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDashboardOpen(true);
+                }}
+                style={{
+                  background: "rgba(212, 98, 43, 0.08)",
+                  border: "1px solid rgba(212, 98, 43, 0.25)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: "2px 7px",
+                  borderRadius: 999,
+                  lineHeight: 1.3,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.15s ease"
+                }}
+                title="Open QA & Test Telemetry Dashboard"
+              >
+                📊
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Expanded HUD Header */
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: swarmActive ? "#10B981" : "#EF4444",
+                  boxShadow: swarmActive ? "0 0 8px #10B981" : "none",
+                  display: "inline-block"
+                }}
+              />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: "#1C1917" }}>
+                Autonomous Testing Swarm
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => setIsDashboardOpen(true)}
+                style={{
+                  background: "rgba(212, 98, 43, 0.08)",
+                  border: "1px solid rgba(212, 98, 43, 0.25)",
+                  cursor: "pointer",
+                  color: "#D4622B",
+                  fontSize: 11,
+                  padding: "2px 7px",
+                  borderRadius: 4,
+                  fontWeight: 650,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3
+                }}
+                title="Open QA & Test Telemetry Dashboard"
+              >
+                <span>📊</span>
+                <span>QA</span>
+              </button>
+              <button
+                onClick={() => setHudMinimized((prev) => !prev)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#78716C",
+                  fontSize: 12,
+                  padding: "2px 5px",
+                  borderRadius: 4
+                }}
+                title="Minimize HUD"
+              >
+                ▼
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* HUD Details (when expanded) */}
         {!hudMinimized && (
@@ -687,6 +827,25 @@ export default function LiveAgentSwarmOverlay({ active = true }) {
                 title="Toggle Click Ripples"
               >
                 ⚡ Ripples
+              </button>
+
+              {/* Stealth Mode Toggle */}
+              <button
+                type="button"
+                onClick={toggleStealth}
+                style={{
+                  padding: "5px 9px",
+                  borderRadius: 6,
+                  background: stealthMode ? "rgba(139, 92, 246, 0.12)" : "var(--bg-surface, #FAF9F5)",
+                  border: `1px solid ${stealthMode ? "rgba(139, 92, 246, 0.45)" : "rgba(0,0,0,0.12)"}`,
+                  color: stealthMode ? "#7C3AED" : "#78716C",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+                title="Toggle Stealth / Ghost Mode (Alt + T)"
+              >
+                👻 Stealth
               </button>
             </div>
           </>
