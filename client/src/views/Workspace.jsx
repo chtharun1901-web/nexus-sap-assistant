@@ -2,6 +2,7 @@ import ValueStreamMapModal from "../components/ValueStreamMapModal.jsx";
 import SessionDeckBuilderModal from "../components/SessionDeckBuilderModal.jsx";
 import PptxExportValidationModal from "../components/PptxExportValidationModal.jsx";
 import TaskInfoPopover from "../components/TaskInfoPopover.jsx";
+import { triggerToast } from "../components/ToastContainer.jsx";
 import { parseNexusSapAnswer } from "../services/sapAnswerPptxParser.js";
 import { generateSapKnowledgeDeck } from "../services/sapKnowledgeDeckGenerator.js";
 import { exportValueStreamMapExcel } from "../utils/valueStreamMapping.js";
@@ -1853,7 +1854,7 @@ async function handleExportPptx(doc, aiText, aiCitations) {
     await exportSapPresentationPptx(doc, aiText, aiCitations);
   } catch (err) {
     console.error("PPTX export failed:", err);
-    alert("Failed to export PowerPoint presentation: " + (err.message || err));
+    triggerToast("Failed to export PowerPoint presentation: " + (err.message || err), "error");
   }
 }
 
@@ -2123,7 +2124,7 @@ export default function Workspace({
       setDownloadedPptxFile(result.fileName);
     } catch (err) {
       console.error("Deck generation error:", err);
-      alert("Failed to generate PPTX deck: " + (err.message || err));
+      triggerToast("Failed to generate PPTX deck: " + (err.message || err), "error");
     } finally {
       setIsGeneratingPptx(false);
     }
@@ -2317,7 +2318,7 @@ export default function Workspace({
     const onExportVsm = () => setVsmModalOpen(true);
     const onAutoSummarize = async () => {
       if (!convId) {
-        alert("Please start or select a conversation first.");
+        triggerToast("Please start or select a conversation first.", "warning");
         return;
       }
       setIsSummarizing(true);
@@ -2327,24 +2328,24 @@ export default function Workspace({
           setSummaryToast(res.summary);
         }
       } catch (err) {
-        alert("Failed to summarize conversation: " + err.message);
+        triggerToast("Failed to summarize conversation: " + err.message, "error");
       } finally {
         setIsSummarizing(false);
       }
     };
     const onSaveKb = async () => {
       if (!convId) {
-        alert("Please start or select a conversation first.");
+        triggerToast("Please start or select a conversation first.", "warning");
         return;
       }
       setIsConvertingArticle(true);
       try {
         const res = await api.convertConversationToArticle(convId);
         if (res?.article) {
-          alert(`✓ Knowledge Article created: "${res.article.title}". Saved to your Personal Knowledge Library!`);
+          triggerToast(`✓ Knowledge Article created: "${res.article.title}"`, "success");
         }
       } catch (err) {
-        alert("Failed to convert to article: " + err.message);
+        triggerToast("Failed to convert to article: " + err.message, "error");
       } finally {
         setIsConvertingArticle(false);
       }
@@ -2961,7 +2962,7 @@ export default function Workspace({
           });
         }
       } catch (err) {
-        alert('Failed to parse Excel spreadsheet: ' + err.message);
+        triggerToast("Failed to parse Excel spreadsheet: " + err.message, "error");
       }
       e.target.value = '';
       return;
@@ -2979,7 +2980,7 @@ export default function Workspace({
           });
         }
       } catch (err) {
-        alert('Failed to read text file: ' + err.message);
+        triggerToast("Failed to read text file: " + err.message, "error");
       }
       e.target.value = '';
       return;
@@ -3159,7 +3160,10 @@ export default function Workspace({
 
   const handleGenerateInvestigation = async (topicTerm, passedImg = null, passedDoc = null) => {
     const term = (topicTerm || searchTopic || "").trim();
-    if (term.length > 32000) return alert("Your input exceeds the 32,000 character limit. Please shorten your message or attach it as a document.");
+    if (term.length > 32000) {
+      triggerToast("Input exceeds the 32,000 character limit. Please shorten it or attach as a document.", "warning");
+      return;
+    }
     const activeImg = passedImg || topImage;
     const activeDoc = passedDoc || topDoc;
     if (!term && !activeImg && !activeDoc) return;
@@ -3278,7 +3282,7 @@ export default function Workspace({
         return;
       }
       if (err.message?.toLowerCase().includes("too many requests") || err.message?.includes("429")) {
-        alert("⏳ Rate Limit Exceeded: You're moving fast! Please wait a few seconds before sending another message.");
+        triggerToast("⏳ Rate Limit Exceeded: Please wait a few seconds before sending another message.", "warning");
       }
       setLastFailedQuery(term);
       const isKeyErr = err.message?.includes('NO_KEY') || err.message?.includes('AI engine') || err.message?.includes('API key');
@@ -3870,11 +3874,11 @@ export default function Workspace({
         };
         await audio.play();
       } else {
-        alert("Audio synthesis returned no audio.");
+        triggerToast("Audio synthesis returned no audio.", "warning");
       }
     } catch (e) {
       console.error("Speech synthesis failed:", e);
-      alert("Voice speech synthesis failed: " + e.message);
+      triggerToast("Voice speech synthesis failed: " + e.message, "error");
     } finally {
       setSynthesizingTurnId(null);
     }
@@ -3905,7 +3909,7 @@ export default function Workspace({
       }
     } catch (err) {
       console.error("Screen analysis error:", err);
-      alert("Screen visual analysis failed: " + err.message);
+      triggerToast("Screen visual analysis failed: " + err.message, "error");
     } finally {
       setIsAnalyzingScreen(false);
     }
@@ -3923,7 +3927,7 @@ export default function Workspace({
       }
     } catch (err) {
       console.error("Semantic search failed:", err);
-      alert("Semantic search failed: " + err.message);
+      triggerToast("Semantic search failed: " + err.message, "error");
     } finally {
       setIsSearchingSemantic(false);
     }
@@ -3948,7 +3952,7 @@ export default function Workspace({
       }
     } catch (err) {
       console.error("Deep research error:", err);
-      alert("Deep research failed: " + err.message);
+      triggerToast("Deep research failed: " + err.message, "error");
     } finally {
       setIsGeneratingDeepResearch(false);
     }
@@ -3957,7 +3961,10 @@ export default function Workspace({
   const handleFollowUp = async (e) => {
     if (e?.preventDefault) e.preventDefault();
     const q = followUpInput.trim();
-    if (q.length > 32000) return alert("Your input exceeds the 32,000 character limit. Please shorten your message or attach it as a file.");
+    if (q.length > 32000) {
+      triggerToast("Input exceeds the 32,000 character limit. Please shorten it or attach as a file.", "warning");
+      return;
+    }
     const activeImg = followUpImage;
     const activeDoc = followUpDoc;
     if ((!q && !activeImg && !activeDoc) || aiStreaming) return;
@@ -4069,7 +4076,7 @@ export default function Workspace({
         return;
       }
       if (err.message?.toLowerCase().includes("too many requests") || err.message?.includes("429")) {
-        alert("⏳ Rate Limit Exceeded: You're moving fast! Please wait a few seconds before sending another message.");
+        triggerToast("⏳ Rate Limit Exceeded: Please wait a few seconds before sending another message.", "warning");
       }
       setLastFailedQuery(q || queryHeaderTitle);
       setAiText(prevText + "\n\n---\n\n### Follow-up Query: " + queryHeaderTitle + "\n\n⚠ Error: " + err.message);
@@ -5474,9 +5481,9 @@ export default function Workspace({
                                               conversationId: convId,
                                               tags: [selectedModule || "SAP", "Insight"]
                                             });
-                                            alert("⭐ Insight pinned! You can review all saved insights in the 'Pinned' menu in the sidebar.");
+                                            triggerToast("⭐ Insight pinned! Review saved insights in 'Pinned' in the sidebar.", "success");
                                           } catch (err) {
-                                            alert("Failed to pin insight: " + err.message);
+                                            triggerToast("Failed to pin insight: " + err.message, "error");
                                           }
                                         }}
                                         style={{
@@ -5520,7 +5527,7 @@ export default function Workspace({
                                               setNexusDocPanelOpen(true);
                                             }
                                           } catch (err) {
-                                            alert("Failed to create Nexus Doc: " + err.message);
+                                            triggerToast("Failed to create Nexus Doc: " + err.message, "error");
                                           } finally {
                                             setCreatingDocTurnId(null);
                                           }
