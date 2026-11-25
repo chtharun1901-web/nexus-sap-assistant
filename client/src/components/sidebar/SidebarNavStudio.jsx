@@ -21,6 +21,14 @@ import React from "react";
 
 const NAV_ITEMS = [
   {
+    id: "scenario-studio",
+    label: "WMS Scenario Model Studio",
+    shortLabel: "Scenario Studio",
+    icon: "🧬",
+    tooltip: "1 Seed Scenario → 360° Test Model Generator",
+    isActive: (view) => view === "scenario-studio"
+  },
+  {
     id: "visualizations",
     label: "Enterprise Queue Flow Simulator",
     shortLabel: "Queue Simulator",

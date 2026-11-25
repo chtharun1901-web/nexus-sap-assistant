@@ -18,6 +18,7 @@ const NexusGeminiIntelligence = require('./services/NexusGeminiIntelligenceServi
 const NexusContextCache = require('./services/NexusContextCacheService.js');
 const NexusSapToolAgent = require('./services/NexusSapToolAgentService.js');
 const WarehouseVisualService = require('./services/WarehouseVisualService.js');
+const { buildDeterministicScenarioModel } = require('./services/WmsScenarioExpander.js');
 const { generateGroundedSapFallback } = require('./services/NexusGroundedFallbackEngine.js');
 
 // ── Model Constants ────────────────────────────────────────────────────────
@@ -2503,6 +2504,19 @@ http.createServer(async (req, res) => {
     } catch (e) {
       return jsonRes(500, { ok: false, error: e.message });
     }
+  }
+
+  // Expand 1 WMS seed scenario into a 360-degree multi-dimensional test model
+  if (req.method === 'POST' && pathname === '/api/wms/expand-scenario') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      try {
+        const model = buildDeterministicScenarioModel(body || {});
+        return jsonRes(200, { ok: true, model });
+      } catch (e) {
+        return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
   }
 
   // Current Auth State (/api/auth/me)

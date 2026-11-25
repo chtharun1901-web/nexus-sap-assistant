@@ -17,6 +17,7 @@ import KeyboardShortcuts from "./components/KeyboardShortcuts.jsx";
 import Nexus2Simulator from "./views/nexus2/Nexus2Simulator.jsx";
 import NexusDataVisualizations from "./views/visualizations/NexusDataVisualizations.jsx";
 import SapScreenDesigner from "./views/SapScreenDesigner.jsx";
+import ScenarioModelStudio from "./views/ScenarioModelStudio.jsx";
 import ProjectsView from "./views/ProjectsView.jsx";
 import ProjectDetailView from "./views/ProjectDetailView.jsx";
 import ProjectSearchModal from "./components/ProjectSearchModal.jsx";
@@ -276,6 +277,7 @@ export default function App() {
     simulator: <NexusDataVisualizations onNavigate={navigateTo} />,
     "screen-designer": <SapScreenDesigner onNavigate={navigateTo} />,
     "sap-designer": <SapScreenDesigner onNavigate={navigateTo} />,
+    "scenario-studio": <ScenarioModelStudio onNavigate={navigateTo} />,
   }[activeView] || (
     <Workspace
       activeTopic={activeTopic}

@@ -65,6 +65,17 @@ export default function ProjectSearchModal({
       }
     },
     {
+      id: "scenario-studio",
+      icon: "🧬",
+      label: "Open WMS Scenario Model Studio",
+      hint: "QA Studio",
+      keywords: "wms scenario model generator test cases lattice studio",
+      run: () => {
+        if (onNavigate) onNavigate("scenario-studio");
+        onClose();
+      }
+    },
+    {
       id: "queue-simulator",
       icon: "🌊",
       label: "Open Queue Flow Simulator",

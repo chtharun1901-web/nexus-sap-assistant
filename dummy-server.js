@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { buildDeterministicScenarioModel } = require('./services/WmsScenarioExpander.js');
 
 const PORT = 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -61,6 +62,23 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/api/home/summary')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, summary: { investigationsCount: 14, templatesCount: 8, conversationsCount: 22 } }));
+    return;
+  }
+
+  if (req.method === 'POST' && req.url.startsWith('/api/wms/expand-scenario')) {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body || '{}');
+        const model = buildDeterministicScenarioModel(parsed);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, model }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
     return;
   }
 
