@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { buildDeterministicScenarioModel } = require('./services/WmsScenarioExpander.js');
+const { buildDeterministicScenarioModel, runWmsModelBattleStream } = require('./services/WmsScenarioExpander.js');
 
 const PORT = 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -77,6 +77,33 @@ const server = http.createServer((req, res) => {
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url.startsWith('/api/wms/battle-expand')) {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      try {
+        const parsed = JSON.parse(body || '{}');
+        await runWmsModelBattleStream({
+          ...parsed,
+          onEvent: (evt) => {
+            if (!res.writableEnded) res.write(`data: ${JSON.stringify(evt)}\n\n`);
+          }
+        });
+      } catch (e) {
+        if (!res.writableEnded) res.write(`data: ${JSON.stringify({ phase: 'error', error: e.message })}\n\n`);
+      } finally {
+        if (!res.writableEnded) res.end();
       }
     });
     return;

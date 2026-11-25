@@ -18,7 +18,7 @@ const NexusGeminiIntelligence = require('./services/NexusGeminiIntelligenceServi
 const NexusContextCache = require('./services/NexusContextCacheService.js');
 const NexusSapToolAgent = require('./services/NexusSapToolAgentService.js');
 const WarehouseVisualService = require('./services/WarehouseVisualService.js');
-const { buildDeterministicScenarioModel } = require('./services/WmsScenarioExpander.js');
+const { buildDeterministicScenarioModel, runWmsModelBattleStream } = require('./services/WmsScenarioExpander.js');
 const { generateGroundedSapFallback } = require('./services/NexusGroundedFallbackEngine.js');
 
 // ── Model Constants ────────────────────────────────────────────────────────
@@ -2506,7 +2506,7 @@ http.createServer(async (req, res) => {
     }
   }
 
-  // Expand 1 WMS seed scenario into a 360-degree multi-dimensional test model
+  // Expand 1 WMS seed scenario into a high-impact test model (synchronous fallback)
   if (req.method === 'POST' && pathname === '/api/wms/expand-scenario') {
     return parseBody(async (err, body) => {
       if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
@@ -2515,6 +2515,36 @@ http.createServer(async (req, res) => {
         return jsonRes(200, { ok: true, model });
       } catch (e) {
         return jsonRes(500, { ok: false, error: e.message });
+      }
+    });
+  }
+
+  // 2-Model Adversarial Battle Streaming Endpoint (SSE)
+  if (req.method === 'POST' && pathname === '/api/wms/battle-expand') {
+    return parseBody(async (err, body) => {
+      if (err) return jsonRes(400, { ok: false, error: 'Invalid JSON body' });
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        ...corsHeaders
+      });
+      try {
+        await runWmsModelBattleStream({
+          ...(body || {}),
+          apiKey: getApiKey(),
+          onEvent: (evt) => {
+            if (!res.writableEnded) {
+              res.write(`data: ${JSON.stringify(evt)}\n\n`);
+            }
+          }
+        });
+      } catch (e) {
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ phase: 'error', error: e.message })}\n\n`);
+        }
+      } finally {
+        if (!res.writableEnded) res.end();
       }
     });
   }
